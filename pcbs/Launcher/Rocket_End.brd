@@ -139,12 +139,12 @@
 <wire x1="0" y1="80" x2="0" y2="0" width="0" layer="20"/>
 <text x="50.8" y="62.23" size="1.778" layer="1">Camera</text>
 <text x="63.5" y="62.23" size="1.778" layer="1">RFD900</text>
-<text x="25.4" y="33.02" size="1.016" layer="1" rot="R270">Power</text>
-<text x="77.47" y="33.02" size="1.016" layer="1" rot="R270">Arm</text>
-<text x="62.23" y="33.02" size="1.016" layer="1" rot="R270">Launch</text>
-<text x="40.64" y="34.29" size="1.016" layer="1" rot="R270">Continuity</text>
-<text x="11.43" y="8.89" size="1.778" layer="1">Igniter PSU</text>
-<text x="11.43" y="55.88" size="1.016" layer="1">micro
+<text x="25.4" y="30.48" size="1.016" layer="1" rot="R270">Power</text>
+<text x="77.47" y="26.67" size="1.016" layer="1" rot="R270">Arm</text>
+<text x="60.96" y="29.21" size="1.016" layer="1" rot="R270">Launch</text>
+<text x="40.64" y="30.48" size="1.016" layer="1" rot="R270">Continuity</text>
+<text x="15.24" y="8.89" size="1.27" layer="1">Igniter PSU</text>
+<text x="8.89" y="55.88" size="1.016" layer="1">micro
 PSU</text>
 </plain>
 <libraries>
@@ -3596,7 +3596,8 @@ design rules under a new name.</description>
 <wire x1="49.53" y1="34.29" x2="49.53" y2="43.18" width="1.016" layer="1"/>
 <wire x1="49.53" y1="43.18" x2="52.07" y2="43.18" width="1.016" layer="16"/>
 <wire x1="58.61" y1="30.72" x2="49.53" y2="30.72" width="1.016" layer="16"/>
-<wire x1="49.53" y1="30.72" x2="49.53" y2="35.56" width="1.016" layer="16"/>
+<wire x1="49.53" y1="30.72" x2="49.53" y2="31.75" width="1.016" layer="16"/>
+<wire x1="49.53" y1="31.75" x2="49.53" y2="35.56" width="1.016" layer="16"/>
 <wire x1="24.13" y1="16.51" x2="21.59" y2="16.51" width="0.8128" layer="16"/>
 <wire x1="21.59" y1="16.51" x2="21.59" y2="24.13" width="0.8128" layer="16"/>
 <wire x1="21.59" y1="24.13" x2="25.4" y2="24.13" width="0.8128" layer="16"/>
@@ -3608,7 +3609,7 @@ design rules under a new name.</description>
 <wire x1="49.53" y1="34.29" x2="66.04" y2="34.29" width="1.016" layer="1"/>
 <wire x1="66.04" y1="34.29" x2="66.04" y2="38.1" width="1.016" layer="1"/>
 <wire x1="66.04" y1="38.1" x2="77.47" y2="38.1" width="1.016" layer="1"/>
-<wire x1="76.2" y1="52.07" x2="71.12" y2="52.07" width="1.016" layer="16"/>
+<wire x1="73.66" y1="52.07" x2="71.12" y2="52.07" width="1.016" layer="16"/>
 <wire x1="77.47" y1="38.1" x2="77.47" y2="48.26" width="1.016" layer="1"/>
 <wire x1="77.47" y1="48.26" x2="73.66" y2="48.26" width="1.016" layer="1"/>
 <wire x1="73.66" y1="48.26" x2="73.66" y2="52.07" width="1.016" layer="1"/>
@@ -3619,6 +3620,13 @@ design rules under a new name.</description>
 <wire x1="33.02" y1="48.26" x2="31.75" y2="41.91" width="0" layer="19" extent="1-16"/>
 <via x="49.53" y="43.18" extent="1-16" drill="0.6" shape="square"/>
 <via x="73.66" y="52.07" extent="1-16" drill="0.6" shape="square"/>
+<wire x1="49.53" y1="43.18" x2="49.53" y2="45.72" width="1.778" layer="16"/>
+<wire x1="73.66" y1="52.07" x2="73.66" y2="49.53" width="1.778" layer="16"/>
+<wire x1="49.53" y1="31.75" x2="45.72" y2="31.75" width="1.778" layer="16"/>
+<wire x1="45.72" y1="31.75" x2="45.72" y2="30.48" width="1.778" layer="16"/>
+<wire x1="45.72" y1="30.48" x2="49.53" y2="30.48" width="1.778" layer="16"/>
+<wire x1="33.02" y1="48.26" x2="31.75" y2="48.26" width="1.27" layer="16"/>
+<wire x1="31.75" y1="48.26" x2="31.75" y2="45.72" width="1.27" layer="16"/>
 </signal>
 <signal name="VCC">
 <contactref element="R1" pad="2"/>
@@ -3919,6 +3927,13 @@ design rules under a new name.</description>
 </signal>
 <signal name="N$18">
 <via x="49.53" y="34.29" extent="1-16" drill="0.6" shape="square"/>
+</signal>
+<signal name="N$33">
+<wire x1="12.7" y1="55.88" x2="12.7" y2="53.34" width="1.778" layer="16"/>
+<wire x1="12.7" y1="53.34" x2="13.97" y2="53.34" width="1.778" layer="16"/>
+<wire x1="13.97" y1="53.34" x2="13.97" y2="55.88" width="1.778" layer="16"/>
+<wire x1="13.97" y1="55.88" x2="15.24" y2="55.88" width="1.778" layer="16"/>
+<wire x1="15.24" y1="55.88" x2="15.24" y2="53.34" width="1.778" layer="16"/>
 </signal>
 </signals>
 </board>
