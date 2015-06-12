@@ -18024,7 +18024,7 @@ schottky</description>
 <part name="X3" library="con-molex" deviceset="22-23-2021" device=""/>
 <part name="C3" library="rcl" deviceset="CPOL-US" device="E2-4"/>
 <part name="C4" library="rcl" deviceset="CPOL-US" device="E2-4"/>
-<part name="L1" library="resistor" deviceset="L-US" device="TJ3-U1"/>
+<part name="L1" library="resistor" deviceset="L-US" device="TJ4-U1"/>
 <part name="R13" library="rcl" deviceset="R-US_" device="0204/5"/>
 <part name="R14" library="rcl" deviceset="R-US_" device="0204/5"/>
 <part name="D5" library="diode" deviceset="1N5908" device=""/>
@@ -18128,7 +18128,7 @@ Igniters</text>
 <wire x1="68.58" y1="101.6" x2="58.42" y2="101.6" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="GND" class="0">
+<net name="N$33" class="0">
 <segment>
 <pinref part="T2" gate="G$1" pin="E"/>
 <wire x1="-58.42" y1="2.54" x2="-71.12" y2="2.54" width="0.1524" layer="91"/>
