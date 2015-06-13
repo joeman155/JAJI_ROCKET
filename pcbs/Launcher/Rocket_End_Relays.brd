@@ -147,7 +147,6 @@
 <text x="8.89" y="55.88" size="1.016" layer="1">micro
 PSU</text>
 <hole x="10.16" y="55.88" drill="0.6"/>
-<rectangle x1="72.39" y1="22.86" x2="74.93" y2="27.94" layer="16"/>
 <rectangle x1="60.96" y1="38.1" x2="63.5" y2="43.18" layer="16"/>
 <rectangle x1="39.37" y1="27.94" x2="45.72" y2="30.48" layer="16"/>
 <rectangle x1="45.72" y1="21.59" x2="58.42" y2="27.94" layer="16"/>
@@ -224,12 +223,21 @@ PSU</text>
 <rectangle x1="29.21" y1="24.13" x2="30.48" y2="34.29" layer="16"/>
 <rectangle x1="77.47" y1="22.86" x2="81.28" y2="24.13" layer="16"/>
 <rectangle x1="77.47" y1="19.05" x2="81.28" y2="24.13" layer="16"/>
-<rectangle x1="72.39" y1="19.05" x2="78.74" y2="21.59" layer="16"/>
-<rectangle x1="72.39" y1="16.51" x2="81.28" y2="19.05" layer="16"/>
 <rectangle x1="3.81" y1="45.72" x2="8.89" y2="48.26" layer="16"/>
 <rectangle x1="3.81" y1="46.99" x2="5.08" y2="59.69" layer="16"/>
 <rectangle x1="6.35" y1="50.8" x2="7.62" y2="54.61" layer="16"/>
 <rectangle x1="10.16" y1="45.72" x2="11.43" y2="50.8" layer="16"/>
+<rectangle x1="63.5" y1="15.24" x2="71.12" y2="25.4" layer="16"/>
+<rectangle x1="67.31" y1="39.37" x2="71.12" y2="45.72" layer="16"/>
+<rectangle x1="31.75" y1="25.4" x2="36.83" y2="33.02" layer="16"/>
+<rectangle x1="66.04" y1="39.37" x2="72.39" y2="43.18" layer="16"/>
+<rectangle x1="73.66" y1="22.86" x2="74.93" y2="26.67" layer="16"/>
+<rectangle x1="73.66" y1="25.4" x2="74.93" y2="27.94" layer="16"/>
+<rectangle x1="73.66" y1="16.51" x2="81.28" y2="21.59" layer="16"/>
+<rectangle x1="68.58" y1="16.51" x2="72.39" y2="25.4" layer="16"/>
+<rectangle x1="63.5" y1="22.86" x2="72.39" y2="26.67" layer="16"/>
+<rectangle x1="69.85" y1="15.24" x2="72.39" y2="16.51" layer="16"/>
+<rectangle x1="73.66" y1="15.24" x2="81.28" y2="16.51" layer="16"/>
 </plain>
 <libraries>
 <library name="relay">
