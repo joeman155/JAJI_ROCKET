@@ -26,8 +26,9 @@ CREATE TABLE gps_t (id integer primary key autoincrement,
                     gps_time  varchar2(20),
                     creation_date datetime);
 
-CREATE TABLE bb_voltage_t (id integer primary key autoincrement,
+CREATE TABLE gs_psu_voltage_t (id integer primary key autoincrement,
 	                   instance_id varchar2(100),
+                           psu_id integer,
 			   voltage float,
 			   creation_date datetime);
 

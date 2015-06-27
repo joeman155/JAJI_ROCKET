@@ -10,99 +10,22 @@ use lib '/home/root/hope/modules/share/perl/5.14.2';
 
 
 # LOAD MODULES
-# use strict;
+use strict;
 use warnings;
-use IO::Socket;
-use threads;
-use Thread::Queue;
-use Device::SerialPort qw( :PARAM :STAT 0.07 );
-use Device::SerialPort::Xmodem;
-use Device::Modem;
-use Device::Modem::Protocol::Xmodem;
-use DBI;
-use POSIX;
+#use IO::Socket;
+#use threads;
+#use Thread::Queue;
+#use Device::SerialPort qw( :PARAM :STAT 0.07 );
+#use Device::SerialPort::Xmodem;
+#use Device::Modem;
+#use Device::Modem::Protocol::Xmodem;
+#use DBI;
+#use POSIX;
+
 
 
 # CONFIGURATION
-# ---------------#
-
-# GENERAL CONFIG
-$home_dir = "/home/root/hope/";
-
-# DATABASE CONFIG
-my $db_string = "dbi:SQLite:dbname=" . $home_dir . "ls.db";  # SQLIte DB file
-
-
-# SERIAL CONFIG
-my $serial_port = "/dev/ttyO1";
-my $serial_speed = 57600;
-
-
-# DATE/TIME FORMAT
-my($day, $month, $year) = (localtime)[3,4,5];
-$month = sprintf '%02d', $month+1;
-$day   = sprintf '%02d', $day;
-my $rrmmdd =  $year+1900 . $month . $day;
-
-
-# FILES
-# Pressure/altitude
-my %data;  # Holds altitude/air pressure data
-load_air_data($home_dir . "air_data.txt");
-
-# GPS_file
-$gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
-
-# Measurements_file
-$measurements_file = $home_dir . "out/measurements.txt";
-
-# Cutdown file
-$cutdown_req_file  = $home_dir . "run/cutdown_requested.txt";
-$cutdown_init_file = $home_dir . "run/cutdown_initiated.txt";
-`rm -f $cutdown_req_file`;
-`rm -f $cutdown_init_file`;
-$cutdown_initiated = 0;
-
-# No Photos
-$nophotos_file = $home_dir . "run/nophotos.txt";
-`rm -f $nophotos_file`;
-
-
-# X-MODEM
-# X-Modem packet file
-$download_file_status = $home_dir . "run/download_file_status";
-$x_modem_packet_num = $home_dir . "run/x_modem_packet";
-`echo "" > $x_modem_packet_num`;
-`echo 0 > $download_file_status`;
-
-
-# PICTURE CONFIGURATIONS
-my $filename = "";  
-my $taking_picture = 0;
-$pic_count = 0;
-$pic_dl_freq = 5; # How often to download a pic.i.e. download every 'pic_dl_freq'th pic
-
-
-# INITIALISATIONS
-$mode = 0;          # Setting default operating mode
-$DEBUG = 1;         # Enable/Disable debugging
-
-
-
-
-# INITIALISATIONS
-my $radio_stats_count = 0;
-my $file_num = 1;
-
-
-# SENSOR CONFIGURATIONS
-$voltage_multipler = 5.7 * 3.3 /1024;   # For measuring my own voltage
-
-# ((r2 + r1)/r2) * (1.8/1800)
-$bb_voltage_multipler = ((1.5 + 10.1)/1.5) * (1.8/1800);
-
-$bb_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
-                     # count of # of iterations with this.
+require "config.inc";
 
 
 
@@ -130,15 +53,15 @@ if ($param1)
     }
 }
 
-print "GroundStation initialised and started\n";
+print "GroundStation started....beginning Serial Port initialisation...\n";
 
 
 
 # INITIALISE THE SERIAL PORT
 my $port=Device::SerialPort->new($serial_port);
 $port->read_const_time(2000);       # const time for read (milliseconds)
-$port->read_char_time(5);          # avg time between read char
-my $STALL_DEFAULT=10; # how many seconds to wait for new input
+$port->read_char_time(5);           # avg time between read char
+my $STALL_DEFAULT=10;               # how many seconds to wait for new input
 my $timeout=$STALL_DEFAULT;
 
 eval {
@@ -155,8 +78,7 @@ if (my $e = $@)
   }
 
 
-print "Connected to Serial Port...\n";
-print "Listening in...\n";
+print "Connected to Serial Port and Listening...\n";
 if ($mode == 1) { print " -- TEST MODE --\n"; }
 if ($mode == 2) { print " -- NORMAL MODE --\n"; }
 if ($mode == 3) { print " -- WILL INITIATE CUTDOWN MODE AT NEXT POLL --\n"; }
@@ -166,8 +88,8 @@ $port->are_match("\r\n");
 
 
 
+# Commence Serial Port monitoring
 monitor_serial_port();
-
 
 
 
@@ -180,45 +102,42 @@ sub monitor_serial_port()
 while (1 == 1)
 {
 
-    my $habline = "";
-    until ("" ne $habline) {
-      $habline = $port->lookfor;       # poll until data ready
-      die "Aborted without match\n" unless (defined $habline);
-      select(undef,undef,undef,0.3);
+    my $serial_rx = "";
+    until ("" ne $serial_rx) {
+       $serial_rx = $port->lookfor;       # poll until data ready
+       die "Aborted without match\n" unless (defined $serial_rx);
+       select(undef,undef,undef,0.3);
 
-      # Get BBB voltage supply reading and put into table
-      if ($bb_voltage_ctr > 100) {
-          get_bb_voltage();
-          $bb_voltage_ctr = 0;
-      } else  {
-          $bb_voltage_ctr = $bb_voltage_ctr + 1;
-      }
+       # Get GS PSU1 voltage supply reading and put into table
+       if ($gs_psu1_voltage_ctr > 100) {
+          $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_pin_file, $gs_psu1_voltage_multiplier);
+          insert_voltage(1, $v_voltage);
+          $gs_psu1_voltage_ctr = 0;
+       } else  {
+          $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
+       }
+    }
 
-   }
 
-
-    $str = "** Decoding line: '" . $habline . "'\n" if $DEBUG;
+    $str = "** Decoding Serial RX: '" . $serial_rx . "'\n" if $DEBUG;
     print $str if $DEBUG;
 
-    $result = decode_line($habline);
+    $result = decode_rx($serial_rx);
     
-    if (length($result) > 0)
-    {
-      $str = $result;
-      print "** LOGGING MESSAGE: $str \n" if $DEBUG;
-      log_message($str);
+    if (length($result) > 0) {
+       $str = $result;
+       print "** LOGGING MESSAGE: $str \n" if $DEBUG;
+       log_message($str);
 
-      # If image not taken properly...E5 error...then make sure we don't
-      # try to download it.
-      $image_error = 0;
-      if  ($habline =~ /^E5$/) {
-	      $image_error = 1;
-      }
+       # If image not taken properly...E5 error...then make sure we don't try to download it.
+       $image_error = 0;
+       if  ($serial_rx =~ /^E5$/) {
+          $image_error = 1;
+       }
     
 
 ## SEE IF MENU BEING PRESENTED
-      if ($result =~ /Menu/)
-      {
+      if ($result =~ /Menu/) {
         # IF mode = 3...then groundstation was started with flag to cutdown
         #
         # OR
@@ -227,8 +146,7 @@ while (1 == 1)
         #
 
 ## MODE 3 - INITIATE CUTDOWN CHECKS
-	if ($mode == 3 || (-f $cutdown_req_file && $cutdown_initiated == 0))
-	{
+	if ($mode == 3 || (-f $cutdown_req_file && $cutdown_initiated == 0)) {
 	  $cutdown_initiated = 1;
 	  `touch $cutdown_init_file`;
           $count_out = $port->write("4\r\n");
@@ -260,7 +178,7 @@ while (1 == 1)
           }
           else
           {
-            $str = "HAB never responded as expected....perhaps it didnt get request to initiate CUTDOWN. Got $gotit \n";
+            $str = "RLS never responded as expected....perhaps it didnt get request to initiate CUTDOWN. Got $gotit \n";
             log_message($str);
             print "** " . $str if $DEBUG;
           }
@@ -271,9 +189,9 @@ while (1 == 1)
 
 # MODE 0 - NORMAL OPERATION
 # SEE IF WE WANT TO DOWNLOAD PIC
-          # We don't want to d/l EACH time we are offered...just occasionly
+          # We don't want to d/l EACH time we are offered...just occasionally
           # and we do not want to download if disabled
-          if ($pic_count % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && ! -f $nophotos_file)
+          if ($pic_download_offered % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && ! -f $nophotos_file)
           {
             $str = "Sending request to download image\n";
             log_message($str);
@@ -335,7 +253,7 @@ while (1 == 1)
             }
             else
             {
-              $str = "HAB never responded as expected....perhaps it didnt get request to send image Got $gotit \n";
+              $str = "RLS never responded as expected....perhaps it didnt get request to send image Got $gotit \n";
               log_message($str);
 	      print "** " . $str if $DEBUG;
             }
@@ -343,7 +261,7 @@ while (1 == 1)
           else
           {
 # WE DO NOT WANT TO DOWNLOAD THIS IMAGE
-# SEND COMMAND TO HAB TO EXIT MENU
+# SEND COMMAND TO RLS TO EXIT MENU
             $str = "Sending request to skip d/l of image this time - or no image to download.\n";
             log_message($str);
             print "** " . $str if $DEBUG;
@@ -361,7 +279,7 @@ while (1 == 1)
 
             if ($gotit =~ /K/)
             {
-              $str = "HAB got request to skip d/l of the image - exit menu\n";
+              $str = "RLS got request to skip d/l of the image - exit menu\n";
               log_message($str);
               print "** " . $str if $DEBUG;
             }
@@ -379,7 +297,7 @@ while (1 == 1)
             }
             else
             {
-              $str = "HAB never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
+              $str = "RLS never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
               log_message($str);
               print "** " . $str if $DEBUG;
             }
@@ -388,7 +306,7 @@ while (1 == 1)
 
 	  # If no error...then imcrement count.
 	  if ($image_error == 0 && $result =~ /Menu_Image/) {
-          	$pic_count++;
+          	$pic_download_offered++;
 	  }
         }
         elsif ($mode == 1)
@@ -425,7 +343,7 @@ while (1 == 1)
           }
           else
           {
-            $str = "HAB never responded as expected....perhaps it didnt get request to put in TEST mode. Got $gotit\n";
+            $str = "RLS never responded as expected....perhaps it didnt get request to put in TEST mode. Got $gotit\n";
             log_message($str);
             print "** " . $str if $DEBUG;
           }
@@ -465,7 +383,7 @@ while (1 == 1)
           }
           else
           {
-            $str = "HAB never responded as expected....perhaps it didnt get request to put in NORMAL mode. Got $gotit\n";
+            $str = "RLS never responded as expected....perhaps it didnt get request to put in NORMAL mode. Got $gotit\n";
             log_message($str);
             print "** " . $str if $DEBUG;
           }
@@ -482,7 +400,7 @@ exit;
 
 
 
-sub decode_line()
+sub decode_rx()
 {
 
   ($p_line) = @_;
@@ -522,7 +440,7 @@ sub decode_line()
     $v_result = "HOPE powered up";
   } elsif ($p_line =~ m/^M(.+),(.+),(.+),(.+)$/)
   {
-    $voltage = $voltage_multipler * $4;
+    $voltage = $voltage_multiplier * $4;
     $voltage = sprintf("%.2f", $voltage);
     $v_result = "Air Pressure: $1\nExternal Temp: $2, Internal Temp: $3, Voltage: " . $voltage . "\n";
     $now_string = localtime;
@@ -604,7 +522,6 @@ sub decode_line()
     $v_hours_rounded = floor($v_hours);
     $v_minutes_rounded = floor(60 * ($v_hours - $v_hours_rounded));
     $v_seconds_rounded = floor($v_seconds - (3600 * $v_hours + 60 * $v_minutes_rounded));
-    # $v_result = "Time in milliseconds since power turned on: $1";
     $v_result = "Time since power turned on is " . $v_hours_rounded . "hours and " . $v_minutes_rounded . "minutes and " . $v_seconds_rounded . "seconds.\n";
   } elsif ($p_line =~ /^\.$/)
   {
@@ -639,7 +556,7 @@ $startline = << "STARTLINE";
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
 <Placemark>
-<name>Cairns HAB launch - JJ Team</name>
+<name>Cairns RLS launch - JJ Team</name>
 <LookAt>
 <longitude>145.65888</longitude>
 <latitude>-16.75229</latitude>
@@ -700,7 +617,7 @@ close($kml_file);
 
 
 # Place = 0 = Ground station
-#       = 1 = HAB
+#       = 1 = RLS
 sub log_radio_stats($$)
 {
  local ($p_place, $p_stats) = @_;
@@ -723,11 +640,9 @@ sub log_message($)
 {
   local($message) = @_;
 
+  # Only insert message, if one was provided
   if ($message)
   {
-    # Log to log file
-    `echo "$message" >> /tmp/message.log`;
-
     # Initialise DB connection
     my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
@@ -781,6 +696,7 @@ sub insert_heartbeat()
  $dbh->disconnect();
 }
 
+
 sub insert_gps()
 {
  local($latitude, $longitude, $height, $gps_date, $gps_time, $gps_speed, $gps_course, $satellites) = @_;
@@ -800,17 +716,27 @@ sub insert_gps()
 
 
 
-sub get_bb_voltage()
+sub get_gs_psu_voltage($$)
 {
- $v_ain1 = `cat /sys/devices/ocp.3/helper.15/AIN1`;
- $v_voltage = $bb_voltage_multipler * $v_ain1;
+ local($p_pin_file, $p_multiplier) = @_;
+
+ $v_pin_reading = `cat $p_pin_file`;
+ $v_voltage = $p_multiplier * $v_pin_reading;
+
+ return $v_voltage;
+}
+
+
+sub insert_gs_psu_voltage($$)
+{
+ local($p_psu_id, $p_voltage) = @_;
 
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO bb_voltage_t (voltage, creation_date)
-           values (" . $v_voltage . ", datetime('now', 'localtime'))";
+ $query = "INSERT INTO gs_psu_voltage_t (voltage, psu_id, creation_date)
+           values (" . $p_voltage . ", " . $p_psu_id . ", datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
  $sth->execute();
@@ -837,7 +763,6 @@ sub enter_at_mode()
    select(undef,undef,undef,1);
    $port->write("+++");
    select(undef,undef,undef,0.5);
-
 
    return get_modem_response(0.5);
 }
@@ -889,7 +814,7 @@ sub get_radio_stats()
   log_radio_stats (0, $stats);
 
   $stats = run_at_command("RTI7", 1.5);
-  log_message("HAB: " . $stats);
+  log_message("RLS: " . $stats);
   log_radio_stats (1, $stats);
 
   exit_at_mode();
@@ -898,6 +823,7 @@ sub get_radio_stats()
 
 
 
+# Load air-pressure vs Altitude, so we can use this to approximate altitude.
 sub load_air_data($)
 {
   local ($file) = @_;
@@ -917,6 +843,7 @@ sub load_air_data($)
 }
 
 
+# Based on air pressure, get the approximate altitude 
 sub get_altitude()
 {
  local ($pressure) = @_;
