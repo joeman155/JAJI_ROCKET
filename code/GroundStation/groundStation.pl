@@ -1,8 +1,15 @@
 #!/usr/bin/perl
+#
+# Name:  groundStation.pl
+# Purpose:  To run on ground station and act as go-between for the Rocket
+#           Launcher System and the end user with their tablet/phone device.
+#
 
 use lib '/home/root/hope/modules/lib/perl/5.14.2';
 use lib '/home/root/hope/modules/share/perl/5.14.2';
 
+
+# LOAD MODULES
 # use strict;
 use warnings;
 use IO::Socket;
@@ -16,38 +23,37 @@ use DBI;
 use POSIX;
 
 
-# Stats var
-my $radio_stats_count = 0;
-my $i = 1;
+# CONFIGURATION
+# ---------------#
 
-
+# GENERAL CONFIG
 $home_dir = "/home/root/hope/";
 
-# DATABASE
-my $db_string = "dbi:SQLite:dbname=" . $home_dir . "hope.db";
+# DATABASE CONFIG
+my $db_string = "dbi:SQLite:dbname=" . $home_dir . "ls.db";  # SQLIte DB file
 
 
-# Pressure/altitude
-my %data;  # Holds altitude/air pressure data
-load_air_data($home_dir . "air_data.txt");
+# SERIAL CONFIG
+my $serial_port = "/dev/ttyO1";
+my $serial_speed = 57600;
 
+
+# DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
 $month = sprintf '%02d', $month+1;
 $day   = sprintf '%02d', $day;
 my $rrmmdd =  $year+1900 . $month . $day;
 
-# gps_file
+
+# FILES
+# Pressure/altitude
+my %data;  # Holds altitude/air pressure data
+load_air_data($home_dir . "air_data.txt");
+
+# GPS_file
 $gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
 
-# X-Modem packet file
-$download_file_status = $home_dir . "run/download_file_status";
-$x_modem_packet_num = $home_dir . "run/x_modem_packet";
-`echo "" > $x_modem_packet_num`;
-`echo 0 > $download_file_status`;
-
-
-
-# measurements_file
+# Measurements_file
 $measurements_file = $home_dir . "out/measurements.txt";
 
 # Cutdown file
@@ -57,16 +63,40 @@ $cutdown_init_file = $home_dir . "run/cutdown_initiated.txt";
 `rm -f $cutdown_init_file`;
 $cutdown_initiated = 0;
 
-
 # No Photos
 $nophotos_file = $home_dir . "run/nophotos.txt";
 `rm -f $nophotos_file`;
 
-# Defaults 
-$mode = 0;
 
-# Sensor constants
-$voltage_multipler = 5.7 * 3.3 /1024;
+# X-MODEM
+# X-Modem packet file
+$download_file_status = $home_dir . "run/download_file_status";
+$x_modem_packet_num = $home_dir . "run/x_modem_packet";
+`echo "" > $x_modem_packet_num`;
+`echo 0 > $download_file_status`;
+
+
+# PICTURE CONFIGURATIONS
+my $filename = "";  
+my $taking_picture = 0;
+$pic_count = 0;
+$pic_dl_freq = 5; # How often to download a pic.i.e. download every 'pic_dl_freq'th pic
+
+
+# INITIALISATIONS
+$mode = 0;          # Setting default operating mode
+$DEBUG = 1;         # Enable/Disable debugging
+
+
+
+
+# INITIALISATIONS
+my $radio_stats_count = 0;
+my $file_num = 1;
+
+
+# SENSOR CONFIGURATIONS
+$voltage_multipler = 5.7 * 3.3 /1024;   # For measuring my own voltage
 
 # ((r2 + r1)/r2) * (1.8/1800)
 $bb_voltage_multipler = ((1.5 + 10.1)/1.5) * (1.8/1800);
@@ -74,7 +104,9 @@ $bb_voltage_multipler = ((1.5 + 10.1)/1.5) * (1.8/1800);
 $bb_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
                      # count of # of iterations with this.
 
-# Parameters
+
+
+# PARAMETERS
 $param1 = $ARGV[0];
 
 if ($param1) 
@@ -98,23 +130,17 @@ if ($param1)
     }
 }
 
-print "HOPE Client started\n";
+print "GroundStation initialised and started\n";
 
-$DEBUG = 1;
-my $filename = "";
-$pic_count = 0;
-$pic_dl_freq = 5; # How often to download a pic.i.e. download every 'pic_dl_freq'th pic
-my $serial_port = "/dev/ttyO1";
-my $serial_speed = 57600;
 
+
+# INITIALISE THE SERIAL PORT
 my $port=Device::SerialPort->new($serial_port);
 $port->read_const_time(2000);       # const time for read (milliseconds)
 $port->read_char_time(5);          # avg time between read char
 my $STALL_DEFAULT=10; # how many seconds to wait for new input
 my $timeout=$STALL_DEFAULT;
 
-
-# Try initialising Serial Port
 eval {
   $port->baudrate($serial_speed);
   $port->parity("none");
@@ -130,7 +156,7 @@ if (my $e = $@)
 
 
 print "Connected to Serial Port...\n";
-print "Listening for HOPE...\n";
+print "Listening in...\n";
 if ($mode == 1) { print " -- TEST MODE --\n"; }
 if ($mode == 2) { print " -- NORMAL MODE --\n"; }
 if ($mode == 3) { print " -- WILL INITIATE CUTDOWN MODE AT NEXT POLL --\n"; }
@@ -138,37 +164,40 @@ if ($mode == 3) { print " -- WILL INITIATE CUTDOWN MODE AT NEXT POLL --\n"; }
 
 $port->are_match("\r\n");
 
-my $taking_picture = 0;
 
 
-monitor_modem();
+monitor_serial_port();
 
 
 
-sub monitor_modem()
+
+
+
+## MAIN SERIAL PORT MONITOR ROUTINE
+sub monitor_serial_port()
 {
 
 while (1 == 1)
 {
 
-          my $habline = "";
-          until ("" ne $habline) {
-            $habline = $port->lookfor;       # poll until data ready
-            die "Aborted without match\n" unless (defined $habline);
-            select(undef,undef,undef,0.3);
+    my $habline = "";
+    until ("" ne $habline) {
+      $habline = $port->lookfor;       # poll until data ready
+      die "Aborted without match\n" unless (defined $habline);
+      select(undef,undef,undef,0.3);
 
-            # Get BBB voltage supply reading and put into table
-	    if ($bb_voltage_ctr > 100) {
-                get_bb_voltage();
-	        $bb_voltage_ctr = 0;
-	    } else  {
-              $bb_voltage_ctr = $bb_voltage_ctr + 1;
-	    }
+      # Get BBB voltage supply reading and put into table
+      if ($bb_voltage_ctr > 100) {
+          get_bb_voltage();
+          $bb_voltage_ctr = 0;
+      } else  {
+          $bb_voltage_ctr = $bb_voltage_ctr + 1;
+      }
 
-          }
+   }
 
 
-    $str = "DECODING Line: '" . $habline . "'\n" if $DEBUG;
+    $str = "** Decoding line: '" . $habline . "'\n" if $DEBUG;
     print $str if $DEBUG;
 
     $result = decode_line($habline);
@@ -176,8 +205,8 @@ while (1 == 1)
     if (length($result) > 0)
     {
       $str = $result;
-      print "LOGGING MESSAGE: $str \n" if $DEBUG;
-      log_messages($str);
+      print "** LOGGING MESSAGE: $str \n" if $DEBUG;
+      log_message($str);
 
       # If image not taken properly...E5 error...then make sure we don't
       # try to download it.
@@ -204,7 +233,7 @@ while (1 == 1)
 	  `touch $cutdown_init_file`;
           $count_out = $port->write("4\r\n");
           $str = "Sent request intiate cutdown\n";
-          log_messages($str);
+          log_message($str);
   
           my $gotit = "";
           until ("" ne $gotit) {
@@ -215,25 +244,25 @@ while (1 == 1)
           if ($gotit =~ /B/)
           {
             $str = "HOPE cutdown initiated!\n";
-            log_messages($str);
+            log_message($str);
           }
           elsif ($gotit =~ /W/)
           {
             $str = "(trying to initiate cutdown) - Timeout waiting for response from ground station.\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           elsif ($gotit =~ /^Q:(.*)$/)
           {
             $str = "(trying to initiate cutdown) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           else
           {
             $str = "HAB never responded as expected....perhaps it didnt get request to initiate CUTDOWN. Got $gotit \n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
 
 	}
@@ -247,15 +276,15 @@ while (1 == 1)
           if ($pic_count % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && ! -f $nophotos_file)
           {
             $str = "Sending request to download image\n";
-            log_messages($str);
-	    print $str if $DEBUG;
+            log_message($str);
+	    print "** " . $str if $DEBUG;
             $port->lookclear;
             $count_out = $port->write("2\r\n");
             warn "write failed\n"   unless ($count_out);
             warn "write incomplete\n" if ($count_out != length("2\r\n") );
 
 	    $str = "Finished sending request to download image\n";
-            log_messages($str);
+            log_message($str);
 
             my $gotit = "";
             until ("" ne $gotit) {
@@ -265,18 +294,18 @@ while (1 == 1)
             }
 
 
-            $v_file = $rrmmdd . "_" . $filename . '_image' . $i . '.jpg';
+            $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
             if ($gotit =~ /X/) 
             {
               $str = "Starting download in 5 seconds to $v_file....\n";
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
 
               sleep 5;
               $str = "Download started.\n";
 	      `echo 1 > $download_file_status`;
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
 
               my $receive = Device::SerialPort::Xmodem::Receive->new(
                     port     => $port,
@@ -285,30 +314,30 @@ while (1 == 1)
               );
 
               $receive->start();
-              $i++;
+              $file_num++;
               $str = "Finished Transmission\n";
 	      `echo 0 > $download_file_status`;
 	      `echo "" > $x_modem_packet_num`;
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
             } 
             elsif ($gotit =~ /W/)
             {
               $str = "(Trying to initiate img tfr) - Timeout waiting for response from ground station.\n";
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
             }
             elsif ($gotit =~ /^Q:(.*)$/)
             {
               $str = "(Trying to initiate img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
             }
             else
             {
               $str = "HAB never responded as expected....perhaps it didnt get request to send image Got $gotit \n";
-              log_messages($str);
-	      print $str if $DEBUG;
+              log_message($str);
+	      print "** " . $str if $DEBUG;
             }
           }
           else
@@ -316,8 +345,8 @@ while (1 == 1)
 # WE DO NOT WANT TO DOWNLOAD THIS IMAGE
 # SEND COMMAND TO HAB TO EXIT MENU
             $str = "Sending request to skip d/l of image this time - or no image to download.\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
             $port->lookclear;
             $count_out = $port->write("9\r\n");
             warn "write failed\n"   unless ($count_out);
@@ -333,26 +362,26 @@ while (1 == 1)
             if ($gotit =~ /K/)
             {
               $str = "HAB got request to skip d/l of the image - exit menu\n";
-              log_messages($str);
-              print $str if $DEBUG;
+              log_message($str);
+              print "** " . $str if $DEBUG;
             }
             elsif ($gotit =~ /W/)
             {
               $str = "(Trying to initiate SKIP of img tfr) - Timeout waiting for response from ground station." . $gotit . "\n";
-              log_messages($str);
-              print $str if $DEBUG;
+              log_message($str);
+              print "** " . $str if $DEBUG;
             }
             elsif ($gotit =~ /^Q:(.*)$/)
             {
               $str = "(Trying to initiate SKIP of img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
-              log_messages($str);
-              print $str if $DEBUG;
+              log_message($str);
+              print "** " . $str if $DEBUG;
             }
             else
             {
               $str = "HAB never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
-              log_messages($str);
-              print $str if $DEBUG;
+              log_message($str);
+              print "** " . $str if $DEBUG;
             }
 
           }
@@ -368,7 +397,7 @@ while (1 == 1)
 # WHICH MEANS NOT TOO MANY PICS
           $count_out = $port->write("1\r\n");
           $str = "Sent request put in test mode\n";
-          log_messages($str);
+          log_message($str);
  
           my $gotit = "";
           until ("" ne $gotit) {
@@ -380,25 +409,25 @@ while (1 == 1)
           if ($gotit =~ /T/) 
           {
             $str = "HOPE is now in Test mode\n";
-            log_messages($str);
+            log_message($str);
           }
           elsif ($gotit =~ /W/)
           {
             $str = "(Trying to put in Test mode) - Timeout waiting for response from ground station.\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           elsif ($gotit =~ /^Q:(.*)$/)
           {
             $str = "(Trying to put in Test mode) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           else
           {
             $str = "HAB never responded as expected....perhaps it didnt get request to put in TEST mode. Got $gotit\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
 
         }
@@ -408,7 +437,7 @@ while (1 == 1)
 # WHICH MEANS TAKE NORMAL # OF PICS
           $count_out = $port->write("3\r\n");
           $str = "Sent request put in normal mode\n";
-          log_messages($str);
+          log_message($str);
   
           my $gotit = "";
           until ("" ne $gotit) {
@@ -420,25 +449,25 @@ while (1 == 1)
           if ($gotit =~ /N/)
           {
             $str = "HOPE is now in Normal mode\n";
-            log_messages($str);
+            log_message($str);
           }
           elsif ($gotit =~ /W/)
           {
             $str = "(Trying to put in Normal mode) - Timeout waiting for response from ground station.\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           elsif ($gotit =~ /^Q:(.*)$/)
           {
             $str = "(Trying to put in Normal mode) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
           else
           {
             $str = "HAB never responded as expected....perhaps it didnt get request to put in NORMAL mode. Got $gotit\n";
-            log_messages($str);
-            print $str if $DEBUG;
+            log_message($str);
+            print "** " . $str if $DEBUG;
           }
 
 
@@ -647,13 +676,6 @@ HERE
 }
 
 close(FILE);
-# -72.516244,-13.162806,0
-# -72.516244,-13.162706,1000
-# -72.516244,-13.162606,2000
-# -72.516244,-13.162606,2000
-# -72.516244,-13.162206,2000
-# -72.516244,-13.161606,2000
-# -72.516244,-13.152606,2000
 
 $finishline = << "FINISHLINE";
 </coordinates>
@@ -693,11 +715,11 @@ sub log_radio_stats($$)
     $sth->execute();
 
     $dbh->disconnect();
-
 }
 
 
-sub log_messages($)
+
+sub log_message($)
 {
   local($message) = @_;
 
@@ -718,8 +740,8 @@ sub log_messages($)
     $dbh->disconnect();
 
   }
-
 }
+
 
 
 sub insert_measurements()
@@ -739,8 +761,8 @@ sub insert_measurements()
  $sth->execute();
  
  $dbh->disconnect();
-
 }
+
 
 sub insert_heartbeat()
 {
@@ -774,13 +796,8 @@ sub insert_gps()
  $sth->execute();
  
  $dbh->disconnect();
-
 }
 
-
-
-# Start thread to monitor modem
-print "Listening";
 
 
 sub get_bb_voltage()
@@ -799,7 +816,6 @@ sub get_bb_voltage()
  $sth->execute();
 
  $dbh->disconnect(); 
-
 }
 
 
@@ -811,10 +827,10 @@ sub run_at_command($;$)
 
  $port->write($cmd . "\r\n");
 
-
  return get_modem_response($delay);
-
 }
+
+
 
 sub enter_at_mode()
 {
@@ -826,10 +842,14 @@ sub enter_at_mode()
    return get_modem_response(0.5);
 }
 
+
+
 sub exit_at_mode()
 {
  return run_at_command("ATO", 0.5);
 }
+
+
 
 sub get_modem_response()
 {
@@ -856,8 +876,8 @@ sub get_modem_response()
   } while(!$done);
 
  return $received;
-
 }
+
 
 sub get_radio_stats()
 {
@@ -865,11 +885,11 @@ sub get_radio_stats()
   enter_at_mode();
 
   $stats = run_at_command("ATI7", 1);
-  log_messages("GND: " . $stats);
+  log_message("GND: " . $stats);
   log_radio_stats (0, $stats);
 
   $stats = run_at_command("RTI7", 1.5);
-  log_messages("HAB: " . $stats);
+  log_message("HAB: " . $stats);
   log_radio_stats (1, $stats);
 
   exit_at_mode();
@@ -880,23 +900,20 @@ sub get_radio_stats()
 
 sub load_air_data($)
 {
-local ($file) = @_;
-open FILE, $file or die $!;
- local $altitude;
- local $pressure;
+  local ($file) = @_;
+  open FILE, $file or die $!;
+  local $altitude;
+  local $pressure;
 
-while ($line = <FILE>) {
+  while ($line = <FILE>) {
+     $line =~ /^(.*) (.*)$/;
 
- $line =~ /^(.*) (.*)$/;
+     $altitude = $1;
+     $pressure = $2;
 
- $altitude = $1;
- $pressure = $2;
+     $data{$pressure} = $altitude;
 
-# print "Alt: $altitude  has pressure: $pressure\n";
-
-  $data{$pressure} = $altitude;
-
-}
+  }
 }
 
 
@@ -911,13 +928,9 @@ sub get_altitude()
  $pressure = $pressure/1000;
 
  foreach my $key (sort {$b <=> $a} keys %data) {
-#   print "Comparing $pressure to  $prev_key and $key\n";
    if ($pressure > $key && $pressure < $prev_key) {
-#      print "Pressure: $pressure between $key and $prev_key\n";
-
-     $altitude = $data{$key} -  ($data{$key} - $data{$prev_key}) * ($key - $pressure)/($key - $prev_key);
-     last;
-
+      $altitude = $data{$key} -  ($data{$key} - $data{$prev_key}) * ($key - $pressure)/($key - $prev_key);
+      last;
    }
 
    $prev_key = $key;
