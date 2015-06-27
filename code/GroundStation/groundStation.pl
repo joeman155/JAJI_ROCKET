@@ -42,13 +42,9 @@ if ($param1)
     {
      $mode = 2; # NORMAL
     }
-  elsif ($param1 =~ /^C$/)
-    {
-     $mode = 3;  # CUTDOWN
-    }
   else 
     {
-     print "If providing parameter, it must only be T (fewer pics) or N (No pics) of C (Initiate cutdown)\n";
+     print "If providing parameter, it must only be T (fewer pics) or N (No pics)\n";
      exit;
     }
 }
@@ -81,7 +77,6 @@ if (my $e = $@)
 print "Connected to Serial Port and Listening...\n";
 if ($mode == 1) { print " -- TEST MODE --\n"; }
 if ($mode == 2) { print " -- NORMAL MODE --\n"; }
-if ($mode == 3) { print " -- WILL INITIATE CUTDOWN MODE AT NEXT POLL --\n"; }
 
 
 $port->are_match("\r\n");
@@ -138,15 +133,13 @@ while (1 == 1)
 
 ## SEE IF MENU BEING PRESENTED
       if ($result =~ /Menu/) {
-        # IF mode = 3...then groundstation was started with flag to cutdown
+
         #
-        # OR
-        #
-        # If cutdown request file exists...the initiate cutdown
+        # If cutdown request file exists...the initiate cutdown (so long as cutdown hasn't already been intiated)
         #
 
-## MODE 3 - INITIATE CUTDOWN CHECKS
-	if ($mode == 3 || (-f $cutdown_req_file && $cutdown_initiated == 0)) {
+## HAS USER REQUESTED CUTDOWN?
+	if (-f $cutdown_req_file && $cutdown_initiated == 0) {
 	  $cutdown_initiated = 1;
 	  `touch $cutdown_init_file`;
           $count_out = $port->write("4\r\n");
