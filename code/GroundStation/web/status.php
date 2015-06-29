@@ -51,13 +51,13 @@ $heartbeat_date_raw = $row['creation_date'];
 $heartbeat_date =  date("Y-m-d H:i:s", strtotime($heartbeat_date_raw));
 
 # Get latest beaglebone voltage
-$sql = "select * from bb_voltage_t where id = (select max(id) from bb_voltage_t)";
+$sql = "select * from gs_psu_voltage_t where id = (select max(id) from gs_psu_voltage_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
 
 $row = $sth->fetch();
-$bb_voltage = $row['voltage'];
-$bb_voltage_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
+$gs_psu_voltage = $row['voltage'];
+$gs_psu_voltage_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 # HAB GPS
 $sql = "select * from gps_t where id = (select max(id) from gps_t)";
@@ -353,13 +353,13 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 </div>
 
 
-<h3>Ground Health - <abbr class="timeago" title="<?= $bb_voltage_date?>"></abbr></h3>
+<h3>Ground Health - <abbr class="timeago" title="<?= $gs_psu_voltage_date?>"></abbr></h3>
 <div>
-<h2>Beaglebone Voltage (<?= $bb_voltage_date?>)</h2>
-<table id="bb_measurements">
+<h2>Beaglebone Voltage (<?= $gs_psu_voltage_date?>)</h2>
+<table id="gs_psu_measurements">
 <tr>
-  <th>Beaglebone Voltage</th>
-  <td><?= round($bb_voltage,2)?></td>
+  <th>Ground Station Voltage</th>
+  <td><?= round($gs_psu_voltage,2)?></td>
 </tr>
 </table>
 </div>
@@ -460,7 +460,7 @@ if ($download_file_status == 1) {
 <br />
 <a href="/table.php?table=messages_t">Messsages Table</a>
 <br />
-<a href="/table.php?table=bb_voltage_t">BB Voltages Table</a>
+<a href="/table.php?table=gs_psu_voltage_t">Ground Station PSU Voltages Table</a>
 <br />
 <a href="/table.php?table=gps_t">GPS Table</a>
 <br />
