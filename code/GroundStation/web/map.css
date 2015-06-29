@@ -1,0 +1,17 @@
+#map-canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.olControlMousePosition {
+  left: 70px;
+  top: auto;
+  color: red;
+}
+
+.olControlScaleLine {
+  left: 200px;
+  top: auto;
+  color: blue;
+}

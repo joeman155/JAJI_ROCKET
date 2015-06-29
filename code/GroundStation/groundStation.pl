@@ -12,15 +12,15 @@ use lib '/home/root/hope/modules/share/perl/5.14.2';
 # LOAD MODULES
 use strict;
 use warnings;
-#use IO::Socket;
-#use threads;
-#use Thread::Queue;
+use IO::Socket;
+use threads;
+use Thread::Queue;
 #use Device::SerialPort qw( :PARAM :STAT 0.07 );
 #use Device::SerialPort::Xmodem;
 #use Device::Modem;
 #use Device::Modem::Protocol::Xmodem;
-#use DBI;
-#use POSIX;
+use DBI;
+use POSIX;
 
 
 
@@ -131,7 +131,7 @@ while (1 == 1)
        }
     
 
-## SEE IF MENU BEING PRESENTED
+## SEE IF MENU BEING PRESENTED BY RLS
       if ($result =~ /Menu/) {
 
         #
@@ -205,9 +205,9 @@ while (1 == 1)
             }
 
 
-            $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
             if ($gotit =~ /X/) 
             {
+              $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
               $str = "Starting download in 5 seconds to $v_file....\n";
               log_message($str);
 	      print "** " . $str if $DEBUG;

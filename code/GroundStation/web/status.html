@@ -1,0 +1,59 @@
+<script>
+	var current_index = $("#tabs").tabs("option","active"); 
+	if (current_index == 0) {
+
+	// Initial Load
+	load_status();
+
+        setInterval(function(){
+	load_status();
+        }, 5000);
+	}
+
+
+	$("#cutdown").click(function() {
+	alert("About to request cutdown");
+	$.ajax({
+		url: "cutdown.php",
+		success: function(s,x) {
+			$("#stats").html(s);
+		}
+	    });
+	});
+
+	function load_status()
+	{
+           // Get Viewers GPS info
+	  if (navigator.geolocation)
+	    {
+  	  navigator.geolocation.watchPosition(gps_success_callback);
+	    }
+	  else
+            {
+            $("#gps_error").html("Geolocation is not supported by this browser.");
+            }
+
+
+        $.ajax({
+                url: "status.php",
+		type: "GET",
+		cache: false,
+		data: {
+			local_lat : v_local_lat,
+			local_long : v_local_long,
+			local_alt : v_local_alt,
+			local_got_gps : v_got_gps,
+			local_timestamp : v_local_timestamp
+		},
+                success: function(s,x) {
+                    $("#stats").html(s);
+		}
+        })
+
+	}
+</script>
+<p id="gps_error">
+</p>
+<div id="stats">
+</div>
+

@@ -1,0 +1,76 @@
+Summary
+--------
+We detail steps to set-up the Rasberry-Pi 2 Model B the first time
+
+
+Steps
+------
+1. Download Raspbian version released on 5-5-2015
+
+2. Put image on to microSD using Win32DiskImager-0.9.5
+
+3. Load it up....in Rasberry-Pi
+
+4. within the Rasberry-Pi config screens...
+- Expand File System
+- Set password for pi to pi
+- Enable SSH
+- Set Console Text console
+- Enable SPI
+- Enable ITC
+- installed all en_AU* locales
+- installed all en_GB* locales
+- installed all en_US* locales
+- en_US.UTF-8 is default LOCAL
+- Timezone set to Australia -> Brisbane
+- Change Keyboard layout to Generic 104-key PC --> Other (English (US))...
+  then accepted all other defaults.
+  [IF you don't do this...the pipe symbol doesn't work]
+- hostname to gspi.fnqitservices.local
+
+
+
+When finished...reboot
+
+
+5. Log in as pi
+
+sudo su -
+
+Run the following commands to load software:-
+
+apt-get update
+
+apt-get install apache2 php5 sqlite3
+
+apt-get install hostapd
+
+apt-get install php5-sqlite
+
+apt-get install postgresql
+
+apt-get install chkconfig
+
+apt-get install telnet screen
+
+
+6. Then configured static IP
+by having interfaces have:-
+
+auto eth0
+allow-hotplug eth0
+iface eth0 inet static
+address 192.168.10.140
+netmask 255.255.255.0
+network 192.168.10.0
+broadcast 192.168.10.255
+gateway 192.168.10.130
+
+
+
+(I then set-up a DNS entry for gspi.fnqitservices.local ---> 192.168.10.140)
+
+
+
+
+
