@@ -17,6 +17,8 @@ cp air_data.txt /data/gs/
 cp groundStation.pl /data/gs/
 cp gs.sh /data/gs/
 cp config.inc /data/gs/
+touch /data/gs/run/download_file_status
+chmod 777 /data/gs/run/download_file_status
 
 
 [ -f /data/gs/gs.db ] && mv /data/gs/gs.db /data/gs/gs.db.bck
