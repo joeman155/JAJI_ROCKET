@@ -51,7 +51,11 @@ apt-get install postgresql
 
 apt-get install chkconfig
 
-apt-get install telnet screen
+
+... packages that are used during development...but not required for golive
+apt-get install telnet screen 
+
+NOTE: git was already installec by default!
 
 
 6. Then configured static IP
@@ -71,6 +75,43 @@ gateway 192.168.10.130
 (I then set-up a DNS entry for gspi.fnqitservices.local ---> 192.168.10.140)
 
 
+
+
+7. Apache config
+vi /etc/apache2/sites-enabled/000-default
+
+Change
+
+        DocumentRoot /var/www
+
+to
+
+        DocumentRoot /data/web
+
+
+Save and exit
+
+service apache2 restart
+
+chown pi:pi /data/web
+
+
+
+8. Set-up Dev area
+mkdir /data/src
+chown pi:pi /data/src
+chown pi:pi /data
+
+su - pi
+
+cd /data/src
+
+git clone https://github.com/joeman155/JAJI_ROCKET.git
+
+cd /data/src/JAJI_ROCKET/code/GroundStation
+
+git config --global user.email "joeman@leederville.net"
+git config --global user.name "Joseph Turner"
 
 
 
