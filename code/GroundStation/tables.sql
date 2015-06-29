@@ -52,3 +52,4 @@ CREATE TABLE gps_prediction_t (id integer primary key autoincrement,
                     longitude float,
                     height    integer,
                     creation_date datetime);
+
