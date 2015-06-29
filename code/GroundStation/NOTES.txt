@@ -47,10 +47,11 @@ apt-get install hostapd
 
 apt-get install php5-sqlite
 
-apt-get install postgresql
+apt-get install postgresql postgresql-contrib
 
-apt-get install chkconfig
+apt-get install chkconfig locate
 
+apt-get install osm2pgsql 
 
 ... packages that are used during development...but not required for golive
 apt-get install telnet screen 
@@ -112,6 +113,14 @@ cd /data/src/JAJI_ROCKET/code/GroundStation
 
 git config --global user.email "joeman@leederville.net"
 git config --global user.name "Joseph Turner"
+
+
+
+vi /home/pi/.bashrc
+
+At end of file paste:-
+
+export EDITOR=vi
 
 
 

@@ -1,0 +1,69 @@
+Summary
+-----------
+Shows information on how I set-up configured the map system
+
+
+Downloading the map
+---------------------
+Went to:-
+
+http://www.openstreetmap.org
+
+Click on Export
+
+Clicked on hyper link "Manually select a different area"
+
+Choose the area I wanted 
+
+Clicked on hyperlink "Overpass API" and let it download
+
+
+** Didn't work ...download failed..
+
+
+Went to:-
+
+http://download.geofabrik.de/
+
+When to "Australia and Oceana" -> Australia 
+
+Download
+
+
+wget http://download.geofabrik.de/australia-oceania/australia-latest.osm.bz2
+
+bunzip2 australia-latest.osm.bz2
+
+
+OS Deps
+--------
+Log on as user root
+
+
+
+Installing map software
+---------------
+Log on as user root
+
+su - postgres
+
+createdb gis
+
+createlang plpgsql gis                                         
+
+cd /usr/share/postgresql/9.1/contrib/postgis-1.5/
+psql -d gis -f postgis.sql                                            
+
+cd /usr/share/postgresql/9.1/contrib
+psql -d gis -f postgis_comments.sql                                   
+
+cd /usr/share/postgresql/9.1/contrib/postgis-1.5
+psql -d gis -f spatial_ref_sys.sql  
+
+
+
+
+
+Installing fresh map
+------------------
+
