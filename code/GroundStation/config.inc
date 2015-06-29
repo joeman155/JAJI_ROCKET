@@ -6,7 +6,7 @@
 #
 
 # GENERAL CONFIG
-$home_dir = "/home/joeman/repos/rocket/code/GroundStation/";
+$home_dir = "/data/gs/";
 
 # DATABASE CONFIG
 my $db_string = "dbi:SQLite:dbname=" . $home_dir . "ls.db";  # SQLIte DB file
