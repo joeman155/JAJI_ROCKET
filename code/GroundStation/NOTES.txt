@@ -54,7 +54,7 @@ apt-get install chkconfig locate
 apt-get install osm2pgsql 
 
 ... packages that are used during development...but not required for golive
-apt-get install telnet screen 
+apt-get install telnet screen  gcc-4.8
 
 NOTE: git was already installec by default!
 
@@ -122,5 +122,240 @@ At end of file paste:-
 
 export EDITOR=vi
 
+
+
+
+9. Mapnik
+As user pi, execute:-
+
+cd /data/src
+git clone git://github.com/mapnik/mapnik
+cd mapnik
+git branch 2.2 origin/2.2.x
+git checkout 2.2
+
+python scons/scons.py configure INPUT_PLUGINS=all OPTIMIZATION=3 SYSTEM_FONTS=/usr/share/fonts/truetype/
+make
+sudo make install
+sudo ldconfig
+
+
+
+
+
+
+10. Install Mod_Tile   (This include renderd)
+
+As user root execute:-
+
+apt-get install autogen autoconf libtool gettext libagg-dev
+apt-get install apache2-threaded-dev apache2-utils
+apt-get install libxft-dev
+
+as user pi
+
+cd /data/src
+mkdir deps
+cd deps
+
+git clone https://github.com/openstreetmap/mod_tile.git
+cd mod_tile
+./autogen.sh
+./configure
+make
+sudo make install
+sudo make install-mod_tile 
+
+
+11. Install Carto
+
+...looking at instructions from http://github.com/mapbox/carto/
+
+As user root...
+
+apt-get install npm
+
+npm config set registry http://registry.npmjs.org
+
+npm install -g carto
+npm install -g node
+
+ln -s /usr/bin/nodejs  /usr/bin/node
+
+
+
+12. Configure Styles
+As user pi
+
+[ -d /data/maps/style ] || mkdir style
+cd /data/maps/style
+
+
+wget https://github.com/mapbox/osm-bright/archive/master.zip
+wget http://data.openstreetmapdata.com/simplified-land-polygons-complete-3857.zip
+wget http://data.openstreetmapdata.com/land-polygons-split-3857.zip
+wget http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/ne_10m_populated_places_simple.zip
+
+
+unzip '*.zip'
+
+mkdir ne_10m_populated_places_simple
+mv ne_10m_populated_places_simple.* ne_10m_populated_places_simple/
+mv ne_10m_populated_places_simple/ne_10m_populated_places_simple.zip .
+
+mkdir osm-bright-master/shp -p
+mv land-polygons-split-3857 osm-bright-master/shp/
+mv simplified-land-polygons-complete-3857 osm-bright-master/shp/
+mv ne_10m_populated_places_simple osm-bright-master/shp/
+
+cd osm-bright-master/shp/land-polygons-split-3857
+shapeindex land_polygons.shp
+cd ../simplified-land-polygons-complete-3857/
+shapeindex simplified_land_polygons.shp
+cd ../
+
+cd /data/maps/style/osm-bright-master
+cp osm-bright/osm-bright.osm2pgsql.mml osm-bright/osm-bright.osm2pgsql.mml.backup
+
+
+Open this file for editing.
+
+Find the lines with URLs pointing to shapefiles (ending .zip) and replace each one with these appropriate pairs of lines:
+
+"file": "/usr/local/share/maps/style/osm-bright-master/shp/land-polygons-split-3857/land_polygons.shp", 
+"type": "shape"
+
+"file": "/usr/local/share/maps/style/osm-bright-master/shp/simplified-land-polygons-complete-3857/simplified_land_polygons.shp", 
+"type": "shape",
+
+"file": "/usr/local/share/maps/style/osm-bright-master/shp/ne_10m_populated_places_simple/ne_10m_populated_places_simple.shp", 
+"type": "shape"
+
+Note that we are also adding “type”: “shape” to each one. (If you’re using nano, to save, now press ctrl-X and Y.)
+
+Finally, in the section dealing with “ne_places”, replace the “srs” and “srs-name” lines with this one line:
+
+"srs": "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+
+
+SAve and exit
+
+cp configure.py.sample configure.py
+
+Open configure.py in editor...
+
+
+
+Update config line to point to /data/maps/style directory
+Update dbname from osm to gis
+Set    username from "" to "gis"
+
+Save and exit
+
+./make.py
+cd ../OSMBright/
+carto project.mml > OSMBright.xml
+
+
+
+13. Configure Apache to use mod_tile and RenderD
+
+Back up /etc/apache2/sites-available/default
+
+
+cp  /etc/apache2/sites-available/default   /etc/apache2/default.bk
+
+Open
+
+/etc/apache2/sites-available/default
+
+And add following JUST before ErrorLog line:-
+
+    ModTileTileDir /var/lib/mod_tile
+    LoadTileConfigFile /etc/renderd.conf
+    ModTileBulkMode Off
+    ModTileRequestTimeout 3
+    ModTileMissingRequestTimeout 10
+    ModTileMaxLoadOld 16
+    ModTileMaxLoadMissing 50
+    ModTileVeryOldThreshold 31536000000000
+    ModTileRenderdSocketName /var/run/renderd/renderd.sock
+    
+    ModTileCacheDurationMax 604800
+    ModTileCacheDurationDirty 900
+    ModTileCacheDurationMinimum 10800
+    ModTileCacheDurationMediumZoom 13 86400
+    ModTileCacheLastModifiedFactor 0.20
+    ModTileEnableTileThrottling Off
+    ModTileEnableTileThrottlingXForward 0
+    ModTileThrottlingTiles 10000 1
+    ModTileThrottlingRenders 128 0.2
+
+
+
+Add near top:-
+
+    ServerName  gspi.fnqitservices.local
+
+Save and exit
+
+
+Create a file called /etc/apache2/mods-available/tile.load
+with the following line in it:-
+
+
+LoadModule tile_module /usr/lib/apache2/modules/mod_tile.so
+
+
+Save and exit
+
+Then type:-
+
+a2enmod tile
+
+
+Then open /etc/renderd.conf in editor and add:-
+
+[renderd]
+socketname=/var/run/renderd/renderd.sock
+num_threads=4
+tile_dir=/var/lib/mod_tile
+stats_file=/var/run/renderd/renderd.stats
+
+[mapnik]
+plugins_dir=/usr/lib/mapnik/input
+font_dir=/usr/share/fonts/truetype
+font_dir_recurse=1
+
+[default]
+URI=/osm_tiles/
+TILEDIR=/var/lib/mod_tile
+XML=/data/maps/style/OSMBright/OSMBright.xml
+HOST=gspi.fnqitservices.local
+TILESIZE=256
+
+
+
+Save and exit
+
+
+mkdir /var/lib/mod_tile
+chown www-data:www-data /var/lib/mod_tile
+chmod 777 /var/lib/mod_tile
+
+mkdir /var/run/renderd
+chown pi:pi /var/run/renderd
+
+
+In one screen start renderd as user pi
+
+
+/usr/local/bin/renderd -f -c /etc/renderd.conf
+
+
+
+In another screen as user root, run:-
+
+service apache2 restart
 
 

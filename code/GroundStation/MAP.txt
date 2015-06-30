@@ -2,6 +2,22 @@ Summary
 -----------
 Shows information on how I set-up configured the map system
 
+It is probably a VERY good idea to load the maps into a plsql DB on a FAST system...
+export the loaded DB...
+Import into a slow system.
+
+This is bcause running osmosis and osm2pgsql on slow Rasberry-Pi 2 Model B is painful
+and it might damage microSD....too many writes...possibly.
+
+OS Deps
+--------
+Log on as user root
+
+apt-get install postgresql postgresql-contrib
+
+apt-get install osm2pgsql 
+
+
 
 Downloading the map
 ---------------------
@@ -65,11 +81,6 @@ Then Transfer this file to /data/maps
 NOTE: Sample scripts and poly files are in the maps directory
 
 
-OS Deps
---------
-Log on as user root
-
-
 
 Installing map software
 ---------------
@@ -115,3 +126,44 @@ cd /data/maps/
 osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
           -S /usr/share/osm2pgsql/default.style --hstore
 
+
+Transferring Postgres database to slower system
+------------
+On fast source system, type:-
+
+
+pg_dump gis > /tmp/gis.dmp
+
+Transfer to slow system
+
+
+Create GIS database as follows:-
+
+createuser pi   # anser yes for superuser
+createdb -E UTF8 -O pi gis
+
+psql -U pi -d gis
+
+createlang plpgsql gis
+
+create extension hstore;
+
+control-d
+
+
+
+Then import database:-
+
+psql gis < gis.dmp
+
+
+
+Open 
+/etc/postgresql/9.1/main/pg_hba.conf
+
+Add the line:-
+
+local   gis             pi                                      trust
+
+
+service postgresql restart
