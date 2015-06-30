@@ -53,8 +53,9 @@ apt-get install chkconfig locate
 
 apt-get install osm2pgsql 
 
-... packages that are used during development...but not required for golive
 apt-get install telnet screen  gcc-4.8
+
+apt-get install libfreetype6-dev libpng12-dev libtiff4-dev libicu-dev libgdal-dev libcairo-dev libcairomm-1.0-dev liblua5.2-dev ttf-unifont lua5.1 liblua5.1-dev 
 
 NOTE: git was already installec by default!
 
