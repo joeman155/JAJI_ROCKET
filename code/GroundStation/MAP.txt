@@ -35,6 +35,36 @@ wget http://download.geofabrik.de/australia-oceania/australia-latest.osm.bz2
 bunzip2 australia-latest.osm.bz2
 
 
+
+Extracting a 'region' of Australia map for load
+--------------
+
+apt-get install osmosis
+
+Create a file called east.poly  
+
+
+osmosis --read-xml file="australia-latest.osm" --bounding-polygon file="east.poly" \
+        --write-xml file="east.australia-latest.osm"
+
+
+bzip2 east.australia-latest.osm
+
+
+or
+
+osmosis --read-xml file="australia-latest.osm" --bounding-polygon file="qld.poly" \
+        --write-xml file="qld.australia-latest.osm"
+
+
+bzip2 qld.australia-latest.osm
+
+Then Transfer this file to /data/maps
+
+
+NOTE: Sample scripts and poly files are in the maps directory
+
+
 OS Deps
 --------
 Log on as user root
@@ -49,13 +79,23 @@ su - postgres
 
 createdb gis
 
+psql -d gis
+
 createlang plpgsql gis                                         
+
+control-d
+
 
 cd /usr/share/postgresql/9.1/contrib/postgis-1.5/
 psql -d gis -f postgis.sql                                            
 
 cd /usr/share/postgresql/9.1/contrib
 psql -d gis -f postgis_comments.sql                                   
+
+psql -d gis 
+create extension hstore;
+
+control-d
 
 cd /usr/share/postgresql/9.1/contrib/postgis-1.5
 psql -d gis -f spatial_ref_sys.sql  
@@ -66,4 +106,12 @@ psql -d gis -f spatial_ref_sys.sql
 
 Installing fresh map
 ------------------
+as postgres user:-
+
+
+Here is an example of loading QLD map
+
+cd /data/maps/
+osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
+          -S /usr/share/osm2pgsql/default.style --hstore
 
