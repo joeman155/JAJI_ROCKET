@@ -57,6 +57,9 @@ apt-get install telnet screen  gcc-4.8
 
 apt-get install libfreetype6-dev libpng12-dev libtiff4-dev libicu-dev libgdal-dev libcairo-dev libcairomm-1.0-dev liblua5.2-dev ttf-unifont lua5.1 liblua5.1-dev 
 
+apt-get install libproj-dev libboost-dev libboost-all-dev
+
+
 NOTE: git was already installec by default!
 
 
@@ -127,6 +130,25 @@ export EDITOR=vi
 
 
 9. Mapnik
+As user root, set:-
+
+CONF_SWAPSIZE=1000
+
+in file /etc/dphys-swapfile
+
+and then rebooted. 
+
+(This is done because we need a bit more SWAP while compiling)
+
+As user root
+
+/etc/init.d/postgresql stop
+
+/etc/init.d/apache2 stop
+
+(We stop these services to give us more Memory)
+
+
 As user pi, execute:-
 
 cd /data/src
