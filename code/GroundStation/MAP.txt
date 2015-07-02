@@ -232,6 +232,4 @@ Then put the following line in /etc/renderd.conf
 
 XML=/data/maps/style/OSMBright/carto.xml
 
-
-Restart Renderer
---------------------
+Restart Rendered
