@@ -1,7 +1,7 @@
 <?
 $home_dir = "/data/gs";
 
-$db_file = $home_dir . "/gs.db";
+$db_file = $home_dir . "/db/gs.db";
 $cutdown_req_file = $home_dir . "/run/cutdown_requested.txt";
 $cutdown_init_file = $home_dir . "/run/cutdown_initiated.txt";
 $nophotos_file     = $home_dir . "/run/nophotos.txt";
