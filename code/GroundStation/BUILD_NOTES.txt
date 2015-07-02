@@ -270,7 +270,7 @@ Finally, in the section dealing with “ne_places”, replace the “srs” and 
 "srs": "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 
-SAve and exit
+Save and exit
 
 cp configure.py.sample configure.py
 
@@ -390,4 +390,36 @@ In another screen as user root, run:-
 
 service apache2 restart
 
+
+
+
+
+APPENDIX A - Loading standard OpenStreetMap Style.
+---------------
+The above assumed we want to use OSMBright style....which I found to be quite bad.
+(The OSMBright Style install is documented in BUILD_NOTES.txt)
+Below are steps I used to use the default OpenStreetMap Carto style.
+
+On the Rasberry-Pi machine as the user pi
+
+cd /data/maps/
+mkdir style2
+cd style2
+git clone https://github.com/gravitystorm/openstreetmap-carto.git
+
+cd openstreetmap-carto/
+
+./get-shapefiles.sh
+
+Open project.mml
+and put in absolute path to the shp files
+
+carto project.mml > carto.xml
+
+
+Then put the following line in /etc/renderd.conf
+
+XML=/data/maps/style/OSMBright/carto.xml
+
+Restart Rendered
 

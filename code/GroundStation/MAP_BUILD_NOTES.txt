@@ -2,9 +2,10 @@ Summary
 -----------
 Shows information on how I set-up configured the map system
 
-It is probably a VERY good idea to load the maps into a plsql DB on a FAST system...
-export the loaded DB...
-Import into a slow system.
+It is probably a VERY good idea to:-
+* Load the maps into a plsql DB on a FAST system...
+* export the loaded DB to a dump file
+* Import into a slow system.
 
 This is bcause running osmosis and osm2pgsql on slow Rasberry-Pi 2 Model B is painful
 and it might damage microSD....too many writes...possibly.
@@ -19,24 +20,8 @@ apt-get install osm2pgsql
 
 
 
-Downloading the map
+Downloading the map (Done on a fast machine)
 ---------------------
-Went to:-
-
-http://www.openstreetmap.org
-
-Click on Export
-
-Clicked on hyper link "Manually select a different area"
-
-Choose the area I wanted 
-
-Clicked on hyperlink "Overpass API" and let it download
-
-
-** Didn't work ...download failed..
-
-
 Went to:-
 
 http://download.geofabrik.de/
@@ -57,8 +42,7 @@ Extracting a 'region' of Australia map for load
 
 apt-get install osmosis
 
-Create a file called east.poly  
-
+Create a file called east.poly .... to get most of the Eastern states 
 
 osmosis --read-xml file="australia-latest.osm" --bounding-polygon file="east.poly" \
         --write-xml file="east.australia-latest.osm"
@@ -69,21 +53,23 @@ bzip2 east.australia-latest.osm
 
 or
 
+Create a file called east.poly .... to get mostly the state of Queensland
+
 osmosis --read-xml file="australia-latest.osm" --bounding-polygon file="qld.poly" \
         --write-xml file="qld.australia-latest.osm"
 
 
 bzip2 qld.australia-latest.osm
 
-Then Transfer this file to /data/maps
-
 
 NOTE: Sample scripts and poly files are in the maps directory
 
 
 
-Installing map software
+Creating database gis to hold MAP data
 ---------------
+(These are steps I ran on 'fast' machine where I later use osm2pgsql)
+
 Log on as user root
 
 su - postgres
@@ -113,8 +99,9 @@ psql -d gis -f spatial_ref_sys.sql
 
 Loading osm map into Postgres database gis
 ------------------
-as postgres user:-
+(These are steps I run on fast machine)
 
+I do these steps as UNIX user postgres.
 
 Here is an example of loading QLD map
 
@@ -123,41 +110,47 @@ osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
           -S /usr/share/osm2pgsql/default.style --hstore
 
 
-Transferring Postgres database to slower system
+
+Exporting and Transferring Postgres database to slower system
 ------------
 On fast source system, type:-
 
 
 pg_dump gis > /tmp/gis.dmp
 
-Transfer to slow system
+Transfer file /tmp/gis.dmp to slow system
 
 
+Importing MAP into gis database on slow system
+---------------------
 Create GIS database as follows:-
 
 Log on as user postgres and run the commands below:-
 
-createuser pi   # anser yes for superuser
+createuser pi   # answer yes for superuser
+
 createdb -E UTF8 -O pi gis
+
 createlang plpgsql gis
 
 psql -U pi -d gis
 
-
 create extension hstore;
 
-control-d
+Press control-d to exit
 
 
-Log in as user pi
+Log in as user pi.
 
 Then import database:-
 
 psql -U pi -d gis < gis.dmp
 
 
+Configure Postgres Access
+---------------
+On the Rasberry-Pi as the user root, open 
 
-Open 
 /etc/postgresql/9.1/main/pg_hba.conf
 
 Add the line:-
@@ -178,15 +171,19 @@ vi /etc/init.d/renderd.init
 
 and make following changes:-
 
-19c19
-< DAEMON=/usr/local/bin/$NAME
----
-> DAEMON=/usr/bin/$NAME
-24c24
-< RUNASUSER=pi
----
-> RUNASUSER=www-data
+DAEMON=/usr/bin/$NAME
 
+to
+
+DAEMON=/usr/local/bin/$NAME
+
+RUNASUSER=www-data
+
+to
+ 
+RUNASUSER=pi
+
+Save and exit
 
 chmod a+x /etc/init.d/renderd.init
 
@@ -196,9 +193,20 @@ chkconfig renderd.init on
 /etc/init.d/renderd.init start
 
 
+!!!!
+That should be it!
+!!!!!
 
-Loading standard OpenStreetMap Style.
+
+
+APPENDIX A - Loading standard OpenStreetMap Style.
 ---------------
+The above assumed we want to use OSMBright style....which I found to be quite bad.
+(The OSMBright Style install is documented in BUILD_NOTES.txt)
+
+BUILD_NOTES.txt detail steps for installing the OpenStreetMap Carto Style. Below are notes
+on the adjustments you need to make if you wish to use this style....
+
 Load into DB using openstreetmap-carto.style
 
 osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
@@ -208,28 +216,10 @@ osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
  load on a faster machine)
 
 
+Then extract database dump as per usual steps above...and load into Rasberry-Pi System.
 
-You then need to create the style .xml file for mapnik
+NOTE: You can remove the old database, by first running:-
 
-On the Rasberry-Pi machine as the user pi
+dropdb gis
 
-cd /data/maps/
-mkdir style2
-cd style2
-git clone https://github.com/gravitystorm/openstreetmap-carto.git
-
-cd openstreetmap-carto/
-
-./get-shapefiles.sh
-
-Open project.mml
-and put in absolute path to the shp files
-
-carto project.mml > carto.xml
-
-
-Then put the following line in /etc/renderd.conf
-
-XML=/data/maps/style/OSMBright/carto.xml
-
-Restart Rendered
+as the UNIX user postgres
