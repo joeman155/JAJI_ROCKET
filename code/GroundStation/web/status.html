@@ -11,16 +11,6 @@
 	}
 
 
-	$("#cutdown").click(function() {
-	alert("About to request cutdown");
-	$.ajax({
-		url: "cutdown.php",
-		success: function(s,x) {
-			$("#stats").html(s);
-		}
-	    });
-	});
-
 	function load_status()
 	{
            // Get Viewers GPS info
