@@ -73,11 +73,8 @@ catch (PDOException $e)
     }
 
 $sql = "DELETE FROM gps_prediction_t";
-if (! $dbh->exec($sql)) {
-	print "Error executing statement";
-        print_r($dbh->errorInfo());
-        print "<br><br>\n";
-} 
+$rows_deleted = $dbh->exec($sql) . "<br>";
+print "# of rows deleted: " . $rows_deleted . "<br>\n";
 
 }
 

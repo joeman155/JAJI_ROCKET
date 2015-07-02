@@ -33,7 +33,7 @@ cp config.inc /data/gs/
 echo Initialising the database...
 [ -f /data/gs/db/gs.db ] && mv /data/gs/db/gs.db /data/gs/db/gs.db.bck
 sqlite3 /data/gs/db/gs.db < tables.sql
-chmod 777 /data/gs/gs.db
+chmod 777 /data/gs/db/gs.db
 
 
 
