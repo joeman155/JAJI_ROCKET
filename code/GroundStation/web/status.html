@@ -24,14 +24,11 @@
 	function load_status()
 	{
            // Get Viewers GPS info
-	  if (navigator.geolocation)
-	    {
-  	  navigator.geolocation.watchPosition(gps_success_callback);
-	    }
-	  else
-            {
-            $("#gps_error").html("Geolocation is not supported by this browser.");
-            }
+	  if (navigator.geolocation) {
+  	     navigator.geolocation.watchPosition(gps_success_callback);
+	  } else {
+             $("#gps_error").html("Geolocation is not supported by this browser.");
+          }
 
 
         $.ajax({
