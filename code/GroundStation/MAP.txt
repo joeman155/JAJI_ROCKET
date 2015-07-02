@@ -90,11 +90,7 @@ su - postgres
 
 createdb gis
 
-psql -d gis
-
 createlang plpgsql gis                                         
-
-control-d
 
 
 cd /usr/share/postgresql/9.1/contrib/postgis-1.5/
@@ -115,7 +111,7 @@ psql -d gis -f spatial_ref_sys.sql
 
 
 
-Installing fresh map
+Loading osm map into Postgres database gis
 ------------------
 as postgres user:-
 
@@ -139,22 +135,25 @@ Transfer to slow system
 
 Create GIS database as follows:-
 
+Log on as user postgres and run the commands below:-
+
 createuser pi   # anser yes for superuser
 createdb -E UTF8 -O pi gis
+createlang plpgsql gis
 
 psql -U pi -d gis
 
-createlang plpgsql gis
 
 create extension hstore;
 
 control-d
 
 
+Log in as user pi
 
 Then import database:-
 
-psql gis < gis.dmp
+psql -U pi -d gis < gis.dmp
 
 
 
@@ -167,3 +166,72 @@ local   gis             pi                                      trust
 
 
 service postgresql restart
+
+
+
+Installing Renderer INIT script
+-------------------------------
+As user root on Rasberry-Pi
+cp /data/src/mod_tile/debian/renderd.init /etc/init.d/
+
+vi /etc/init.d/renderd.init
+
+and make following changes:-
+
+19c19
+< DAEMON=/usr/local/bin/$NAME
+---
+> DAEMON=/usr/bin/$NAME
+24c24
+< RUNASUSER=pi
+---
+> RUNASUSER=www-data
+
+
+chmod a+x /etc/init.d/renderd.init
+
+chkconfig renderd.init on
+
+
+/etc/init.d/renderd.init start
+
+
+
+Loading standard OpenStreetMap Style.
+---------------
+Load into DB using openstreetmap-carto.style
+
+osm2pgsql qld.australia-latest.osm.bz2 -d gis -U postgres -P 5432 \
+          -S openstreetmap-carto.style --hstore
+
+(You'll need to get openstreetmap-carto.style over to server where running osm2pgsql...if doing 
+ load on a faster machine)
+
+
+
+You then need to create the style .xml file for mapnik
+
+On the Rasberry-Pi machine as the user pi
+
+cd /data/maps/
+mkdir style2
+cd style2
+git clone https://github.com/gravitystorm/openstreetmap-carto.git
+
+cd openstreetmap-carto/
+
+./get-shapefiles.sh
+
+Open project.mml
+and put in absolute path to the shp files
+
+carto project.mml > carto.xml
+
+
+Then put the following line in /etc/renderd.conf
+
+XML=/data/maps/style/OSMBright/carto.xml
+
+
+Restart Renderer
+--------------------

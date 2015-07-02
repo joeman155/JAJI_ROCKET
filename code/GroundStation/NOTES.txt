@@ -51,13 +51,15 @@ apt-get install postgresql postgresql-contrib
 
 apt-get install chkconfig locate
 
-apt-get install osm2pgsql 
+apt-get install osm2pgsql gdal-bin
 
 apt-get install telnet screen  gcc-4.8
 
 apt-get install libfreetype6-dev libpng12-dev libtiff4-dev libicu-dev libgdal-dev libcairo-dev libcairomm-1.0-dev liblua5.2-dev ttf-unifont lua5.1 liblua5.1-dev 
 
 apt-get install libproj-dev libboost-dev libboost-all-dev
+
+apt-get install imagemagick
 
 
 NOTE: git was already installec by default!
@@ -165,6 +167,13 @@ sudo ldconfig
 
 
 
+Verify that Mapnik has been installed correctly:
+python
+>>> import mapnik
+>>>
+If python replies with the second chevron prompt >>> and without errors, then Mapnik library was found by Python. Congratulations! You can leave Python with this command:
+>>> quit()
+
 
 
 10. Install Mod_Tile   (This include renderd)
@@ -241,7 +250,7 @@ cd /data/maps/style/osm-bright-master
 cp osm-bright/osm-bright.osm2pgsql.mml osm-bright/osm-bright.osm2pgsql.mml.backup
 
 
-Open this file for editing.
+Open this file (osm-bright/osm-bright.osm2pgsql.mml) for editing.
 
 Find the lines with URLs pointing to shapefiles (ending .zip) and replace each one with these appropriate pairs of lines:
 
@@ -271,7 +280,7 @@ Open configure.py in editor...
 
 Update config line to point to /data/maps/style directory
 Update dbname from osm to gis
-Set    username from "" to "gis"
+Set    username from "" to "pi"
 
 Save and exit
 
@@ -346,7 +355,7 @@ tile_dir=/var/lib/mod_tile
 stats_file=/var/run/renderd/renderd.stats
 
 [mapnik]
-plugins_dir=/usr/lib/mapnik/input
+plugins_dir=/usr/local/lib/mapnik/input
 font_dir=/usr/share/fonts/truetype
 font_dir_recurse=1
 
