@@ -1,0 +1,3 @@
+<?
+
+echo "Works. Launch Control";

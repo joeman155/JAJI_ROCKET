@@ -1,0 +1,39 @@
+<script>
+	var current_index = $("#tabs").tabs("option","active"); 
+	if (current_index == 4) {
+	   load_hab_control();  // Initial load
+
+           setInterval(function(){
+	      load_hab_control();
+              }, 5000);
+	   }
+
+
+	   $("#cutdown").click(function() {
+	      alert("About to request cutdown");
+	      $.ajax({
+	   	url: "cutdown.php",
+		success: function(s,x) {
+			$("#stats").html(s);
+		}
+	      });
+	   });
+
+	   function load_hab_control()
+	   {
+
+
+           $.ajax({
+                   url: "hab_control.php",
+	   	   type: "GET",
+		   cache: false,
+                   success: function(s,x) {
+                       $("#hab_control").html(s);
+	   	   }
+           })
+
+	}
+</script>
+<div id="hab_control">
+</div>
+
