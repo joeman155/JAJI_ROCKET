@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Hope Client Web Portal</title>
+  <title>GroundStation Client Web Portal</title>
   <link rel="stylesheet" href="images.css">
   <link rel="stylesheet" href="jq/themes/ui-lightness/jquery-ui.css">
 
@@ -96,8 +96,8 @@
 
 	function addMessage(message)
 	{
-		$("#messages").prepend(message);
-		$("#messages li:first").effect("slide", {direction: "down"}, "fast");
+		$("#logs").prepend(message);
+		$("#logs li:first").effect("slide", {direction: "down"}, "fast");
 	}
 
 	function  load_datetime()
@@ -165,13 +165,15 @@
 <div id="tabs">
 	<ul>
 		<li><a href="status.html">Status</a></li>
-		<li><a href="#messages">Log</a></li>
+		<li><a href="#logs">Logs</a></li>
 		<li><a href="images.php">Images</a></li>
+		<li><a href="#habcontrol">Hab Control</a></li>
+		<li><a href="#launchconsole">Launch console</a></li>
 		<li><a href="#map-canvas">Map</a></li>
 		<li><a href="upload_prediction.php">Upload Prediction</a></li>
 	</ul>
-	<div id="messages" class="container">
-		<ul id="messages">
+	<div id="logs" class="container">
+		<ul id="logs">
 		</ul>
 	</div>
 
@@ -182,6 +184,12 @@
 	</div>
 
 	<div id="images">
+	</div>
+
+	<div id="habcontrol">
+	</div>
+
+	<div id="launchconsole">
 	</div>
 
 	<div id="prediction">

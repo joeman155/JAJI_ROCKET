@@ -1,17 +1,17 @@
-#messages {
+#logs {
 	padding-left: 0px;
 	margin: 0px;
 	font-size: 12px;
 }
 
-#messages ul {
+#logs ul {
 	list-style-type: none;
 	width: 100%;
 	padding-left: 0px;
 	margin: 0px;
 }
 
-#messages li {
+#logs li {
 	list-style-type: none;
 	width: 98%;
 	padding-left: 4px;
