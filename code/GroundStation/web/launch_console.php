@@ -33,7 +33,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
 // AJAX stuff for buttons
         $("#powertoggle").click(function() {
         $.ajax({
-                url: "request.php",
+                url: "launchConsoleRequest.php",
 		data: {
                        request: "P"
                       },
@@ -46,7 +46,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
 
         $("#arm").click(function() {
         $.ajax({
-                url: "request.php",
+                url: "launchConsoleRequest.php",
                 data: {  
                        request: "A"
                       },
@@ -58,7 +58,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
 
         $("#continuitytest").click(function() {
         $.ajax({
-                url: "request.php",
+                url: "launchConsoleRequest.php",
                 data: {  
                        request: "C"
                       },
@@ -71,7 +71,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
         $("#launch").click(function() {
         alert("Proceed to Launch?");
         $.ajax({
-                url: "request.php",
+                url: "launchConsoleRequest.php",
                 data: {  
                        request: "L"
                       },
