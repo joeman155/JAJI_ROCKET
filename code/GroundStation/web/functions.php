@@ -8,7 +8,7 @@ function insert_request($p_request_code, $p_source, $p_destination, $p_ip)
 
  $v_status = $REQUEST_ENQUEUE_STATUS;
 
- # Get all the latest measurements
+ # Initialise DB connection
  try {
       $dbh = new PDO("sqlite:" . $db_file);
      }
@@ -25,9 +25,39 @@ function insert_request($p_request_code, $p_source, $p_destination, $p_ip)
 
  if (! $dbh->exec($sql)) {
     print "Error when executing statement to insert request\n";
+    return;
  }
 
+ $v_id = $dbh->lastInsertId();
 
+ return $v_id;
+}
+
+
+
+function set_request_status($p_request_id, $p_status_code)
+{
+ global $db_file;
+
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+     }
+
+
+ $sql = "UPDATE requests_t 
+         SET    status = '" . $p_status_code . "',
+                last_update_date = datetime('now', 'localtime')
+         WHERE  id = $p_request_id";
+
+  if (! $dbh->exec($sql)) {
+    print "Error when executing statement to update request status\n";
+ }
 
 }
+
 

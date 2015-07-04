@@ -88,7 +88,12 @@ $prev_height = $row['height'];
 $prev_time   = $row['gps_time'];
 
 # NOW!!.. we calculate the vertical velocity
-$tdiff = time2seconds($gps_time) - time2seconds($prev_time);
+if ($gps_time != null && $prev_time != null) {
+  $tdiff = time2seconds($gps_time) - time2seconds($prev_time);
+} else  {
+  $tdiff = 0;
+}
+
 if ($tdiff <> 0) {
    $v_vertical_velocity = 60 * ($height - $prev_height)/$tdiff;
 } else {

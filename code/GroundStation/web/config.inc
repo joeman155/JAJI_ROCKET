@@ -29,3 +29,6 @@ $REQUEST_ENQUEUE_STATUS    = "V";
 $REQUEST_PROCESSING_STATUS = "P";
 $REQUEST_FINISHED_STATUS   = "F";
 
+$request_source      = "OPERATOR";
+$request_destination = "RLS";
+
