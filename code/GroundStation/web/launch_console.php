@@ -32,54 +32,51 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
 <script>
 // AJAX stuff for buttons
         $("#powertoggle").click(function() {
-        alert("About to toggle power");
         $.ajax({
                 url: "request.php",
 		data: {
                        request: "P"
                       },
                 success: function(s,x) {
-                        $("#hab_contol").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
 
 
         $("#arm").click(function() {
-        alert("About to toggle arm");
         $.ajax({
                 url: "request.php",
                 data: {  
                        request: "A"
                       },
                 success: function(s,x) {
-                        $("#hab_contol").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
 
         $("#continuitytest").click(function() {
-        alert("About to perform continuity Test");
         $.ajax({
                 url: "request.php",
                 data: {  
                        request: "C"
                       },
                 success: function(s,x) {
-                        $("#hab_contol").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
 
         $("#launch").click(function() {
-        alert("About to Launch");
+        alert("Proceed to Launch?");
         $.ajax({
                 url: "request.php",
                 data: {  
                        request: "L"
                       },
                 success: function(s,x) {
-                        $("#hab_contol").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
