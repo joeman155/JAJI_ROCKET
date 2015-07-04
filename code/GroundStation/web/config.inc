@@ -22,3 +22,10 @@ $v_num_spaced_out_points = 20;
 # if less then $v_max_row_count points, show all GPS points
 # if more than $v_max_row_count points, show the last ($v_max_row_count - $v_num_spaced_out_points)
 #     points AND show $v_num_spaced_out_points 'spaced' out points for the beginning of journey
+
+
+# REQUEST STATUS's
+$REQUEST_ENQUEUE_STATUS    = "V";
+$REQUEST_PROCESSING_STATUS = "P";
+$REQUEST_FINISHED_STATUS   = "F";
+

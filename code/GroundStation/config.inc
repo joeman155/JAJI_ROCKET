@@ -78,7 +78,4 @@ my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and the
                           # count of # of iterations with this.
 
 
-
-
-
 return 1;

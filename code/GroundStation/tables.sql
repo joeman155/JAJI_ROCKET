@@ -53,3 +53,19 @@ CREATE TABLE gps_prediction_t (id integer primary key autoincrement,
                     height    integer,
                     creation_date datetime);
 
+CREATE TABLE requests_t (id integer primary key autoincrement,
+                    source varchar2(10),
+                    request_code varchar2(150),
+                    destination varchar2(10),
+                    ip varchar2(15),
+                    status_code char(1),
+                    msg varchar2(150),
+                    creation_date datetime,
+                    last_update_date datetime);
+
+CREATE TABLE request_status_t (id integer primary key,
+                               status_code char(1),
+                               status_name varchar2(15),
+                               status_desc varchar2(150));
+
+
