@@ -80,7 +80,6 @@ VALUES ('C', 'Created');
 INSERT INTO request_status_t (status_code, status_name)
 VALUES ('P', 'Processing');
 
-
 INSERT INTO request_status_t (status_code, status_name)
 VALUES ('F', 'Finished');
 

@@ -89,10 +89,30 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
 <h3>Launch Console</h3>
 <div>
 <ul>
+<?
+// Power
+if (is_null($rls_power_status)) {
+  $v_power_status = "NA";
+} else if ($rls_power_status == 1) {
+  $v_power_status = "Power On";
+} else if ($rls_power_status == 0) {
+  $v_power_status = "Power Off";
+}
+
+// Arm
+if (is_null($rls_arm_status)) {
+  $v_arm_status = "NA";
+} else if ($rls_arm_status == 1) {
+  $v_arm_status = "Armed";
+} else if ($rls_arm_status == 0) {
+  $v_arm_status = "DIS-Armed";
+}
+
+?>
   <li><p id="powertoggle">Power-On</p>
-  <?= $rls_power_status?></li>
+  <?= $v_power_status?></li>
   <li><p id="arm">Arm</p>
-  <?= $rls_arm_status?></li>
+  <?= $v_arm_status?></li>
   <li><p id="continuitytest">Continuinity test</p></li>
   <li><p id="launch">Launch</p></li>
 </ul>

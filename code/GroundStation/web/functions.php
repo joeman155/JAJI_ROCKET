@@ -61,3 +61,61 @@ function set_request_status($p_request_id, $p_status_code)
 }
 
 
+
+function get_arm_status()
+{
+ global $db_file;
+
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+     }
+
+
+ $sql = "select arm_status
+         from   launch_system_status_t
+         WHERE  id = (select max(id) FROM launch_system_status_t)";
+
+ $sth = $dbh->prepare($sql);
+ $sth->execute();
+
+ $row = $sth->fetch();
+ $arm_status = $row['arm_status'];
+
+ return $arm_status;
+}
+
+
+
+function get_power_status()
+{
+ global $db_file;
+
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+     }
+
+
+ $sql = "select power_status
+         from   launch_system_status_t
+         WHERE  id = (select max(id) FROM launch_system_status_t)";
+
+ $sth = $dbh->prepare($sql);
+ $sth->execute();
+
+ $row = $sth->fetch();
+ $power_status = $row['power_status'];
+
+ return $power_status;
+}
+
+

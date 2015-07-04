@@ -16,22 +16,20 @@ catch (PDOException $e)
 
 <script>
         $("#cutdown").click(function() {
-        alert("About to request cutdown");
         $.ajax({
                 url: "cutdown.php",
                 success: function(s,x) {
-                        $("#hab_contol").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
 
 
         $("#nophotos").click(function() {
-        alert("About to disable/enable photo downloads");
         $.ajax({
                 url: "nophotos.php",
                 success: function(s,x) {
-                        $("#hab_control").html(s);
+                        $("#msg").html(s);
                 }
             });
         });
