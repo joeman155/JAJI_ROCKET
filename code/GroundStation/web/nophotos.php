@@ -1,4 +1,3 @@
-Toggle photo....
 <?
 # CONFIGUIRATION
 include "config.inc";
