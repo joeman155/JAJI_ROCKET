@@ -392,6 +392,36 @@ service apache2 restart
 
 
 
+Install the RTC
+------------
+1. Install battery on to PiFrace RTC module
+2. Install module on pins
+3. Power up Rasberry-Pi
+4. Log on to Rasberry-Pi
+
+5. Log on as user pi and execute following commands:-
+
+cd /data/src
+mkdir rtc
+cd rtc
+wget https://raw.github.com/piface/PiFace-Real-Time-Clock/master/install-piface-real-time-clock.sh
+
+
+chmod a+x install-piface-real-time-clock.sh
+sudo ./install-piface-real-time-clock.sh
+
+Follow the instructions... which will be something like:-
+
+Enabling I2C module.
+Changing /etc/rc.local to load time from PiFace Clock.
+Please *reboot* and then set your clock with:
+
+    sudo date -s "14 JAN 2014 10:10:30"
+
+(Put in the correct date/time)
+
+
+
 
 
 APPENDIX A - Loading standard OpenStreetMap Style.
