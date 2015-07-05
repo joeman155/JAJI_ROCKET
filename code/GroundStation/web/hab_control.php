@@ -19,7 +19,7 @@ catch (PDOException $e)
         $.ajax({
                 url: "cutdown.php",
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });
@@ -30,7 +30,7 @@ catch (PDOException $e)
         $.ajax({
                 url: "nophotos.php",
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });

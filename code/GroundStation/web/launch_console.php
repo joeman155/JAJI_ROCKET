@@ -38,7 +38,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
                        request: "P"
                       },
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });
@@ -52,7 +52,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
                        request: "A"
                       },
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });
@@ -65,7 +65,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
                        request: "C"
                       },
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });
@@ -79,7 +79,7 @@ $rls_date         =  date("Y-m-d H:i:s", strtotime($rls_date_raw));
                        request: "L"
                       },
                 success: function(s,x) {
-                        $("#msg").html(s);
+                        $("#msgText").html(s);
 			showMsg();
                 }
             });

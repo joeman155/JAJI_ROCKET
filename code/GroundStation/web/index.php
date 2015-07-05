@@ -143,13 +143,25 @@
 
 
 	setInterval(function(){
-	if (processing == 0) {
+	  if (processing == 0) {
 		processing = 1;
 		getMessages();
 		}
-	processing = 0;
-	}, 1000);
+	  processing = 0;
+	  }, 1000);
 	});
+
+
+
+        $(function() {
+          $( "#msg" ).dialog({
+            resizable: false,
+            height:140,
+            autoOpen: false,
+            closeOnEscape: false,
+            modal: true
+          });
+        });
 
 	</script>
 </head>
@@ -162,7 +174,10 @@
     <div id="pid" style="float: left; width: 300px;">
     </div>
     
-    <div id="msg" style="float: middle; width: 200px;">
+    <div id="msg" title="Messages">
+      <p id="msgText">
+
+      </p>
     </div>
 </div>
 
