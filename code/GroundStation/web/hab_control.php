@@ -20,6 +20,7 @@ catch (PDOException $e)
                 url: "cutdown.php",
                 success: function(s,x) {
                         $("#msg").html(s);
+			showMsg();
                 }
             });
         });
@@ -30,6 +31,7 @@ catch (PDOException $e)
                 url: "nophotos.php",
                 success: function(s,x) {
                         $("#msg").html(s);
+			showMsg();
                 }
             });
         });

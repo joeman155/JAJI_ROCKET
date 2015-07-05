@@ -19,6 +19,7 @@
   <script src="jq/ui/jquery.ui.effect.js"></script>
   <script src="jq/ui/jquery.ui.effect-slide.js"></script>
   <script src="jq/ui/jquery.ui.tabs.js"></script>
+  <script src="jq/ui/jquery.ui.dialog.js"></script>
   <script src="js/jquery.cookie.js"></script>
   <script src="js/jquery.timeago.js"></script>
   <script src="js/common.js" type="text/javascript" charset="utf-8"></script>
@@ -159,6 +160,9 @@
     </div>
 
     <div id="pid" style="float: left; width: 300px;">
+    </div>
+    
+    <div id="msg" style="float: middle; width: 200px;">
     </div>
 </div>
 

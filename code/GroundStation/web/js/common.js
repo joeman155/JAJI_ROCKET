@@ -54,3 +54,29 @@ function gps_error_callback(p)
       break;
    }
 }
+
+
+var executeOnce = (function (fn, delay) {
+  var executed = false;
+  return function (/* args */) {
+    var args = arguments;
+    if (!executed) {
+      setTimeout(function () {
+        fn.apply(null, args); // preserve arguments
+      }, delay);
+      executed = true;
+    }
+  };
+});
+
+
+function showMsg()
+{
+  $("#msg").css("display", "block");
+   executeOnce(hideMsg, 5000);
+}
+
+function hideMsg()
+{
+  $("#msg").css("display", "none");
+}
