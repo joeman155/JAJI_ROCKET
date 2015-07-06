@@ -34,7 +34,7 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 // AJAX stuff for buttons
         $("#powertoggle").click(function() {
         $.ajax({
-                url: "launchConsoleRequest.php",
+                url: "enqueueRequest.php",
 		data: {
                        request: "P"
                       },
@@ -48,7 +48,7 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 
         $("#arm").click(function() {
         $.ajax({
-                url: "launchConsoleRequest.php",
+                url: "enqueueRequest.php",
                 data: {  
                        request: "A"
                       },
@@ -61,7 +61,7 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 
         $("#continuitytest").click(function() {
         $.ajax({
-                url: "launchConsoleRequest.php",
+                url: "enqueueRequest.php",
                 data: {  
                        request: "C"
                       },
@@ -75,7 +75,7 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
         $("#launch").click(function() {
         alert("Proceed to Launch?");
         $.ajax({
-                url: "launchConsoleRequest.php",
+                url: "enqueueRequest.php",
                 data: {  
                        request: "L"
                       },

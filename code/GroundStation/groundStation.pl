@@ -21,6 +21,7 @@ use Device::SerialPort qw( :PARAM :STAT 0.07 );
 #use Device::Modem::Protocol::Xmodem;
 use DBI;
 use POSIX;
+use Switch;
 
 
 
@@ -158,18 +159,22 @@ $port->are_match("\r\n");
 
 
 # Commence Serial Port monitoring
-monitor_serial_port();
+monitor_systems();
 
 
 
 
 
 ## MAIN SERIAL PORT MONITOR ROUTINE
-sub monitor_serial_port()
+sub monitor_systems()
 {
 
 while (1 == 1)
 {
+
+
+process_requests();
+
 
     my $serial_rx = "";
     until ("" ne $serial_rx) {
@@ -208,6 +213,10 @@ while (1 == 1)
 ## SEE IF MENU BEING PRESENTED BY RLS
       if ($result =~ /Menu/) {
 
+        # Look for requests from Web Connected Systems.
+        process_requests();
+
+
         #
         # If cutdown request file exists...the initiate cutdown (so long as cutdown hasn't already been intiated)
         #
@@ -228,7 +237,7 @@ while (1 == 1)
           }
           if ($gotit =~ /B/)
           {
-            $str = "HOPE cutdown initiated!\n";
+            $str = "RLS cutdown initiated!\n";
             log_message($str);
           }
           elsif ($gotit =~ /W/)
@@ -393,7 +402,7 @@ while (1 == 1)
 
           if ($gotit =~ /T/) 
           {
-            $str = "HOPE is now in Test mode\n";
+            $str = "RLS is now in Test mode\n";
             log_message($str);
           }
           elsif ($gotit =~ /W/)
@@ -433,7 +442,7 @@ while (1 == 1)
 
           if ($gotit =~ /N/)
           {
-            $str = "HOPE is now in Normal mode\n";
+            $str = "RLS is now in Normal mode\n";
             log_message($str);
           }
           elsif ($gotit =~ /W/)
@@ -501,10 +510,10 @@ sub decode_rx()
     $v_result = "Radio Signal: L/R: " . $1;
   } elsif ($p_line =~ /^S$/)
   {
-    $v_result = "Powering up HOPE";
+    $v_result = "Powering up RLS";
   } elsif ($p_line =~ /^G$/)
   {
-    $v_result = "HOPE powered up";
+    $v_result = "RLS powered up";
   } elsif ($p_line =~ m/^M(.+),(.+),(.+),(.+)$/)
   {
     $voltage = $voltage_multiplier * $4;
@@ -938,6 +947,7 @@ sub get_altitude()
 # Get oldest request that hasn't been acted on yet
 sub get_request()
 {
+ $v_id = 0;
 
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
@@ -950,12 +960,85 @@ sub get_request()
  $sth = $dbh->prepare($query);
  $sth->execute();
  
- my ($v_id) = $sth->fetchrow_array();
+ ($v_id) = $sth->fetchrow_array();
+ $sth->finish();
+
+ if (defined($v_id) && $v_id != "") {
+    $query = "UPDATE requests_t set status_code = 'P' WHERE id = $v_id";
+
+    $sth = $dbh->prepare($query);
+    $sth->execute();
+
+
+    $dbh->disconnect();
+ }
+
+ return $v_id;
+
+}
+
+
+
+# Get the Request Code
+sub get_request_code($)
+{
+ local ($p_request_id) = @_;
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "SELECT request_code
+           FROM   requests_t
+           WHERE  id = $p_request_id";
+
+
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+
+ ($v_request_code) = $sth->fetchrow_array();
  $sth->finish();
 
  $dbh->disconnect();
 
- print "ID: " . $v_id . "\n";
+ return $v_request_code;
 
 }
 
+
+
+
+sub process_requests()
+{
+
+        # Look for requests from Web Connected Systems.
+        $v_req_id = get_request();
+        if (defined($v_req_id)) {
+           # Perform request (transmission)
+           print "Got Request ID: $v_req_id to perform.\n";
+
+           $v_request_code = get_request_code ($v_req_id);
+           print "Request Code is " . $v_request_code . "\n";
+
+           if ($v_request_code =~ /P/) { 
+              print "Power request...\n";
+           } elsif ($v_request_code =~ /^A/) {
+              print "Arm request...\n";
+           } elsif ($v_request_code =~ /^A/) {
+              print "Continuity request...\n";
+           } elsif ($v_request_code =~ /^L/) {
+              print "Launch request...\n";
+           } elsif ($v_request_code =~ /^N/) {
+              print "Photos on/off request...\n";
+           } elsif ($v_request_code =~ /^X/) {
+              print "Cutdown request...\n";
+           }  else {
+              print "Unknown request " . $v_request_code . "\n";
+           }
+
+
+
+           # TODO
+
+        }
+}

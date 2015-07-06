@@ -17,7 +17,10 @@ catch (PDOException $e)
 <script>
         $("#cutdown").click(function() {
         $.ajax({
-                url: "cutdown.php",
+                url: "enqueueRequest.php",
+                data: {
+                       request: "X"
+                      },
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
@@ -28,7 +31,10 @@ catch (PDOException $e)
 
         $("#nophotos").click(function() {
         $.ajax({
-                url: "nophotos.php",
+                url: "enqueueRequest.php",
+                data: {
+                       request: "N"
+                      },
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
@@ -54,7 +60,7 @@ if ($cutdown_msg != "") {
 <?
 } else {
 ?>
-<input id="cutdown" type="button" value="Initiate Cutdown"/>
+<input id="cutdown" type="button" class="styled-button-on" value="Initiate Cutdown"/>
 <?
 }
 ?>
@@ -69,7 +75,7 @@ if (file_exists($nophotos_file)) {
   $nophotos_button_msg = "Disable";
 }
 ?>
-<input id="nophotos" type="button" value="<?=$nophotos_button_msg?> Photo Download"/>
+<input id="nophotos" type="button" class="styled-button-on" value="<?=$nophotos_button_msg?> Photo Download"/>
 (Currently <?=$nophotos_msg?>)
 </div>
 

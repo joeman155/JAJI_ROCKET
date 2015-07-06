@@ -35,6 +35,7 @@ function insert_request_internal($p_request_code, $p_source, $p_destination, $p_
                  '" . $p_ip . "', '" . $v_status_code . "',  datetime('now', 'localtime'))";
 
  # print $sql . "<br><br>\n";
+file_put_contents("/tmp/sql.txt", $sql);
 
  if (! $dbh->exec($sql)) {
     print "Error when executing statement to insert request\n";
