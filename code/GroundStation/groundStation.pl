@@ -1008,37 +1008,86 @@ sub get_request_code($)
 
 
 
+# Look for requests to pick up and process
 sub process_requests()
 {
 
-        # Look for requests from Web Connected Systems.
-        $v_req_id = get_request();
-        if (defined($v_req_id)) {
-           # Perform request (transmission)
-           print "Got Request ID: $v_req_id to perform.\n";
+ # Look for requests from Web Connected Systems.
+ $v_req_id = get_request();
+ if (defined($v_req_id)) {
+    # Perform request (transmission)
+    print "Got Request ID: $v_req_id to perform.\n";
 
-           $v_request_code = get_request_code ($v_req_id);
-           print "Request Code is " . $v_request_code . "\n";
+    $v_request_code = get_request_code ($v_req_id);
+    print "Request Code is " . $v_request_code . "\n";
 
-           if ($v_request_code =~ /P/) { 
-              print "Power request...\n";
-           } elsif ($v_request_code =~ /^A/) {
-              print "Arm request...\n";
-           } elsif ($v_request_code =~ /^A/) {
-              print "Continuity request...\n";
-           } elsif ($v_request_code =~ /^L/) {
-              print "Launch request...\n";
-           } elsif ($v_request_code =~ /^N/) {
-              print "Photos on/off request...\n";
-           } elsif ($v_request_code =~ /^X/) {
-              print "Cutdown request...\n";
-           }  else {
-              print "Unknown request " . $v_request_code . "\n";
-           }
+    if ($v_request_code =~ /P/) { 
+       print "Power request...\n";
+       sendModemRequest("R1", "A1", $v_req_id);
+    } elsif ($v_request_code =~ /^A/) {
+       print "Arm request...\n";
+       sendModemRequest("R2", "A2", $v_req_id);
+    } elsif ($v_request_code =~ /^A/) {
+       print "Continuity request...\n";
+       sendModemRequest("R3", "A3", $v_req_id);
+    } elsif ($v_request_code =~ /^L/) {
+       print "Launch request...\n";
+       sendModemRequest("R4", "A4", $v_req_id);
+    } elsif ($v_request_code =~ /^N/) {
+       print "Photos on/off request...\n";
+    } elsif ($v_request_code =~ /^X/) {
+       print "Download Photo request...\n";
+       sendModemRequest("R5", "A5", $v_req_id);
+    } elsif ($v_request_code =~ /^S/) {
+       print "Skip Photo download request...\n";
+       sendModemRequest("R6", "A6", $v_req_id);
+    } elsif ($v_request_code =~ /^K/) {
+       print "Cutdown request...\n";
+       sendModemRequest("R7", "A7", $v_req_id);
+    }  else {
+       print "Unknown request " . $v_request_code . "\n";
+    }
+
+
+ }
+}
 
 
 
-           # TODO
+# Send request to RLS and wait for some response (an acknowledgement)
+sub sendModemRequest($$$)
+{
+ local ($p_request_string,$p_response_string, $p_request_id) = @_;
+ $v_result = 0;
 
-        }
+ $count_out = $port->write($p_request_string . "\r\n");
+ $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
+ log_message($str);
+
+ my $gotit = "";
+ until ("" ne $gotit) {
+    $gotit = $port->lookfor;       # poll until data ready
+    die "Aborted without match\n" unless (defined $gotit);
+    select(undef,undef,undef,0.3);
+ }
+ if ($gotit =~ /\Q$p_response_string/) {
+    $str = "RLS received request and actioning\n";
+    log_message($str);
+    $v_result = 1;
+ } elsif ($gotit =~ /W/) {
+    $str = "(while sending $p_request_string) - Timeout waiting for response from ground station.\n";
+    log_message($str);
+    print "** " . $str if $DEBUG;
+ } elsif ($gotit =~ /^Q:(.*)$/) {
+    $str = "(while sending $p_request_string) - Did not recognise response from station. Response was: " . $1 . "\n";
+    log_message($str);
+    print "** " . $str if $DEBUG;
+ } else {
+    $str = "RLS never responded as expected....perhaps it didnt get request $p_request_string. Got $gotit \n";
+    log_message($str);
+    print "** " . $str if $DEBUG;
+ }
+
+ 
+ return $v_result;
 }

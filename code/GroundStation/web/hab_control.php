@@ -19,7 +19,7 @@ catch (PDOException $e)
         $.ajax({
                 url: "enqueueRequest.php",
                 data: {
-                       request: "X"
+                       request: "K"
                       },
                 success: function(s,x) {
                         $("#msgText").html(s);
