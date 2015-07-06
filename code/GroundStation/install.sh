@@ -27,7 +27,6 @@ cp -pr web/* /data/web/
 cp air_data.txt /data/gs/
 cp groundStation.pl /data/gs/
 cp gs.sh /data/gs/
-cp config.inc /data/gs/
 
 
 echo Initialising the database...
