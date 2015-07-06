@@ -61,6 +61,7 @@ apt-get install libproj-dev libboost-dev libboost-all-dev
 
 apt-get install imagemagick
 
+apt-get install libdbi-perl libdevice-serialport-perl libdbd-sqlite3
 
 NOTE: git was already installec by default!
 
