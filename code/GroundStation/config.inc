@@ -12,7 +12,7 @@ $home_dir = "/data/gs/";
 my $db_string = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB file
 
 # SERIAL CONFIG
-my $serial_port = "/dev/ttyO1";
+my $serial_port = "/dev/ttyAMA0";
 my $serial_speed = 57600;
 
 # DATE/TIME FORMAT

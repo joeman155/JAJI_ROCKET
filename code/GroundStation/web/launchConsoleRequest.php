@@ -2,6 +2,7 @@
 
 # CONFIGURATION
 include "config.inc";
+include "functions.php";
 
 # Get all the latest measurements
 try {
@@ -16,7 +17,17 @@ catch (PDOException $e)
 $lcRequest = $_REQUEST['request'];
 
 if ($lcRequest == "P") {
-  $v_msg = "Requesting Power on/off...";
+  # Get current status
+
+  # Submit Request
+  $v_req_id = insert_request($lcRequest);
+  if (is_null($v_req_id)) {
+    $v_msg = "Error occured while Requesting Power on/off...";
+  } else {
+    $v_msg = "Requesting Power on/off - Req ID: " . $v_req_id;
+  }
+
+
 } else if ($lcRequest == "A") {
   $v_msg = "Requesting Arm on/off...";
 } else if ($lcRequest == "C") {

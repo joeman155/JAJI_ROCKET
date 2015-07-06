@@ -5,17 +5,17 @@
 #           Launcher System and the end user with their tablet/phone device.
 #
 
-use lib '/home/root/hope/modules/lib/perl/5.14.2';
-use lib '/home/root/hope/modules/share/perl/5.14.2';
+# use lib '/home/root/hope/modules/lib/perl/5.14.2';
+# use lib '/home/root/hope/modules/share/perl/5.14.2';
 
 
 # LOAD MODULES
-use strict;
+# use strict;
 use warnings;
 use IO::Socket;
 use threads;
 use Thread::Queue;
-#use Device::SerialPort qw( :PARAM :STAT 0.07 );
+use Device::SerialPort qw( :PARAM :STAT 0.07 );
 #use Device::SerialPort::Xmodem;
 #use Device::Modem;
 #use Device::Modem::Protocol::Xmodem;
@@ -24,8 +24,82 @@ use POSIX;
 
 
 
-# CONFIGURATION
-require "config.inc";
+
+#------------------ CONFIGURATION -------------------#
+# GENERAL CONFIG
+$home_dir = "/data/gs/";
+
+# DATABASE CONFIG
+my $db_string = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB file
+
+# SERIAL CONFIG
+my $serial_port = "/dev/ttyAMA0";
+my $serial_speed = 57600;
+
+# DATE/TIME FORMAT
+my($day, $month, $year) = (localtime)[3,4,5];
+$month = sprintf '%02d', $month+1;
+$day   = sprintf '%02d', $day;
+my $rrmmdd =  $year+1900 . $month . $day;
+
+# FILES
+# Pressure/altitude
+my %data;  # Holds altitude/air pressure data
+load_air_data($home_dir . "air_data.txt");
+
+# GPS_file
+$gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
+
+# Measurements_file
+$measurements_file = $home_dir . "out/measurements.txt";
+
+# Cutdown file
+$cutdown_req_file  = $home_dir . "run/cutdown_requested.txt";
+$cutdown_init_file = $home_dir . "run/cutdown_initiated.txt";
+`rm -f $cutdown_req_file`;
+`rm -f $cutdown_init_file`;
+$cutdown_initiated = 0;      # Indicates if cutdown has been initiated.
+
+# No Photos
+$nophotos_file = $home_dir . "run/nophotos.txt";
+`rm -f $nophotos_file`;
+
+
+# X-MODEM
+# X-Modem packet file
+$download_file_status = $home_dir . "run/download_file_status";
+$x_modem_packet_num = $home_dir . "run/x_modem_packet";
+`echo "" > $x_modem_packet_num`;
+`echo 0 > $download_file_status`;
+
+# PICTURE CONFIGURATIONS
+my $filename = "";  
+my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
+$pic_download_offered = 0;   # How many times the Launch System has offered a picture for download
+$pic_dl_freq = 5;            # How often to download a pic.i.e. download every 'pic_dl_freq'th pic offered
+
+
+# INITIALISATIONS
+$mode = 0;          # Setting default operating mode
+$DEBUG = 1;         # Enable/Disable debugging
+
+
+# INITIALISATIONS
+my $radio_stats_count = 0;
+my $file_num = 1;
+
+
+# SENSOR CONFIGURATIONS
+my $voltage_multiplier = 5.7 * 3.3 /1024;   # For measuring voltage on Rocket Launch System
+
+# ((r2 + r1)/r2) * (1.8/1800)
+my $gs_psu1_voltage_pin_file = "/sys/devices/ocp.3/helper.15/AIN1";
+my $gs_psu1_voltage_multiplier = ((1.5 + 10.1)/1.5) * (1.8/1800);
+my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
+                          # count of # of iterations with this.
+
+
+#----------END OF CONFIGURATION -------------------#
 
 
 
@@ -54,7 +128,7 @@ print "GroundStation started....beginning Serial Port initialisation...\n";
 
 
 # INITIALISE THE SERIAL PORT
-my $port=Device::SerialPort->new($serial_port);
+my $port=Device::SerialPort->new($serial_port) || die "Can't open $serial_port: $!\n";;
 $port->read_const_time(2000);       # const time for read (milliseconds)
 $port->read_char_time(5);           # avg time between read char
 my $STALL_DEFAULT=10;               # how many seconds to wait for new input
@@ -857,5 +931,31 @@ sub get_altitude()
  }
 
  return int($altitude/3.2808399);
+}
+
+
+
+# Get oldest request that hasn't been acted on yet
+sub get_request()
+{
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "SELECT min(id)
+           FROM   requests_t
+           WHERE  status_code = 'C'";
+
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+ 
+ my ($v_id) = $sth->fetchrow_array();
+ $sth->finish();
+
+ $dbh->disconnect();
+
+ print "ID: " . $v_id . "\n";
+
 }
 

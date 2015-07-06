@@ -69,8 +69,8 @@ CREATE TABLE request_status_t (status_code char(1) primary key,
 
 
 CREATE TABLE launch_system_status_t (id integer primary key autoincrement,
-           power_status integer,
-           arm_status   integer,
+           attribute char(1),
+           status   integer,
            creation_date datetime);
 
 

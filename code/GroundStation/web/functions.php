@@ -1,12 +1,24 @@
 <?
 
 
-function insert_request($p_request_code, $p_source, $p_destination, $p_ip)
+function insert_request($p_request_code)
+{
+ global $request_source, $request_destination;
+
+ $v_ip = $_SERVER['REMOTE_ADDR'];
+
+ $v_req_id = insert_request_internal($p_request_code, $request_source, $request_destination, $v_ip);
+
+ return $v_req_id;
+}
+
+
+function insert_request_internal($p_request_code, $p_source, $p_destination, $p_ip)
 {
  global $db_file;
  global $REQUEST_ENQUEUE_STATUS;
 
- $v_status = $REQUEST_ENQUEUE_STATUS;
+ $v_status_code = $REQUEST_ENQUEUE_STATUS;
 
  # Initialise DB connection
  try {
@@ -15,17 +27,18 @@ function insert_request($p_request_code, $p_source, $p_destination, $p_ip)
  catch (PDOException $e)
      {
       echo $e->getMessage();
+      return NULL;
      }
 
- $sql = "INSERT INTO requests_t (source, destination, request_code, ip, status, creation_date)
-         VALUES ('" . $p_source . "', '" . $p_destination . "', '" . $request_code . "',
-                 '" . $p_ip . "', '" . $v_status . "',  datetime('now', 'localtime'))";
+ $sql = "INSERT INTO requests_t (source, destination, request_code, ip, status_code, creation_date)
+         VALUES ('" . $p_source . "', '" . $p_destination . "', '" . $p_request_code . "',
+                 '" . $p_ip . "', '" . $v_status_code . "',  datetime('now', 'localtime'))";
 
  # print $sql . "<br><br>\n";
 
  if (! $dbh->exec($sql)) {
     print "Error when executing statement to insert request\n";
-    return;
+    return NULL;
  }
 
  $v_id = $dbh->lastInsertId();
@@ -50,7 +63,7 @@ function set_request_status($p_request_id, $p_status_code)
 
 
  $sql = "UPDATE requests_t 
-         SET    status = '" . $p_status_code . "',
+         SET    status_code = '" . $p_status_code . "',
                 last_update_date = datetime('now', 'localtime')
          WHERE  id = $p_request_id";
 
@@ -62,9 +75,10 @@ function set_request_status($p_request_id, $p_status_code)
 
 
 
-function get_arm_status()
+function get_rls_status($p_attribute)
 {
  global $db_file;
+ $result = array();
 
  # Initialise DB connection
  try {
@@ -76,46 +90,20 @@ function get_arm_status()
      }
 
 
- $sql = "select arm_status
+ $sql = "select status
          from   launch_system_status_t
-         WHERE  id = (select max(id) FROM launch_system_status_t)";
+         WHERE  id = (select max(id) FROM launch_system_status_t where attribute = '" . $p_attribute . "')";
 
  $sth = $dbh->prepare($sql);
  $sth->execute();
 
  $row = $sth->fetch();
- $arm_status = $row['arm_status'];
+ $result["status"] = $row['status'];
+ $result["creation_date"] = $row['creation_date'];
 
- return $arm_status;
+ return $result;
 }
 
 
-
-function get_power_status()
-{
- global $db_file;
-
- # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
-
-
- $sql = "select power_status
-         from   launch_system_status_t
-         WHERE  id = (select max(id) FROM launch_system_status_t)";
-
- $sth = $dbh->prepare($sql);
- $sth->execute();
-
- $row = $sth->fetch();
- $power_status = $row['power_status'];
-
- return $power_status;
-}
 
 
