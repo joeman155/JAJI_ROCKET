@@ -963,18 +963,18 @@ sub get_request()
  ($v_id) = $sth->fetchrow_array();
  $sth->finish();
 
- if (defined($v_id) && $v_id != "") {
-    $query = "UPDATE requests_t set status_code = 'P' WHERE id = $v_id";
+ if (defined($v_id)) {
+    if ($v_id != "") {
+       $query = "UPDATE requests_t set status_code = 'P' WHERE id = $v_id";
 
-    $sth = $dbh->prepare($query);
-    $sth->execute();
-
-
-    $dbh->disconnect();
+       $sth = $dbh->prepare($query);
+       $sth->execute();
+    }
  }
 
- return $v_id;
+ $dbh->disconnect();
 
+ return $v_id;
 }
 
 
@@ -1016,36 +1016,45 @@ sub process_requests()
  $v_req_id = get_request();
  if (defined($v_req_id)) {
     # Perform request (transmission)
-    print "Got Request ID: $v_req_id to perform.\n";
+    print "** Got Request ID: $v_req_id to perform.\n" if $DEBUG;
 
     $v_request_code = get_request_code ($v_req_id);
-    print "Request Code is " . $v_request_code . "\n";
+    print "** Request Code is " . $v_request_code . "\n" if $DEBUG;
 
     if ($v_request_code =~ /P/) { 
-       print "Power request...\n";
+       print "** Power request...\n" if $DEBUG;
        sendModemRequest("R1", "A1", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^A/) {
-       print "Arm request...\n";
+       print "** Arm request...\n" if $DEBUG;
        sendModemRequest("R2", "A2", $v_req_id);
-    } elsif ($v_request_code =~ /^A/) {
-       print "Continuity request...\n";
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
+    } elsif ($v_request_code =~ /^C/) {
+       print "** Continuity request...\n" if $DEBUG;
        sendModemRequest("R3", "A3", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^L/) {
-       print "Launch request...\n";
+       print "** Launch request...\n" if $DEBUG;
        sendModemRequest("R4", "A4", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^N/) {
-       print "Photos on/off request...\n";
+       print "** Photos on/off request...\n" if $DEBUG;
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^X/) {
-       print "Download Photo request...\n";
+       print "** Download Photo request...\n" if $DEBUG;
        sendModemRequest("R5", "A5", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^S/) {
-       print "Skip Photo download request...\n";
+       print "** Skip Photo download request...\n" if $DEBUG;
        sendModemRequest("R6", "A6", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^K/) {
-       print "Cutdown request...\n";
+       print "** Cutdown request...\n" if $DEBUG;
        sendModemRequest("R7", "A7", $v_req_id);
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     }  else {
-       print "Unknown request " . $v_request_code . "\n";
+       print "** Unknown request " . $v_request_code . "\n" if $DEBUG;
+       setRequestStatus  ($v_req_id, "F");  # Set status to finished
     }
 
 
@@ -1072,18 +1081,22 @@ sub sendModemRequest($$$)
  }
  if ($gotit =~ /\Q$p_response_string/) {
     $str = "RLS received request and actioning\n";
+    updateRequestDetails ($p_request_id, $str);
     log_message($str);
     $v_result = 1;
  } elsif ($gotit =~ /W/) {
     $str = "(while sending $p_request_string) - Timeout waiting for response from ground station.\n";
+    updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
  } elsif ($gotit =~ /^Q:(.*)$/) {
     $str = "(while sending $p_request_string) - Did not recognise response from station. Response was: " . $1 . "\n";
+    updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
  } else {
     $str = "RLS never responded as expected....perhaps it didnt get request $p_request_string. Got $gotit \n";
+    updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
  }
@@ -1091,3 +1104,50 @@ sub sendModemRequest($$$)
  
  return $v_result;
 }
+
+
+
+
+# Update request with details of what happened with transmission of request
+sub updateRequestDetails($$)
+{
+ local ($p_request_id, $p_notes) = @_;
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "UPDATE requests_t
+                  SET notes = '" . $p_notes . "'
+           WHERE  id = $p_request_id";
+
+
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+
+ $dbh->disconnect();
+
+}
+
+
+# Set Request Status
+sub setRequestStatus($$)
+{
+ local ($p_request_id, $p_status_code) = @_;
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "UPDATE requests_t
+                  SET status_code = '" . $p_status_code . "'
+           WHERE  id = $p_request_id";
+
+
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+
+ $dbh->disconnect();
+
+}
+

@@ -59,7 +59,7 @@ CREATE TABLE requests_t (id integer primary key autoincrement,
                     destination varchar2(10),
                     ip varchar2(15),
                     status_code integer,
-                    msg varchar2(150),
+                    notes varchar2(150),
                     creation_date datetime,
                     last_update_date datetime);
 
