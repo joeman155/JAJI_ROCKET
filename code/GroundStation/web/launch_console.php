@@ -110,12 +110,13 @@ if (is_null($rls_arm_status)) {
 }
 
 ?>
-  <li><p id="powertoggle">Power-On</p>
+  <li><input id="powertoggle" class="styled-button-1" value="Power-On" />
   <?= $v_power_status?></li>
-  <li><p id="arm">Arm</p>
+  <li><input id="arm" class="styled-button-1" value="Arm" />
   <?= $v_arm_status?></li>
-  <li><p id="continuitytest">Continuinity test</p></li>
-  <li><p id="launch">Launch</p></li>
-</ul>
+  <li><input id="continuitytest" class="styled-button-1" value="Continuinity test" />
+  </li>
+  <li><input id="launch" class="styled-button-1" value="Launch" />
+   </li>
 </div>
 
