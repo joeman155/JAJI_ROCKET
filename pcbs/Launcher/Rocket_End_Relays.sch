@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="7.1.0">
+<eagle version="7.3.0">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -18631,10 +18631,10 @@ Igniters</text>
 <wire x1="-88.9" y1="167.64" x2="-88.9" y2="170.18" width="0.1524" layer="91"/>
 <pinref part="R13" gate="G$1" pin="2"/>
 <junction x="-76.2" y="170.18"/>
-<pinref part="JP2" gate="G$1" pin="3"/>
-<wire x1="-50.8" y1="154.94" x2="-50.8" y2="147.32" width="0.1524" layer="91"/>
-<wire x1="-50.8" y1="147.32" x2="-33.02" y2="147.32" width="0.1524" layer="91"/>
+<wire x1="-53.34" y1="147.32" x2="-33.02" y2="147.32" width="0.1524" layer="91"/>
 <junction x="-33.02" y="147.32"/>
+<pinref part="JP2" gate="G$1" pin="2"/>
+<wire x1="-53.34" y1="147.32" x2="-53.34" y2="154.94" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$16" class="0">
