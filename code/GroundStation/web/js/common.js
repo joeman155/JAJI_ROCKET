@@ -72,7 +72,6 @@ var executeOnce = (function (fn, delay) {
 
 function showMsg()
 {
-//   $("#msg").dialog("option", "show", true);
   $("#msg").dialog("open");
    executeOnce(hideMsg, 5000);
 }
@@ -80,5 +79,4 @@ function showMsg()
 function hideMsg()
 {
   $("#msg").dialog("close");
-//  $("#msg").dialog("option", "hide", true);
 }
