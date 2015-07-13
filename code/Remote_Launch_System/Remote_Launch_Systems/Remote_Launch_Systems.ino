@@ -26,9 +26,7 @@ int   continuityState = 1;         // current state of the button
 
 // Menu
 unsigned long menutime = 5000;
-char *param;  // Parameter for functions called when requests sent.
-char *result; // Data to include back with Acknowledgement
-int resultint; // numeric result
+char param[10];  // Parameter for functions called when requests sent.
 
 
 // Sensors
@@ -58,7 +56,7 @@ void loop() {
  // Get Serial Input (menu) 
  char *menuopt = pollSerial();
  
- param = '\0';
+ param[0] = '\0';
  // Determine action to take
  if (menuopt[0] != '\0') {
     sendPacket(String("Received: ") + String(menuopt));
@@ -67,9 +65,15 @@ void loop() {
     if (strlen(menuopt) > 4) {
       // Make sure next character is a colon.
       if (strncmp(menuopt+3, ":",1) == 0) {
-        param = menuopt+4;
+        strncpy(param, menuopt+4, strlen(menuopt) -4);
       }
    }
+
+   
+//   Serial.print("Param:");
+//   Serial.println(String(param));
+//   Serial.println(strlen(param));   
+
       
    /* Command Checks */
    if (strncmp(menuopt, "R01", 3) == 0) 
@@ -330,7 +334,6 @@ boolean isLaunchSystemArmed() {
 // 1 if power is on
 // 2 if there was an error...not understanding input parameter)
 int powerRequest(char *param) {
-   char *result;
    if (strlen(param) == 0) {
       togglepowerLaunchSystem();  
    } else if (strcmp(param, "1") == 0) {
