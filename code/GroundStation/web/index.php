@@ -159,7 +159,8 @@
             height:140,
             autoOpen: false,
             closeOnEscape: false,
-            modal: true
+            modal: true,
+            hide: {effect: "fade", duration: 500}
           });
         });
 

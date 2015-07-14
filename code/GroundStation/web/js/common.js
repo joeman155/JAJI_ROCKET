@@ -73,7 +73,7 @@ var executeOnce = (function (fn, delay) {
 function showMsg()
 {
   $("#msg").dialog("open");
-   executeOnce(hideMsg, 5000);
+  setTimeout(function(){ console.log('Executed after 2000ms'); $("#msg").dialog("option", "hide", "fade").dialog("close"); }, 2000);
 }
 
 function hideMsg()
