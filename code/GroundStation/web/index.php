@@ -148,7 +148,7 @@
 		getMessages();
 		}
 	  processing = 0;
-	  }, 1000);
+	  }, 2000);
 	});
 
 

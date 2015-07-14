@@ -31,7 +31,11 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 ?>
 
 <script>
-// AJAX stuff for buttons
+	// Initialise fuzzy timeago
+	$("abbr.timeago").timeago();
+
+
+	// AJAX stuff for buttons
         $("#powertoggle").click(function() {
         $.ajax({
                 url: "enqueueRequest.php",
@@ -94,19 +98,19 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 <?
 // Power
 if (is_null($rls_power_status)) {
-  $v_power_status = "NA";
+  $v_power_status = "Unknown";
   $v_power_status_css = "un";
 } else if ($rls_power_status == 1) {
-  $v_power_status = "Power On";
+  $v_power_status = "On";
   $v_power_status_css = "on";
 } else if ($rls_power_status == 0) {
-  $v_power_status = "Power Off";
+  $v_power_status = "Off";
   $v_power_status_css = "off";
 }
 
 // Arm
 if (is_null($rls_arm_status)) {
-  $v_arm_status = "NA";
+  $v_arm_status = "Unknown";
   $v_arm_status_css = "un";
 } else if ($rls_arm_status == 1) {
   $v_arm_status = "Armed";
@@ -117,10 +121,18 @@ if (is_null($rls_arm_status)) {
 }
 
 ?>
-    <li><input type="button" id="powertoggle" class="styled-button-<?= $v_power_status_css?>" value="Power-On" />
-    <?= $v_power_status?></li>
-    <li><input type="button" id="arm" class="styled-button-<?= $v_arm_status_css?>" value="Arm" />
-    <?= $v_arm_status?></li>
+    <li>
+       <input type="button" id="powertoggle" class="styled-button-<?= $v_power_status_css?>" value="Power" />
+       <div>
+          Currently: <?= $v_power_status?> - <abbr class="timeago" title="<?= $rls_power_status_date?>"></abbr>
+       </div>
+    </li>
+    <li>
+       <input type="button" id="arm" class="styled-button-<?= $v_arm_status_css?>" value="Arm" />
+       <div>
+          Currently: <?= $v_arm_status?> - <abbr class="timeago" title="<?= $rls_arm_status_date?>"></abbr> 
+       </div>
+    </li> 
     <li><input type="button" id="continuitytest" class="styled-button-on" value="Continuinity test" />
     </li>
     <li><input type="button" id="launch" class="styled-button-off" value="Launch" />
