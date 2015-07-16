@@ -263,7 +263,7 @@ int checkContinuity(){
   
   // A high on pin...means no continuity...
   // a low on pin means there IS continuity
-  if (continuityState == HIGH) {
+  if (continuityState == LOW) {
      return 1;
   }  else {
      return 0;
