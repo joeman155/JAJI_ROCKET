@@ -15,6 +15,7 @@ int state;
 char inData[20]; // Allocate some space for the string
 char noCommand[1];
 char inChar=-1; // Where to store the character read
+char nextChar=-1; // Where we store the peeked character
 byte index = 0; // Index into array; where to store the character
 
 static char outstr[15];
@@ -22,10 +23,11 @@ String str;
 
 // Other config
 long heartbeat_count;
-int   continuityState = 1;         // current state of the button
+int  continuityState = 1;         // current state of the button
 
 // Menu
 unsigned long menutime = 5000;
+int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 
 
@@ -54,71 +56,9 @@ void loop() {
 
 
  // Get Serial Input (menu) 
- char *menuopt = pollSerial();
+ pollSerial();
  
- param[0] = '\0';
- // Determine action to take
- if (menuopt[0] != '\0') {
-    sendPacket(String("Received: ") + String(menuopt));
- 
-    // Decode menuopt....to get parameter (if provided)
-    if (strlen(menuopt) > 4) {
-      // Make sure next character is a colon.
-      if (strncmp(menuopt+3, ":",1) == 0) {
-        strncpy(param, menuopt+4, strlen(menuopt) -4);
-      }
-   }
-
    
-//   Serial2.print("Param:");
-//   Serial2.println(String(param));
-//   Serial2.println(strlen(param));   
-
-      
-   /* Command Checks */
-   if (strncmp(menuopt, "R01", 3) == 0) 
-   {
-      state = powerRequest(param);
-      sendPacket(String("A01:") + String(state));      
-   } 
-   else if (strcmp(menuopt, "R08") == 0) 
-   {
-      sendPacket(String("A08:") + String(isLaunchSystemPowered()));            
-   } 
-   else if (strcmp(menuopt, "R03") == 0) 
-   {
-      state = checkContinuity();
-      sendPacket(String("A03:") + String(state));
-   } 
-   else if (strcmp(menuopt, "ST") == 0) 
-   {
-      ardupsu.read();
-      dtostrf(ardupsu.value(),5, 2, outstr);   
-      sendPacket (String(outstr)); 
-   } else if (strcmp(menuopt, "VT") == 0) 
-   {
-      ignpsu.read();
-      dtostrf(ignpsu.value(),5, 2, outstr);  
-      sendPacket (String(outstr));
-   } 
-   else if (strncmp(menuopt, "R02", 3) == 0) 
-   {
-      state = armRequest(param);
-      sendPacket(String("A02:") + String(state));
-   } 
-   else if (strcmp(menuopt, "R09") == 0) 
-   {
-      sendPacket(String("A09:") + String(isLaunchSystemArmed()));        
-   } 
-   else if (strcmp(menuopt, "R04") == 0) 
-   {
-      state = initiateLaunch();
-      sendPacket(String("A04:") + String(state));
-   } else 
-   {
-      sendPacket("-9999");
-   }
-}     
   
   
   // Voltages
@@ -156,12 +96,95 @@ void loop() {
   heartbeat();
   
    
- delay(1000);
- 
+  delay(500);
 }
 
 
-void heartbeat() {
+int processRxSerial(char *rxString)
+{
+ int theend = 0;  // Indicates to calling routine if we are ending our listening on the Serial Port
+ 
+ param[0] = '\0';
+ // Determine action to take
+ if (rxString[0] != '\0') {
+    // sendPacket(String("Received: ") + String(rxString));
+ 
+    // Decode rxString....to get parameter (if provided)
+    if (strlen(rxString) > 4) {
+       // Make sure next character is a colon.
+       if (strncmp(rxString+3, ":",1) == 0) {
+          strncpy(param, rxString+4, strlen(rxString) -4);
+       }
+    }
+
+   
+//   Serial2.print("Param:");
+//   Serial2.println(String(param));
+//   Serial2.println(strlen(param));   
+
+      
+   /* Command Checks */
+   if (strcmp(rxString, "R00") == 0) 
+   {
+      sendPacket(String("A00"));
+      theend = 1;     
+   }     
+   else if (strncmp(rxString, "R01", 3) == 0) 
+   {
+      state = powerRequest(param);
+      sendPacket(String("A01:") + String(state));      
+   } 
+   else if (strcmp(rxString, "R08") == 0) 
+   {
+      sendPacket(String("A08:") + String(isLaunchSystemPowered()));            
+   }   
+   else if (strcmp(rxString, "R03") == 0) 
+   {
+      state = checkContinuity();
+      sendPacket(String("A03:") + String(state));
+   } 
+   else if (strcmp(rxString, "ST") == 0) 
+   {
+      ardupsu.read();
+      dtostrf(ardupsu.value(),5, 2, outstr);   
+      sendPacket (String(outstr)); 
+   } else if (strcmp(rxString, "VT") == 0) 
+   {
+      ignpsu.read();
+      dtostrf(ignpsu.value(),5, 2, outstr);  
+      sendPacket (String(outstr));
+   } 
+   else if (strncmp(rxString, "R02", 3) == 0) 
+   {
+      state = armRequest(param);
+      sendPacket(String("A02:") + String(state));
+   } 
+   else if (strcmp(rxString, "R09") == 0) 
+   {
+      sendPacket(String("A09:") + String(isLaunchSystemArmed()));        
+   } 
+   else if (strcmp(rxString, "R04") == 0) 
+   {
+      state = initiateLaunch();
+      sendPacket(String("A04:") + String(state));
+   }    
+   else if (strcmp(rxString, "R05") == 0) 
+   {
+      // Initiate File Transfer
+      sendPacket(String("A05"));
+   } else 
+   {
+      sendPacket("-9999");
+   }
+ }  
+  
+  return theend;
+}
+
+
+
+void heartbeat() 
+{
   str = String("H:") + String(heartbeat_count);
   sendPacket(str);
   heartbeat_count++;
@@ -174,14 +197,14 @@ void sendPacket(String str) {
 
 
 
-char *pollSerial() {  
+void pollSerial() 
+{  
  sendPacket("M"); // Menu  (to tell the other end we are ready to receive commands)
   
  unsigned long startTime = millis();
  inData[0]    = '\0';
- noCommand[0] = '\0';
- int EndFlag = 0;
- int gotCommand = 0;
+ EndFlag = 0;
+ index = 0;
  
  Serial2.flush();
  
@@ -200,11 +223,10 @@ char *pollSerial() {
        
        // If we detect carriage return, this means end of command (person/program) has hit enter
        if (inChar == '\r') {
-          gotCommand = 1; // New Line indicates the command was 'commited'         
-          EndFlag = 1;    // Exit the whole "menu"
+          EndFlag = processRxSerial(inData);     // Exit the whole "menu", IF processing asks us to do it  
           break;          // Get out of the first while loop
+          index = 0;
        }
-       
        
        inData[index] = inChar; // Store it
        index++; // Increment where to write next
@@ -212,14 +234,6 @@ char *pollSerial() {
     }
   }
   
-  index = 0;
-  
-  // Return command or noCommand based on whether the user hit carriage return or not.
-  if (gotCommand == 1) {
-     return   &inData[0];
-  } else {
-    return &noCommand[0];
-  }
 }
 
 
