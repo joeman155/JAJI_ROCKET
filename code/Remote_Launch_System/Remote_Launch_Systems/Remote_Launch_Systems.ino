@@ -35,7 +35,7 @@ VOLTAGE ardupsu;
 
 
 void setup() {
-  Serial.begin(9600);
+  Serial2.begin(57600);
   sendPacket ("S");  
   
   // Initialisations
@@ -70,9 +70,9 @@ void loop() {
    }
 
    
-//   Serial.print("Param:");
-//   Serial.println(String(param));
-//   Serial.println(strlen(param));   
+//   Serial2.print("Param:");
+//   Serial2.println(String(param));
+//   Serial2.println(strlen(param));   
 
       
    /* Command Checks */
@@ -169,7 +169,7 @@ void heartbeat() {
 
 
 void sendPacket(String str) {
-  Serial.println(str);
+  Serial2.println(str);
 }
 
 
@@ -183,20 +183,20 @@ char *pollSerial() {
  int EndFlag = 0;
  int gotCommand = 0;
  
- Serial.flush();
+ Serial2.flush();
  
  while(!EndFlag) {
     if (millis() - startTime > menutime) {   
       EndFlag = 1;
     }
       
-    while(Serial.available() > 0 ) {
+    while(Serial2.available() > 0 ) {
       
       // Accept nothing longer than 20 characters 
        if(index > 19) {
           break;
        }
-       inChar = Serial.read(); // Read a character
+       inChar = Serial2.read(); // Read a character
        
        // If we detect carriage return, this means end of command (person/program) has hit enter
        if (inChar == '\r') {
