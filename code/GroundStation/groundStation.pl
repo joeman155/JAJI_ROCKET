@@ -946,12 +946,14 @@ sub process_requests()
 
     if ($v_request_code =~ /P/) { 
        print "** Power request...\n" if $DEBUG;
-       sendModemRequest("R01", "A01", $v_req_id);
+       $v_result = sendModemRequest("R01", "A01", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       set_launch_console_attribute ("P", $v_result); 
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
        sendModemRequest("R02", "A02", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       set_launch_console_attribute ("A", $v_result);
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
        sendModemRequest("R03", "A03", $v_req_id);
@@ -997,9 +999,9 @@ sub process_requests()
 sub sendModemRequest($$$)
 {
  local ($p_request_string,$p_response_string, $p_request_id) = @_;
- $v_result = 0;
+ $v_result = "";
 
- $count_out = $port->write($p_request_string . "\r");
+ $count_out = $port->write($p_request_string . "\r\n");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
 
@@ -1009,27 +1011,42 @@ sub sendModemRequest($$$)
     die "Aborted without match\n" unless (defined $gotit);
     select(undef,undef,undef,0.8);
  }
- if ($gotit =~ /\Q$p_response_string/) {
+ if ($gotit =~ qr/(${p_response_string})(.*)/) {
+    $data_component = $2;
+    if ($data_component !~ /^$/) {
+       $data_component =~ /(:)(.*)/;
+       $data = $2;
+          if ($data !~ /^$/) {
+             $v_result = $data;
+          } else {
+             $v_result = 1;  
+          }
+    } else {
+       $v_result = 1;
+    }
     $str = "RLS received request and actioning\n";
     print "** " . $str if $DEBUG;
+    print "**    Data: " . $data . "\n" if $DEBUG && $data;
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
-    $v_result = 1;
  } elsif ($gotit =~ /W/) {
     $str = "(while sending $p_request_string) - Timeout waiting for response from ground station.\n";
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
+    $v_result = 0;
  } elsif ($gotit =~ /^Q:(.*)$/) {
     $str = "(while sending $p_request_string) - Did not recognise response from station. Response was: " . $1 . "\n";
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
+    $v_result = 0;
  } else {
     $str = "RLS never responded as expected....perhaps it didnt get request $p_request_string. Got $gotit \n";
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
+    $v_result = 0;
  }
 
  
@@ -1085,5 +1102,24 @@ sub setRequestStatus($$)
 
  $dbh->disconnect();
 
+}
+
+
+
+# Set latest launch status attribute
+sub set_launch_console_attribute($$)
+{
+ local ($p_attribute, $p_status) = @_;
+
+    # Initialise DB connection
+    my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+    # Put in DB
+    $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values ('" . $p_attribute . "', " . $p_status . ", datetime('now', 'localtime'))"; 
+
+    $sth = $dbh->prepare($query);
+    $sth->execute();
+
+    $dbh->disconnect();
 }
 

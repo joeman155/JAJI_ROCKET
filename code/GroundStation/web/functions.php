@@ -91,7 +91,7 @@ function get_rls_status($p_attribute)
      }
 
 
- $sql = "select status
+ $sql = "select *
          from   launch_system_status_t
          WHERE  id = (select max(id) FROM launch_system_status_t where attribute = '" . $p_attribute . "')";
 
@@ -104,7 +104,6 @@ function get_rls_status($p_attribute)
 
  return $result;
 }
-
 
 
 

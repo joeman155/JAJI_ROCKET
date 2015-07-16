@@ -27,7 +27,6 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 
 
 
-
 ?>
 
 <script>

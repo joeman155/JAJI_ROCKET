@@ -70,12 +70,14 @@ if ($cutdown_msg != "") {
 if (file_exists($nophotos_file)) {
   $nophotos_msg = "Disabled";
   $nophotos_button_msg = "Enable";
+  $nophotos_css = "off";
 } else {
   $nophotos_msg = "Enabled";
   $nophotos_button_msg = "Disable";
+  $nophotos_css = "on";
 }
 ?>
-<input id="nophotos" type="button" class="styled-button-on" value="<?=$nophotos_button_msg?> Photo Download"/>
+<input id="nophotos" type="button" class="styled-button-<?= $nophotos_css?>" value="<?=$nophotos_button_msg?> Photo Download"/>
 (Currently <?=$nophotos_msg?>)
 </div>
 
