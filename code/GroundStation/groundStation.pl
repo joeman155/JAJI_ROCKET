@@ -179,14 +179,15 @@ while (1 == 1)
        die "Aborted without match\n" unless (defined $serial_rx);
        select(undef,undef,undef,0.3);
 
-       # Get GS PSU1 voltage supply reading and put into table
-       if ($gs_psu1_voltage_ctr > 100) {
-          $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_pin_file, $gs_psu1_voltage_multiplier);
-          insert_voltage(1, $v_voltage);
-          $gs_psu1_voltage_ctr = 0;
-       } else  {
-          $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
-       }
+# COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
+#       # Get GS PSU1 voltage supply reading and put into table
+#       if ($gs_psu1_voltage_ctr > 100) {
+#          $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_pin_file, $gs_psu1_voltage_multiplier);
+#          insert_voltage(1, $v_voltage);
+#          $gs_psu1_voltage_ctr = 0;
+#       } else  {
+#          $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
+#       }
     }
 
 
@@ -259,126 +260,45 @@ while (1 == 1)
 	}
         elsif ($mode == 0)
         {
-
-# MODE 0 - NORMAL OPERATION
-# SEE IF WE WANT TO DOWNLOAD PIC
           # We don't want to d/l EACH time we are offered...just occasionally
           # and we do not want to download if disabled
           if ($pic_download_offered % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && ! -f $nophotos_file)
           {
-            $str = "Sending request to download image\n";
-            log_message($str);
-	    print "** " . $str if $DEBUG;
-            $port->lookclear;
-            $count_out = $port->write("2\r\n");
-            warn "write failed\n"   unless ($count_out);
-            warn "write incomplete\n" if ($count_out != length("2\r\n") );
 
-	    $str = "Finished sending request to download image\n";
-            log_message($str);
-
-            my $gotit = "";
-            until ("" ne $gotit) {
-              $gotit = $port->lookfor;       # poll until data ready
-              die "Aborted without match\n" unless (defined $gotit);
-              select(undef,undef,undef,0.3);
+            $v_result = sendModemRequest("R05", "A05", 0);
+            if ($v_result == 1) {
+               $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
+               $str = "Starting download in 5 seconds to $v_file....\n";
+               log_message($str);
+               print "** " . $str if $DEBUG;
+ 
+# COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
+#               sleep 5;
+#               $str = "Download started.\n";
+#               `echo 1 > $download_file_status`;
+#               log_message($str);
+#               print "** " . $str if $DEBUG;
+# 
+#               my $receive = Device::SerialPort::Xmodem::Receive->new(
+#                     port     => $port,
+#                     filename => $home_dir . 'out/images/' . $v_file,
+#                     DEBUG    => 1
+#               );
+# 
+#               $receive->start();
+#               $file_num++;
+#               $str = "Finished Transmission\n";
+#               `echo 0 > $download_file_status`;
+#               `echo "" > $x_modem_packet_num`;
+#               log_message($str);
+#               print "** " . $str if $DEBUG;
             }
 
-
-            if ($gotit =~ /X/) 
-            {
-              $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
-              $str = "Starting download in 5 seconds to $v_file....\n";
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-
-              sleep 5;
-              $str = "Download started.\n";
-	      `echo 1 > $download_file_status`;
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-
-              my $receive = Device::SerialPort::Xmodem::Receive->new(
-                    port     => $port,
-                    filename => $home_dir . 'out/images/' . $v_file,
-                    DEBUG    => 1
-              );
-
-              $receive->start();
-              $file_num++;
-              $str = "Finished Transmission\n";
-	      `echo 0 > $download_file_status`;
-	      `echo "" > $x_modem_packet_num`;
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-            } 
-            elsif ($gotit =~ /W/)
-            {
-              $str = "(Trying to initiate img tfr) - Timeout waiting for response from ground station.\n";
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-            }
-            elsif ($gotit =~ /^Q:(.*)$/)
-            {
-              $str = "(Trying to initiate img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-            }
-            else
-            {
-              $str = "RLS never responded as expected....perhaps it didnt get request to send image Got $gotit \n";
-              log_message($str);
-	      print "** " . $str if $DEBUG;
-            }
           }
           else
           {
-# WE DO NOT WANT TO DOWNLOAD THIS IMAGE
-# SEND COMMAND TO RLS TO EXIT MENU
-          print "** No Requests, so exit the menu...\n" if $DEBUG;
-          sendModemRequest("R00", "A00", 0);
-
-
-#            $str = "Sending request to skip d/l of image this time - or no image to download.\n";
-#            log_message($str);
-#            print "** " . $str if $DEBUG;
-#            $port->lookclear;
-#            $count_out = $port->write("9\r\n");
-#            warn "write failed\n"   unless ($count_out);
-#            warn "write incomplete\n" if ($count_out != length("9\r\n") );
-#
-#            my $gotit = "";
-#            until ("" ne $gotit) {
-#              $gotit = $port->lookfor;       # poll until data ready
-#              die "Aborted without match\n" unless (defined $gotit);
-#              select(undef,undef,undef,0.3);
-#            }
-#
-#            if ($gotit =~ /K/)
-#            {
-#              $str = "RLS got request to skip d/l of the image - exit menu\n";
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
-#            }
-#            elsif ($gotit =~ /W/)
-#            {
-#              $str = "(Trying to initiate SKIP of img tfr) - Timeout waiting for response from ground station." . $gotit . "\n";
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
-#            }
-#            elsif ($gotit =~ /^Q:(.*)$/)
-#            {
-#              $str = "(Trying to initiate SKIP of img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
-#            }
-#            else
-#            {
-#              $str = "RLS never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
-#            }
-
+             print "** No Requests, so exit the menu...\n" if $DEBUG;
+             sendModemRequest("R00", "A00", 0);
           }
 
 	  # If no error...then imcrement count.
@@ -498,13 +418,15 @@ sub decode_rx()
     # We have 3 second delay after getting heartbeat.... so we quickly get
     # stats on state of link
     # Every 5 iterations...get stats
-    print "Iterations = $radio_stats_count \n";
-    if ($radio_stats_count > 4) {
-	get_radio_stats();
-        $radio_stats_count = 0;
-    } else {
-        ++$radio_stats_count;
-    }
+
+# Don't want to get radio stats now...still in devel (16-Jul-2015)... will enable later
+#    print "Iterations = $radio_stats_count \n";
+#    if ($radio_stats_count > 4) {
+#	get_radio_stats();
+#        $radio_stats_count = 0;
+#    } else {
+#        ++$radio_stats_count;
+#    }
 
   } elsif ($p_line =~ /^L\/R(.*$)/)
   {
@@ -1040,6 +962,13 @@ sub process_requests()
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^N/) {
        print "** Photos on/off request...\n" if $DEBUG;
+
+       if (-f $nophotos_file) {
+          `rm -f $nophotos_file`;
+       } else {
+          `touch $nophotos_file`;
+       }
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^X/) {
        print "** Download Photo request...\n" if $DEBUG;
@@ -1070,7 +999,7 @@ sub sendModemRequest($$$)
  local ($p_request_string,$p_response_string, $p_request_id) = @_;
  $v_result = 0;
 
- $count_out = $port->write($p_request_string . "\r\n");
+ $count_out = $port->write($p_request_string . "\r");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
 
@@ -1078,10 +1007,11 @@ sub sendModemRequest($$$)
  until ("" ne $gotit) {
     $gotit = $port->lookfor;       # poll until data ready
     die "Aborted without match\n" unless (defined $gotit);
-    select(undef,undef,undef,0.3);
+    select(undef,undef,undef,0.8);
  }
  if ($gotit =~ /\Q$p_response_string/) {
     $str = "RLS received request and actioning\n";
+    print "** " . $str if $DEBUG;
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
     $v_result = 1;

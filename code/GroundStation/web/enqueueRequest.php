@@ -27,7 +27,7 @@ if (! in_array($request_code, array("P","A","C","L","N","K", "X"))) {
 
 # Got this far, so it must be a valid request code
 
-# Submit Reuest
+# Submit Request
 $v_req_id = insert_request($request_code);
 if (is_null($v_req_id)) {
    $v_msg = "Error occured while enqueing request...";
