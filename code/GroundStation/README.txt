@@ -33,6 +33,10 @@ Dependencies
 
 * Install libnl-1.1 and HostAPD
 
+* Append following to /etc/sudoers
+
+www-data ALL = (root) NOPASSWD: /sbin/shutdown
+
 
 Installation
 -------
@@ -55,14 +59,16 @@ gzip -d GS-PI2-2015MMDD-01.img.gz
 .... Put this into microSD using Window Imager executable ***
 
 
-3. Ensure RFD900 modem is attached to /dev/ttyO1 and has a speed of 57600
+3. Ensure RFD900+ modem is attached to /dev/ttyO1 and has a speed of 57600
 
-4. Log on as user root 
+4. Log on as user pi
 
-5. Clean out old DB and create fresh one
- cd hope
- rm gs.db
- sqlite3 gs.db < tables.sql
+5. Run following commands to get latest copy.
+
+cd /data/src/JAJI_ROCKET/code/GroundStation
+git pull
+
+./install.sh
 
 That should be it!
 
@@ -75,5 +81,8 @@ To get updates of the Groundstation scripts:-
 
 2. Run the following as user root:-
 
-cd hope
-./update_pi_gs.sh
+cd /data/src/JAJI_ROCKET/code/GroundStation
+git pull
+./install.sh
+
+NOTE: This will overwrite existing database file /data/gs/db/gs.db. If you want to keep this file, back it up BEFORE running the update above.

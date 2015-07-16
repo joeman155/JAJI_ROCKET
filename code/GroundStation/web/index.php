@@ -148,7 +148,7 @@
 		getMessages();
 		}
 	  processing = 0;
-	  }, 1000);
+	  }, 2000);
 	});
 
 
@@ -159,7 +159,8 @@
             height:140,
             autoOpen: false,
             closeOnEscape: false,
-            modal: true
+            modal: true,
+            hide: {effect: "fade", duration: 500}
           });
         });
 
@@ -188,6 +189,7 @@
 		<li><a href="images.php">Images</a></li>
 		<li><a href="#map-canvas">Map</a></li>
 		<li><a href="hab_control.html">Hab Control</a></li>
+		<li><a href="gs_control.php">GS Control</a></li>
 		<li><a href="launch_console.html">Launch console</a></li>
 		<li><a href="upload_prediction.php">Upload Prediction</a></li>
 	</ul>
@@ -206,6 +208,9 @@
 	</div>
 
 	<div id="habcontrol">
+	</div>
+
+	<div id="gscontrol">
 	</div>
 
 	<div id="launchconsole">
