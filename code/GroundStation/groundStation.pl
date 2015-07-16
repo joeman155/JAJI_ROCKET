@@ -173,9 +173,6 @@ while (1 == 1)
 {
 
 
-process_requests();
-
-
     my $serial_rx = "";
     until ("" ne $serial_rx) {
        $serial_rx = $port->lookfor;       # poll until data ready
@@ -338,45 +335,49 @@ process_requests();
           {
 # WE DO NOT WANT TO DOWNLOAD THIS IMAGE
 # SEND COMMAND TO RLS TO EXIT MENU
-            $str = "Sending request to skip d/l of image this time - or no image to download.\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-            $port->lookclear;
-            $count_out = $port->write("9\r\n");
-            warn "write failed\n"   unless ($count_out);
-            warn "write incomplete\n" if ($count_out != length("9\r\n") );
+          print "** No Requests, so exit the menu...\n" if $DEBUG;
+          sendModemRequest("R00", "A00", 0);
 
-            my $gotit = "";
-            until ("" ne $gotit) {
-              $gotit = $port->lookfor;       # poll until data ready
-              die "Aborted without match\n" unless (defined $gotit);
-              select(undef,undef,undef,0.3);
-            }
 
-            if ($gotit =~ /K/)
-            {
-              $str = "RLS got request to skip d/l of the image - exit menu\n";
-              log_message($str);
-              print "** " . $str if $DEBUG;
-            }
-            elsif ($gotit =~ /W/)
-            {
-              $str = "(Trying to initiate SKIP of img tfr) - Timeout waiting for response from ground station." . $gotit . "\n";
-              log_message($str);
-              print "** " . $str if $DEBUG;
-            }
-            elsif ($gotit =~ /^Q:(.*)$/)
-            {
-              $str = "(Trying to initiate SKIP of img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
-              log_message($str);
-              print "** " . $str if $DEBUG;
-            }
-            else
-            {
-              $str = "RLS never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
-              log_message($str);
-              print "** " . $str if $DEBUG;
-            }
+#            $str = "Sending request to skip d/l of image this time - or no image to download.\n";
+#            log_message($str);
+#            print "** " . $str if $DEBUG;
+#            $port->lookclear;
+#            $count_out = $port->write("9\r\n");
+#            warn "write failed\n"   unless ($count_out);
+#            warn "write incomplete\n" if ($count_out != length("9\r\n") );
+#
+#            my $gotit = "";
+#            until ("" ne $gotit) {
+#              $gotit = $port->lookfor;       # poll until data ready
+#              die "Aborted without match\n" unless (defined $gotit);
+#              select(undef,undef,undef,0.3);
+#            }
+#
+#            if ($gotit =~ /K/)
+#            {
+#              $str = "RLS got request to skip d/l of the image - exit menu\n";
+#              log_message($str);
+#              print "** " . $str if $DEBUG;
+#            }
+#            elsif ($gotit =~ /W/)
+#            {
+#              $str = "(Trying to initiate SKIP of img tfr) - Timeout waiting for response from ground station." . $gotit . "\n";
+#              log_message($str);
+#              print "** " . $str if $DEBUG;
+#            }
+#            elsif ($gotit =~ /^Q:(.*)$/)
+#            {
+#              $str = "(Trying to initiate SKIP of img tfr) - Did not recognise response from station. Response was: " . $1 . "\n";
+#              log_message($str);
+#              print "** " . $str if $DEBUG;
+#            }
+#            else
+#            {
+#              $str = "RLS never responded as expected....perhaps it didnt get request to skip sending image. Got $gotit \n";
+#              log_message($str);
+#              print "** " . $str if $DEBUG;
+#            }
 
           }
 
@@ -482,10 +483,10 @@ sub decode_rx()
   ($p_line) = @_;
 
   # See what data we have and respond to it
-  if ($p_line =~ /UI/)
+  if ($p_line =~ /M/)
   {
     $v_result = "Menu_Image";
-  } elsif ($p_line =~ /U/)
+  } elsif ($p_line =~ /MNI/)
   {
     $v_result = "Menu_NoImage";
   } elsif ($p_line =~ /^H:([0-9]+)$/)
@@ -1023,34 +1024,34 @@ sub process_requests()
 
     if ($v_request_code =~ /P/) { 
        print "** Power request...\n" if $DEBUG;
-       sendModemRequest("R1", "A1", $v_req_id);
+       sendModemRequest("R01", "A01", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
-       sendModemRequest("R2", "A2", $v_req_id);
+       sendModemRequest("R02", "A02", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
-       sendModemRequest("R3", "A3", $v_req_id);
+       sendModemRequest("R03", "A03", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
-       sendModemRequest("R4", "A4", $v_req_id);
+       sendModemRequest("R04", "A04", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^N/) {
        print "** Photos on/off request...\n" if $DEBUG;
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^X/) {
        print "** Download Photo request...\n" if $DEBUG;
-       sendModemRequest("R5", "A5", $v_req_id);
+       sendModemRequest("R05", "A05", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^S/) {
        print "** Skip Photo download request...\n" if $DEBUG;
-       sendModemRequest("R6", "A6", $v_req_id);
+       sendModemRequest("R06", "A06", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^K/) {
        print "** Cutdown request...\n" if $DEBUG;
-       sendModemRequest("R7", "A7", $v_req_id);
+       sendModemRequest("R07", "A07", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     }  else {
        print "** Unknown request " . $v_request_code . "\n" if $DEBUG;
@@ -1112,6 +1113,11 @@ sub sendModemRequest($$$)
 sub updateRequestDetails($$)
 {
  local ($p_request_id, $p_notes) = @_;
+
+ # No user request associated with command sent to modem. 
+ if ($p_request_id == 0) {
+   return;
+ }
 
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
