@@ -37,6 +37,8 @@ VOLTAGE ardupsu;
 
 
 void setup() {
+  Serial.begin(57600);
+  
   Serial2.begin(57600);
   sendPacket ("S");  
   
@@ -217,20 +219,28 @@ void pollSerial()
       
       // Accept nothing longer than 20 characters 
        if(index > 19) {
-          break;
+          break;   // To long...refusing to process.
        }
        inChar = Serial2.read(); // Read a character
-       
-       // If we detect carriage return, this means end of command (person/program) has hit enter
-       if (inChar == '\r') {
-          EndFlag = processRxSerial(inData);     // Exit the whole "menu", IF processing asks us to do it  
-          break;          // Get out of the first while loop
-          index = 0;
-       }
        
        inData[index] = inChar; // Store it
        index++; // Increment where to write next
        inData[index] = '\0'; // Null terminate the string
+       
+       // If we detect carriage return, this means end of command (person/program) has hit enter
+       if (inData[index-1] == '\n' && inData[index-2] == '\r') {
+          inData[index-2] = '\0';                // Do not wish to include crlf in the text string
+          EndFlag = processRxSerial(inData);     // Exit the whole "menu", IF processing asks us to do it  
+          
+          // Resetting everything back ready for next string
+          index = 0;          
+          inData[0] = '\0';
+          
+          // Get out of the first while loop...back to menu
+          break;          
+       }
+       
+
     }
   }
   
