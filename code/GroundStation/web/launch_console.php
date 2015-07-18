@@ -83,20 +83,6 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
             });
         });
 
-        $("#launch").click(function() {
-        alert("Proceed to Launch?");
-        $.ajax({
-                url: "enqueueRequest.php",
-                data: {  
-                       request: "L"
-                      },
-                success: function(s,x) {
-                        $("#msgText").html(s);
-			showMsg();
-                }
-            });
-        });
-
 
 </script>
 <h3>Launch Console</h3>
@@ -122,7 +108,6 @@ if (is_null($rls_power_status)) {
 // (default status)
 $v_launch_msg = "Not ready";
 $v_launch_css = "off";
-$v_launch_button_disabled_text = "disabled";
 
 
 // Arm
@@ -140,7 +125,24 @@ if (is_null($rls_arm_status)) {
   $v_arm_status_css = "on";
   $v_launch_msg = "Ready to Launch!";
   $v_launch_css = "ready";
-  $v_launch_button_disabled_text = "";
+?>
+<script>
+        $("#launch").click(function() {
+        alert("Proceed to Launch?");
+        $.ajax({
+                url: "enqueueRequest.php",
+                data: {
+                       request: "L"
+                      },
+                success: function(s,x) {
+                        $("#msgText").html(s);
+                        showMsg();
+                }
+            });
+        });
+</script>
+<?
+
 } else if ($rls_arm_status == 0) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
@@ -166,23 +168,25 @@ if (is_null($rls_ct_status)) {
 
 ?>
     <li>
-       <input type="button" id="powertoggle" class="styled-button-<?= $v_power_status_css?>" value="Power" />
+       <a id="powertoggle" class="styled-button-<?= $v_power_status_css?>">Power</a>
        <div>
           Currently: <?= $v_power_status?> - <abbr class="timeago" title="<?= $rls_power_status_date?>"></abbr>
        </div>
     </li>
-    <li><input type="button" id="continuitytest" class="styled-button-<?= $v_ct_status_css?>" value="Continuinity test" />
+    <li>
+       <a id="continuitytest" class="styled-button-<?= $v_ct_status_css?>">Continuity Test</a>
        <div>
           Info: <?= $v_ct_status?> - <abbr class="timeago" title="<?= $rls_ct_status_date?>"></abbr> 
        </div>
     </li>
     <li>
-       <input type="button" id="arm" class="styled-button-<?= $v_arm_status_css?>" value="Arm" />
+       <a id="arm" class="styled-button-<?= $v_arm_status_css?>">Arm</a>
        <div>
           Currently: <?= $v_arm_status?> - <abbr class="timeago" title="<?= $rls_arm_status_date?>"></abbr> 
        </div>
     </li> 
-    <li><input <?= $v_launch_button_disabled_text?> type="button" id="launch" class="styled-button-<?= $v_launch_css?>" value="<?= $v_launch_msg?>"/" />
+    <li>
+       <a id="launch" class="styled-button-<?= $v_launch_css?>"><?= $v_launch_msg?></a>
     </li>
   </ul>
 </div>

@@ -62,17 +62,15 @@ html, body {
     bottom: 0;
     left: 0;
     right: 0;
-
     margin: auto;
-
     border: 1px solid black; 
-
     display: none;
 }
 
 
 
 .styled-button-on {
+	display: block;
         background: #3EE324;
         padding:8px 13px;
         color:#fff;
@@ -81,10 +79,12 @@ html, body {
         border-radius:4px;
         -moz-border-radius:4px;
         -webkit-border-radius:4px;
+        -webkit-appearance: none;
         border:1px solid #1A87B9;
         width: 200px;
 	height: 200px;
 } 
+
 
 .styled-button-on:hover {
 	background: #1FA60A;
@@ -93,6 +93,7 @@ html, body {
 
 
 .styled-button-off {
+	display: block;
         background: #E04141;
         padding:8px 13px;
         color:#fff;
@@ -101,6 +102,7 @@ html, body {
         border-radius:4px;
         -moz-border-radius:4px;
         -webkit-border-radius:4px;
+        -webkit-appearance: none;
         border:1px solid #1A87B9;
         width: 200px;
 	height: 200px;
@@ -115,6 +117,7 @@ html, body {
 
 
 .styled-button-un {
+	display: block;
         background: #5B7ACF;
         padding:8px 13px;
         color:#fff;
@@ -123,6 +126,7 @@ html, body {
         border-radius:4px;
         -moz-border-radius:4px;
         -webkit-border-radius:4px;
+        -webkit-appearance: none;
         border:1px solid #1A87B9;
         width: 200px;
 	height: 200px;
@@ -136,6 +140,7 @@ html, body {
 
 
 .styled-button-ready {
+	display: block;
         background: #5B7ACF;
         padding:8px 13px;
         color:#fff;
@@ -144,6 +149,7 @@ html, body {
         border-radius:4px;
         -moz-border-radius:4px;
         -webkit-border-radius:4px;
+        -webkit-appearance: none;
         border:1px solid #1A87B9;
         width: 200px;
         height: 200px;
@@ -159,7 +165,7 @@ html, body {
 
 
 #list_wrapper {
-   width: 420px;
+   width: 500px;
 }
 
 ul{
@@ -172,6 +178,6 @@ ul.multiple_columns li{
    float: left;
    list-style: none;
    height: 200px;
-   width: 200px;
-   margin: 10px 5px 10px 5px;
+   width: 220px;
+   margin: 20px 10px 20px 10px;
 }
