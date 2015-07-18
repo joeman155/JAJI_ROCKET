@@ -61,7 +61,9 @@ void loop() {
  pollSerial();
  
    
-  
+  // Launch System status
+  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
+  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
   
   // Voltages
   // Prefix: VX   (where X is a number)
