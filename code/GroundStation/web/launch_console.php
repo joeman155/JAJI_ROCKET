@@ -98,10 +98,11 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 <ul class="multiple_columns">
 <?
 // Power
-if (is_null($rls_power_status)) {
-  $v_power_status = "Unknown";
-  $v_power_status_css = "un";
-} else if ($rls_power_status == 1) {
+// Default to unknown
+$v_power_status = "Unknown";
+$v_power_status_css = "un";
+
+if ($rls_power_status == 1) {
   $v_power_status = $rls_power_notes;
   $v_power_status_css = "on";
 } else if ($rls_power_status == 0) {
@@ -110,10 +111,11 @@ if (is_null($rls_power_status)) {
 }
 
 // Arm
-if (is_null($rls_arm_status)) {
-  $v_arm_status = "Unknown";
-  $v_arm_status_css = "un";
-} else if ($rls_arm_status == 3) {
+// Default to unknown
+$v_arm_status = "Unknown";
+$v_arm_status_css = "un";
+
+if ($rls_arm_status == 3) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
 } else if ($rls_arm_status == 2) {

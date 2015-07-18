@@ -43,7 +43,10 @@ catch (PDOException $e)
         });
 </script>
 <h3>HAB control</h3>
-<div>
+
+<div id="list_wrapper">
+<ul class="multiple_columns">
+<li>
 <h2>Cutdown</h2>
 <?
 if (file_exists($cutdown_init_file)) {
@@ -64,7 +67,8 @@ if ($cutdown_msg != "") {
 <?
 }
 ?>
-
+</li>
+<li>
 <h2>Enable/Disable Photo Downloads</h2>
 <?
 if (file_exists($nophotos_file)) {
@@ -79,5 +83,7 @@ if (file_exists($nophotos_file)) {
 ?>
 <input id="nophotos" type="button" class="styled-button-<?= $nophotos_css?>" value="<?=$nophotos_button_msg?> Photo Download"/>
 (Currently <?=$nophotos_msg?>)
+</li>
+</ul>
 </div>
 
