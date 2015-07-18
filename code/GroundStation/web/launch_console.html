@@ -1,26 +1,29 @@
 <script>
+var reload_paused=0;
 	var current_index = $("#tabs").tabs("option","active"); 
 	if (current_index == 6) {
 	   load_launch_console();  // Initial load
 
            setInterval(function(){
 	      load_launch_console();
-              }, 2000);
+              }, 1000);
 	   }
 
 
 	   function load_launch_console()
 	   {
-           $.ajax({
-                   url: "launch_console.php",
-	   	   type: "GET",
-		   cache: false,
-                   success: function(s,x) {
-                       $("#launch_console").html(s);
-                       $("#msgText").html("");
-			hideMsg();
-	   	   }
-           })
+           if (reload_paused == 0) {
+              $.ajax({
+                      url: "launch_console.php",
+	      	      type: "GET",
+	   	      cache: false,
+                      success: function(s,x) {
+                          $("#launch_console").html(s);
+                          $("#msgText").html("");
+		          hideMsg();
+	   	          }
+                    })
+           }
 
 	}
 
