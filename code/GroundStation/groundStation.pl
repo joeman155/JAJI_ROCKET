@@ -430,11 +430,11 @@ sub decode_rx()
 
   } elsif ($p_line =~ /^D07:(.*$)/)
   {
-    set_launch_console_attribute('P', $1);
+    set_lc_power_status($1);
     $v_result = "Power status: " . $1;
   } elsif ($p_line =~ /^D08:(.*$)/)
   {
-    set_launch_console_attribute('A', $1);
+    set_lc_arm_status($1);
     $v_result = "Arm status: " . $1;
   } elsif ($p_line =~ /^L\/R(.*$)/)
   {
@@ -956,12 +956,13 @@ sub process_requests()
        print "** Power request...\n" if $DEBUG;
        $v_result = sendModemRequest("R01", "A01", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
-       set_launch_console_attribute ("P", $v_result); 
+       set_lc_power_status ($v_result);
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
        sendModemRequest("R02", "A02", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
        set_launch_console_attribute ("A", $v_result);
+       set_lc_arm_status ($v_result);
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
        sendModemRequest("R03", "A03", $v_req_id);
@@ -1115,19 +1116,63 @@ sub setRequestStatus($$)
 
 
 # Set latest launch status attribute
-sub set_launch_console_attribute($$)
+sub set_launch_console_attribute($$;$)
 {
- local ($p_attribute, $p_status) = @_;
+ local ($p_attribute, $p_status, $p_notes) = @_;
 
     # Initialise DB connection
     my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values ('" . $p_attribute . "', " . $p_status . ", datetime('now', 'localtime'))"; 
+    if (defined $p_notes) {
+       $query = "INSERT INTO launch_system_status_t (attribute, status, notes, creation_date) values ('" . $p_attribute . "', " . $p_status . ", '" . $p_notes . "', datetime('now', 'localtime'))"; 
+    } else {
+       $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values ('" . $p_attribute . "', " . $p_status . ", datetime('now', 'localtime'))"; 
+    }
 
     $sth = $dbh->prepare($query);
     $sth->execute();
 
     $dbh->disconnect();
+}
+
+
+# Set Power status
+sub set_lc_power_status($)
+{
+ local ($p_status) = @_;
+
+ if ($p_status == 2) {
+    $v_notes = "Unknown error";
+ } elsif ($p_status == 1) {
+    $v_notes = "On";
+ } elsif ($p_status == 0) {
+    $v_notes = "Off";
+ }
+
+ set_launch_console_attribute("P", $p_status, $v_notes);
+
+}
+
+
+# Set Arm status
+sub set_lc_arm_status($)
+{
+ local ($p_status) = @_;
+
+ if ($p_status == 9) {
+    $v_notes = "Unknown error";
+ } elsif ($p_status == 3) {
+    $v_notes = "Dis-Armed (Continuity failed)";
+ } elsif ($p_status == 2) {
+    $v_notes = "Dis-Armed (Power not on)";
+ } elsif ($p_status == 1) {
+    $v_notes = "Armed";
+ } elsif ($p_status == 0) {
+    $v_notes = "Dis-armed";
+ }
+
+ set_launch_console_attribute("A", $p_status, $v_notes);
+
 }
 

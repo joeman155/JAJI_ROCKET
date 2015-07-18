@@ -17,11 +17,13 @@ catch (PDOException $e)
 # Get latest launch systms status
 $power_status              = get_rls_status("P");
 $rls_power_status          = $power_status["status"];
+$rls_power_notes           = $power_status["notes"];
 $rls_power_status_date_raw = $power_status["creation_date"];
 $rls_power_status_date     =  date("Y-m-d H:i:s", strtotime($rls_power_status_date_raw));
 
 $arm_status              = get_rls_status("A");
 $rls_arm_status          = $arm_status["status"];
+$rls_arm_notes           = $arm_status["notes"];
 $rls_arm_status_date_raw = $arm_status["creation_date"];
 $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_raw));
 
@@ -100,10 +102,10 @@ if (is_null($rls_power_status)) {
   $v_power_status = "Unknown";
   $v_power_status_css = "un";
 } else if ($rls_power_status == 1) {
-  $v_power_status = "On";
+  $v_power_status = $rls_power_notes;
   $v_power_status_css = "on";
 } else if ($rls_power_status == 0) {
-  $v_power_status = "Off";
+  $v_power_status = $rls_power_notes;
   $v_power_status_css = "off";
 }
 
@@ -111,11 +113,17 @@ if (is_null($rls_power_status)) {
 if (is_null($rls_arm_status)) {
   $v_arm_status = "Unknown";
   $v_arm_status_css = "un";
+} else if ($rls_arm_status == 3) {
+  $v_arm_status = $rls_arm_notes;
+  $v_arm_status_css = "off";
+} else if ($rls_arm_status == 2) {
+  $v_arm_status = $rls_arm_notes;
+  $v_arm_status_css = "off";
 } else if ($rls_arm_status == 1) {
-  $v_arm_status = "Armed";
+  $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "on";
 } else if ($rls_arm_status == 0) {
-  $v_arm_status = "DIS-Armed";
+  $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
 }
 

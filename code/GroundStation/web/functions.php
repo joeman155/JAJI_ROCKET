@@ -100,8 +100,11 @@ function get_rls_status($p_attribute)
 
  $row = $sth->fetch();
  $result["status"] = $row['status'];
+ $result["notes"]  = $row['notes'];
  $result["creation_date"] = $row['creation_date'];
 
+$n = $row['notes'];
+`echo $n > /tmp/whatthe`;
  return $result;
 }
 

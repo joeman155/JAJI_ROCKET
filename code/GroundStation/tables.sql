@@ -71,6 +71,7 @@ CREATE TABLE request_status_t (status_code char(1) primary key,
 CREATE TABLE launch_system_status_t (id integer primary key autoincrement,
            attribute char(1),
            status   integer,
+           notes    varchar2(150),
            creation_date datetime);
 
 
