@@ -428,6 +428,14 @@ sub decode_rx()
 #        ++$radio_stats_count;
 #    }
 
+  } elsif ($p_line =~ /^D07:(.*$)/)
+  {
+    set_launch_console_attribute('P', $1);
+    $v_result = "Power status: " . $1;
+  } elsif ($p_line =~ /^D08:(.*$)/)
+  {
+    set_launch_console_attribute('A', $1);
+    $v_result = "Arm status: " . $1;
   } elsif ($p_line =~ /^L\/R(.*$)/)
   {
     $v_result = "Radio Signal: L/R: " . $1;
