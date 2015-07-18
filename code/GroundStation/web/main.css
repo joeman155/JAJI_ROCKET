@@ -81,7 +81,7 @@ html, body {
         -webkit-border-radius:4px;
         -webkit-appearance: none;
         border:1px solid #1A87B9;
-        width: 200px;
+        width:  90%;
 	height: 200px;
 } 
 
@@ -104,7 +104,7 @@ html, body {
         -webkit-border-radius:4px;
         -webkit-appearance: none;
         border:1px solid #1A87B9;
-        width: 200px;
+        width: 90%;
 	height: 200px;
 } 
 
@@ -128,7 +128,7 @@ html, body {
         -webkit-border-radius:4px;
         -webkit-appearance: none;
         border:1px solid #1A87B9;
-        width: 200px;
+        width: 90%;
 	height: 200px;
 }
 
@@ -151,7 +151,7 @@ html, body {
         -webkit-border-radius:4px;
         -webkit-appearance: none;
         border:1px solid #1A87B9;
-        width: 200px;
+        width: 90%;
         height: 200px;
 }
 
@@ -165,7 +165,7 @@ html, body {
 
 
 #list_wrapper {
-   width: 500px;
+   width: 100%;
 }
 
 ul{
@@ -178,6 +178,6 @@ ul.multiple_columns li{
    float: left;
    list-style: none;
    height: 200px;
-   width: 220px;
+   width:  45%;
    margin: 20px 10px 20px 10px;
 }
