@@ -157,6 +157,13 @@ if ($mode == 2) { print " -- NORMAL MODE --\n"; }
 $port->are_match("\r\n");
 
 
+# Initalise Continuity Test result...so it is 0 (needs testing)
+# If the "C" record indicates it needs testing...no need to insert.
+$v_ct_status = get_last_status("C");
+if (!defined $v_ct_status || $v_ct_status != 0) {
+   set_launch_console_attribute("C", 0, "System startup");
+}
+
 
 # Commence Serial Port monitoring
 monitor_systems();
@@ -954,23 +961,79 @@ sub process_requests()
 
     if ($v_request_code =~ /P/) { 
        print "** Power request...\n" if $DEBUG;
+
        $v_result = sendModemRequest("R01", "A01", $v_req_id);
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+
        set_lc_power_status ($v_result);
+
+       # If we turn power off, we want to set continuity test to 'un tested'
+       if ($v_result == 0) {
+          $v_ct_status = get_last_status("C");
+          if (!defined $v_ct_status || $v_ct_status != 0) {
+             set_launch_console_attribute("C", 0, "Power turned off");
+          }
+       }
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
+
        sendModemRequest("R02", "A02", $v_req_id);
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+
        set_launch_console_attribute ("A", $v_result);
        set_lc_arm_status ($v_result);
+
+       # If ARM successful (which means extra continuity test that was done
+       # was successful), so we set it as tested fine here.
+       if ($v_result == 1) {
+          $v_ct_status = get_last_status("C");
+          if (!defined $v_ct_status || $v_ct_status != 1) {
+             set_launch_console_attribute("C", 1, "Success during Arm");
+          }
+       }
+
+       # If the attempt to ARM returns value of 3, this means continuity test failed
+       # We need to update accordingly
+       if ($v_result == 3) {
+          $v_ct_status = get_last_status("C");
+          if (!defined $v_ct_status || $v_ct_status != 0) {
+             set_launch_console_attribute("C", 0, "Failed during Arm");
+          }
+       }
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
-       sendModemRequest("R03", "A03", $v_req_id);
+
+       $v_result = sendModemRequest("R03", "A03", $v_req_id);
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+
+#joe
+       # Based on result, set appropriate INFO message.
+       if ($v_result == 2) {
+          $v_ct_msg = "Failed: Power not on";
+       } elsif ($v_result == 0) {
+          $v_ct_msg = "Failed.";
+       } elsif ($v_result == 1) {
+          $v_ct_msg = "Successful";
+       }
+
+       $v_ct_status = get_last_status("C");
+       if (!defined $v_ct_status || $v_ct_status != $v_result) {
+          set_launch_console_attribute("C", $v_result, $v_ct_msg);
+       }
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
+
        sendModemRequest("R04", "A04", $v_req_id);
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+
+       $v_ct_status = get_last_status("C");
+       if (!defined $v_ct_status || $v_ct_status != 0) {
+          set_launch_console_attribute("C", 0, "Reset after launch");
+       }
     } elsif ($v_request_code =~ /^N/) {
        print "** Photos on/off request...\n" if $DEBUG;
 
@@ -1175,4 +1238,35 @@ sub set_lc_arm_status($)
  set_launch_console_attribute("A", $p_status, $v_notes);
 
 }
+
+
+# Get last status for particular attribute of the launch console
+sub get_last_status($)
+{
+ local ($p_attribute) = @_;
+
+ $v_status = 0; # Default status
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "SELECT status
+           FROM   launch_system_status_t
+           WHERE  id = (select max(id) 
+                        FROM launch_system_status_t
+                        WHERE attribute = '" . $p_attribute . "')";
+
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+
+ ($v_status) = $sth->fetchrow_array();
+ $sth->finish();
+
+ $dbh->disconnect();
+
+ return $v_status;
+
+}
+
 

@@ -21,12 +21,18 @@ $rls_power_notes           = $power_status["notes"];
 $rls_power_status_date_raw = $power_status["creation_date"];
 $rls_power_status_date     =  date("Y-m-d H:i:s", strtotime($rls_power_status_date_raw));
 
-$arm_status              = get_rls_status("A");
-$rls_arm_status          = $arm_status["status"];
-$rls_arm_notes           = $arm_status["notes"];
-$rls_arm_status_date_raw = $arm_status["creation_date"];
-$rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_raw));
+$arm_status                = get_rls_status("A");
+$rls_arm_status            = $arm_status["status"];
+$rls_arm_notes             = $arm_status["notes"];
+$rls_arm_status_date_raw   = $arm_status["creation_date"];
+$rls_arm_status_date       =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_raw));
 
+
+$ct_status                 = get_rls_status("C");
+$rls_ct_status             = $ct_status["status"];
+$rls_ct_notes              = $ct_status["notes"];
+$rls_ct_status_date_raw    = $ct_status["creation_date"];
+$rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_raw));
 
 
 ?>
@@ -97,12 +103,13 @@ $rls_arm_status_date     =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_r
 <div id="list_wrapper">
 <ul class="multiple_columns">
 <?
-// Power
-// Default to unknown
-$v_power_status = "Unknown";
-$v_power_status_css = "un";
 
-if ($rls_power_status == 1) {
+
+// Power
+if (is_null($rls_power_status)) {
+  $v_power_status = "Unknown";
+  $v_power_status_css = "un";
+} else if ($rls_power_status == 1) {
   $v_power_status = $rls_power_notes;
   $v_power_status_css = "on";
 } else if ($rls_power_status == 0) {
@@ -110,12 +117,19 @@ if ($rls_power_status == 1) {
   $v_power_status_css = "off";
 }
 
-// Arm
-// Default to unknown
-$v_arm_status = "Unknown";
-$v_arm_status_css = "un";
 
-if ($rls_arm_status == 3) {
+// Launch 
+// (default status)
+$v_launch_msg = "Not ready";
+$v_launch_css = "off";
+$v_launch_button_disabled_text = "disabled";
+
+
+// Arm
+if (is_null($rls_arm_status)) {
+  $v_arm_status = "Unknown";
+  $v_arm_status_css = "un";
+} else if ($rls_arm_status == 3) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
 } else if ($rls_arm_status == 2) {
@@ -124,10 +138,31 @@ if ($rls_arm_status == 3) {
 } else if ($rls_arm_status == 1) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "on";
+  $v_launch_msg = "Ready to Launch!";
+  $v_launch_css = "ready";
+  $v_launch_button_disabled_text = "";
 } else if ($rls_arm_status == 0) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
 }
+
+
+
+// Continuity Test
+if (is_null($rls_ct_status)) {
+  $v_ct_status = "Unknown";
+  $v_ct_status_css = "un";
+} else if ($rls_ct_status == 2) {
+  $v_ct_status = $rls_ct_notes;
+  $v_ct_status_css = "off";
+} else if ($rls_ct_status == 1) {
+  $v_ct_status = $rls_ct_notes;
+  $v_ct_status_css = "on";
+} else if ($rls_ct_status == 0) {
+  $v_ct_status = $rls_ct_notes;
+  $v_ct_status_css = "off";
+}
+
 
 ?>
     <li>
@@ -136,15 +171,18 @@ if ($rls_arm_status == 3) {
           Currently: <?= $v_power_status?> - <abbr class="timeago" title="<?= $rls_power_status_date?>"></abbr>
        </div>
     </li>
+    <li><input type="button" id="continuitytest" class="styled-button-<?= $v_ct_status_css?>" value="Continuinity test" />
+       <div>
+          Info: <?= $v_ct_status?> - <abbr class="timeago" title="<?= $rls_ct_status_date?>"></abbr> 
+       </div>
+    </li>
     <li>
        <input type="button" id="arm" class="styled-button-<?= $v_arm_status_css?>" value="Arm" />
        <div>
           Currently: <?= $v_arm_status?> - <abbr class="timeago" title="<?= $rls_arm_status_date?>"></abbr> 
        </div>
     </li> 
-    <li><input type="button" id="continuitytest" class="styled-button-on" value="Continuinity test" />
-    </li>
-    <li><input type="button" id="launch" class="styled-button-off" value="Launch" />
+    <li><input <?= $v_launch_button_disabled_text?> type="button" id="launch" class="styled-button-<?= $v_launch_css?>" value="<?= $v_launch_msg?>"/" />
     </li>
   </ul>
 </div>
