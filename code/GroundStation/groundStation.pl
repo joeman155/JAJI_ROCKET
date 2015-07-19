@@ -426,14 +426,13 @@ sub decode_rx()
     # stats on state of link
     # Every 5 iterations...get stats
 
-# Don't want to get radio stats now...still in devel (16-Jul-2015)... will enable later
-#    print "Iterations = $radio_stats_count \n";
-#    if ($radio_stats_count > 4) {
-#	get_radio_stats();
-#        $radio_stats_count = 0;
-#    } else {
-#        ++$radio_stats_count;
-#    }
+    print "Iterations = $radio_stats_count \n";
+    if ($radio_stats_count > 4) {
+	get_radio_stats();
+        $radio_stats_count = 0;
+    } else {
+        ++$radio_stats_count;
+    }
 
   } elsif ($p_line =~ /^D07:(.*$)/)
   {
