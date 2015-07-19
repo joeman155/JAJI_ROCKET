@@ -128,17 +128,19 @@ if (is_null($rls_arm_status)) {
 ?>
 <script>
         $("#launch").click(function() {
-        alert("Proceed to Launch?");
-        $.ajax({
-                url: "enqueueRequest.php",
-                data: {
-                       request: "L"
-                      },
-                success: function(s,x) {
-                        $("#msgText").html(s);
-                        showMsg();
-                }
-            });
+        var r = confirm("Proceed to Launch?");
+        if (r == true) {
+           $.ajax({
+                   url: "enqueueRequest.php",
+                   data: {
+                          request: "L"
+                         },
+                   success: function(s,x) {
+                           $("#msgText").html(s);
+                           showMsg();
+                   }
+               });
+        }
         });
 </script>
 <?
