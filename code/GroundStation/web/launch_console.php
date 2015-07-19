@@ -44,8 +44,11 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 
 	// AJAX stuff for buttons
         $("#powertoggle").click(function() {
+        reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
+                async: false,
+                cache: false,
 		data: {
                        request: "P"
                       },
@@ -58,8 +61,11 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 
 
         $("#arm").click(function() {
+        reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
+                async: false,
+                cache: false,
                 data: {  
                        request: "A"
                       },
@@ -71,8 +77,11 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
         });
 
         $("#continuitytest").click(function() {
+        reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
+                async: false,
+                cache: false,
                 data: {  
                        request: "C"
                       },
@@ -128,10 +137,13 @@ if (is_null($rls_arm_status)) {
 ?>
 <script>
         $("#launch").click(function() {
+        reload_paused = 1;
         var r = confirm("Proceed to Launch?");
         if (r == true) {
            $.ajax({
                    url: "enqueueRequest.php",
+                   async: false,
+                   cache: false,
                    data: {
                           request: "L"
                          },
