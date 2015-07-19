@@ -1019,10 +1019,7 @@ sub process_requests()
           $v_ct_msg = "Successful";
        }
 
-       $v_ct_status = get_last_status("C");
-       if (!defined $v_ct_status || $v_ct_status != $v_result) {
-          set_launch_console_attribute("C", $v_result, $v_ct_msg);
-       }
+       set_launch_console_attribute("C", $v_result, $v_ct_msg);
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
 
