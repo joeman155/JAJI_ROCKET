@@ -425,8 +425,6 @@ sub decode_rx()
     # We have 3 second delay after getting heartbeat.... so we quickly get
     # stats on state of link
     # Every 5 iterations...get stats
-
-    print "Iterations = $radio_stats_count \n";
     if ($radio_stats_count > 4) {
 	get_radio_stats();
         $radio_stats_count = 0;
@@ -639,10 +637,10 @@ sub log_radio_stats($$)
     my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO radio_stats_t (place, stats, creation_date) values ($p_place, '" . $p_stats . "', datetime('now', 'localtime'))";
+    $query = "INSERT INTO radio_stats_t (place, stats, creation_date) values (?,?, datetime('now', 'localtime'))";
 
     $sth = $dbh->prepare($query);
-    $sth->execute();
+    $sth->execute($p_place, $p_stats);
 
     $dbh->disconnect();
 }
@@ -660,10 +658,10 @@ sub log_message($)
     my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO messages_t (message, creation_date) values ('" . $message . "', datetime('now', 'localtime'))";
+    $query = "INSERT INTO messages_t (message, creation_date) values (?, datetime('now', 'localtime'))";
 
     $sth = $dbh->prepare($query);
-    $sth->execute();
+    $sth->execute($message);
 
     $dbh->disconnect();
 
@@ -683,10 +681,10 @@ sub insert_measurements()
 
  # Put in DB
  $query = "INSERT INTO measurements_t (voltage, pressure, internal_temp, external_temp, estimated_altitude, creation_date)
-                   values (" . $voltage . ", " . $pressure . ", " . $internal_temp . ", " . $external_temp . ", " . $alt . ", datetime('now', 'localtime'))";
+                   values (?,?,?,?,?,datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute($voltage, $pressure, $internal_temp, $external_temp, $alt);
  
  $dbh->disconnect();
 }
@@ -701,10 +699,10 @@ sub insert_heartbeat()
 
 
  $query = "INSERT INTO heartbeat_t (heartbeat, creation_date) 
- 	values (" . $heartbeat . ", datetime('now', 'localtime'))";
+ 	values (?, datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute($heartbeat);
  
  $dbh->disconnect();
 }
@@ -719,10 +717,10 @@ sub insert_gps()
 
  # Put in DB
  $query = "INSERT INTO gps_t (latitude, longitude, height, speed, course, satellites, gps_date, gps_time, creation_date)
-                   values (" . $latitude . ", " . $longitude . ", " . $height . ", " . $gps_speed . ", " . $gps_course . ", " . $satellites . ", '" . $gps_date . "', '" . $gps_time . "', datetime('now', 'localtime'))";
+                   values (?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute($latitude, $longitude, $height, $gps_speed, $gps_course, $satellites, $gps_date, $gps_time);
  
  $dbh->disconnect();
 }
@@ -749,10 +747,10 @@ sub insert_gs_psu_voltage($$)
 
  # Put in DB
  $query = "INSERT INTO gs_psu_voltage_t (voltage, psu_id, creation_date)
-           values (" . $p_voltage . ", " . $p_psu_id . ", datetime('now', 'localtime'))";
+           values (?,?, datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute($p_voltage, $p_psu_id);
 
  $dbh->disconnect(); 
 }
@@ -1184,13 +1182,15 @@ sub set_launch_console_attribute($$;$)
 
     # Put in DB
     if (defined $p_notes) {
-       $query = "INSERT INTO launch_system_status_t (attribute, status, notes, creation_date) values ('" . $p_attribute . "', " . $p_status . ", '" . $p_notes . "', datetime('now', 'localtime'))"; 
+       $query = "INSERT INTO launch_system_status_t (attribute, status, notes, creation_date) values (?,?,?,datetime('now', 'localtime'))"; 
+       $sth = $dbh->prepare($query);
+       $sth->execute($p_attribute, $p_status, $p_notes);
     } else {
-       $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values ('" . $p_attribute . "', " . $p_status . ", datetime('now', 'localtime'))"; 
+       $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values (?,?,datetime('now', 'localtime'))"; 
+       $sth = $dbh->prepare($query);
+       $sth->execute($p_attribute, $p_status);
     }
 
-    $sth = $dbh->prepare($query);
-    $sth->execute();
 
     $dbh->disconnect();
 }
