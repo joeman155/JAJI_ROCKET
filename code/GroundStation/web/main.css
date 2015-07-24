@@ -65,6 +65,8 @@ html, body {
     margin: auto;
     border: 1px solid black; 
     display: none;
+
+    background:url(images/ajax-loader.gif) no-repeat center center;
 }
 
 
