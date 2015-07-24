@@ -9,7 +9,8 @@ Installed Edimax 150MBps wirless adaptor (EW-7811Un)
 
 Steps
 -------
-sudo apt-get install bridge-utils hostapd
+sudo apt-get install bridge-utils hostapd udhcpd bind9 dnsutils
+
 
 cd /data/src
 mkdir wireless
@@ -32,7 +33,23 @@ Configure Bridge connections
 sudo nano /etc/network/interfaces
 
 
-I commented out some config....
+
+This is what I had in the file after editing.
+
+
+auto lo
+iface lo inet loopback
+
+auto eth0
+allow-hotplug eth0
+iface eth0 inet static
+address 192.168.10.140
+netmask 255.255.255.0
+network 192.168.10.0
+broadcast 192.168.10.255
+gateway 192.168.10.130
+
+
 #auto wlan0
 #allow-hotplug wlan0
 #iface wlan0 inet manual
@@ -43,15 +60,157 @@ I commented out some config....
 #iface wlan1 inet manual
 #wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
-
-Then I added:-
-
-
-auto br0
-iface br0 inet dhcp
-bridge_ports eth0 wlan0 
-
-
+auto wlan0
+iface wlan0 inet static
+address 192.168.0.1
+netmask 255.255.255.0
+network 192.168.0.0
+broadcast 192.168.1.255
+gateway 192.168.0.1
 
 
 
+
+Save and exit
+
+reboot
+
+
+Then I created the file /etc/hostpad/hostapd.conf with the following in it:-
+
+interface=wlan0
+driver=rtl871xdrv
+bridge=br0
+ssid=rls
+channel=1
+wmm_enabled=0
+wpa=1
+wpa_passphrase=joeman123
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=TKIP
+rsn_pairwise=CCMP
+auth_algs=1
+macaddr_acl=0
+
+
+Then I saved and exited.
+
+
+Then Opened up /etc/default/hostapd
+
+
+Make sure we have the line
+
+DAEMON_CONF="/etc/hostapd/hostapd.conf"
+
+Save and exit
+
+
+
+
+Open /etc/udhcpd.conf  and ensure we have the following in it:-
+
+
+
+start           192.168.0.20    #default: 192.168.0.20
+end             192.168.0.254   #default: 192.168.0.254
+interface wlan0
+
+
+Comment out examples
+
+#opt    dns     192.168.10.2 192.168.10.10
+#option subnet  255.255.255.0
+#opt    router  192.168.10.2
+#opt    wins    192.168.10.10
+#option dns     129.219.13.81   # appened to above DNS servers for a total of 3
+#option domain  local
+#option lease   864000          # 10 days of seconds
+
+
+Then add:-
+
+opt    dns     192.168.0.1
+option subnet 255.255.255.0
+opt    router 192.168.0.1
+option domain flight.net
+option lease 864000
+
+
+
+Save and exit
+
+
+Open /etc/default/udhcpd and set:-
+
+DHCPD_ENABLED="yes"
+
+Save and exit
+
+
+
+Next need to configure bind...
+
+
+Open /etc/bind/named.conf.local and add the following:-
+
+
+zone "flight.net" {
+        type master;
+        file "/etc/bind/flight.net.db.local";
+};
+
+
+Then create file
+
+/etc/bind/flight.net.db.local with the following in it:-
+
+
+; BIND data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     gspi.flight.net. root.gspi.flight.net. (
+                         2015072001     ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      localhost.
+@       IN      A       127.0.0.1
+@       IN      AAAA    ::1
+
+
+gspi	IN	A	192.168.0.1
+
+
+SAve and exit
+
+/etc/init.d/bind9 restart
+
+
+TEst as follows:-
+
+host gspi.flight.net 192.168.0.1
+
+
+It should come back as 192.168.0.1
+
+
+Open /etc/resolv.conf and put the following in it:-
+
+domain flight.net
+search flight.net
+nameserver 127.0.0.1
+
+
+Save and exit
+
+
+
+
+
+
+
+
+reboot
