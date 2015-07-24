@@ -70,6 +70,9 @@ html, body {
 }
 
 
+.loading {
+    background:url(images/ajax-loader.gif) no-repeat center center;
+}
 
 .styled-button-on {
 	display: block;
