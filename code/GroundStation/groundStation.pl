@@ -198,6 +198,9 @@ while (1 == 1)
     }
 
 
+    # Clean out any non-printable characters...just remove them.
+    $serial_rx =~ s/[^[:print:]]//g;
+
     $str = "** Decoding Serial RX: '" . $serial_rx . "'\n" if $DEBUG;
     print $str if $DEBUG;
 
