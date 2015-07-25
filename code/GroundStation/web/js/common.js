@@ -73,10 +73,47 @@ var executeOnce = (function (fn, delay) {
 function showMsg()
 {
   $("#msg").dialog("open");
-  setTimeout(function(){ console.log('Executed after 2000ms'); $("#msg").dialog("option", "hide", "fade").dialog("close"); reload_paused = 0; }, 2000);
+  setTimeout(function(){ $("#msg").dialog("option", "hide", "fade").dialog("close"); reload_paused = 0; }, 2000);
 }
 
 function hideMsg()
 {
   $("#msg").dialog("close");
+}
+
+
+function getRlsStatus(p_request_code)
+{
+        $.ajax({
+                url: "getRlsStatus.php",
+                async: false,
+                cache: false,
+		data: {
+                       request: p_request_code
+                      },
+                success: function(s,x) {
+			alert(s);
+                }
+            });
+        });
+
+}
+
+
+function pollStatus()
+{
+ var timesRun = 0;
+ var refreshId = setInterval(function() {
+
+ alert('test ' + timesRun);
+ if (timesRun > 5) {
+    clearInterval(refreshId);
+ }
+
+ timesRun = timesRun + 1; 
+    
+
+ }, 1000);
+
+
 }

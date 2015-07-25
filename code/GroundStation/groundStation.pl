@@ -883,14 +883,14 @@ sub get_altitude()
 
 
 # Get oldest request that hasn't been acted on yet
-sub get_request()
+sub dequeue_request()
 {
  $v_id = 0;
 
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
- # Put in DB
+ # Get the earliest request (FIFO)
  $query = "SELECT min(id)
            FROM   requests_t
            WHERE  status_code = 'C'";
@@ -925,7 +925,7 @@ sub get_request_code($)
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
- # Put in DB
+ # Get request_code for given request ID
  $query = "SELECT request_code
            FROM   requests_t
            WHERE  id = $p_request_id";
@@ -951,7 +951,9 @@ sub process_requests()
 {
 
  # Look for requests from Web Connected Systems.
- $v_req_id = get_request();
+ $v_req_id = dequeue_request();
+
+ # IF we have got a request...attempt to process it.
  if (defined($v_req_id)) {
     # Perform request (transmission)
     print "** Got Request ID: $v_req_id to perform.\n" if $DEBUG;
@@ -964,9 +966,9 @@ sub process_requests()
 
        $v_result = sendModemRequest("R01", "A01", $v_req_id);
 
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
 
-       set_lc_power_status ($v_result);
+       set_lc_power_status ($v_result);     # Update database with new POWER status
 
        # If we turn power off, we want to set continuity test to 'un tested'
        if ($v_result == 0) {
@@ -978,12 +980,11 @@ sub process_requests()
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
 
-       sendModemRequest("R02", "A02", $v_req_id);
+       $v_result = sendModemRequest("R02", "A02", $v_req_id);
 
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
 
-       set_launch_console_attribute ("A", $v_result);
-       set_lc_arm_status ($v_result);
+       set_lc_arm_status ($v_result);       # Update database with new ARM status
 
        # If ARM successful (which means extra continuity test that was done
        # was successful), so we set it as tested fine here.
@@ -1007,9 +1008,8 @@ sub process_requests()
 
        $v_result = sendModemRequest("R03", "A03", $v_req_id);
 
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
 
-#joe
        # Based on result, set appropriate INFO message.
        if ($v_result == 2) {
           $v_ct_msg = "Failed: Power not on";
@@ -1025,7 +1025,7 @@ sub process_requests()
 
        sendModemRequest("R04", "A04", $v_req_id);
 
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
 
        $v_ct_status = get_last_status("C");
        if (!defined $v_ct_status || $v_ct_status != 0) {

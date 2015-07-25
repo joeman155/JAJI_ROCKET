@@ -55,6 +55,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                       },
                 success: function(s,x) {
                         $("#msgText").html(s);
+			pollStatus();
 			showMsg();
                 }
             });
