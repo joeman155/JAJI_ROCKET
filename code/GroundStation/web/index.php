@@ -176,9 +176,7 @@
     </div>
     
     <div id="msg" title="Messages">
-      <p id="msgText">
-
-      </p>
+      <p id="msgText"/>
     </div>
 </div>
 

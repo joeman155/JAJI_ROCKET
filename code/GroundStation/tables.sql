@@ -68,6 +68,9 @@ CREATE TABLE request_status_t (status_code char(1) primary key,
                                status_desc varchar2(150));
 
 
+CREATE TABLE request_types_t (request_code char(1) primary key,
+                              request_name varchar2(15));
+
 CREATE TABLE launch_system_status_t (id integer primary key autoincrement,
            attribute char(1),
            status   integer,
@@ -86,6 +89,18 @@ VALUES ('F', 'Finished');
 
 
 
+INSERT INTO request_types_t (request_code, request_name) VALUES ('P', 'Power');
 
+INSERT INTO request_types_t (request_code, request_name) VALUES ('A', 'Arm');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('C', 'Continuity Test');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('L', 'Launch');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('N', 'NoPhotos');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('K', 'Cutdown');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('X', 'Xmodem Download');
 
 

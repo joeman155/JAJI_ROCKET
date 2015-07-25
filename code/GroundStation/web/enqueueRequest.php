@@ -27,12 +27,16 @@ if (! in_array($request_code, array("P","A","C","L","N","K", "X"))) {
 
 # Got this far, so it must be a valid request code
 
+
+# Get request name
+$v_request_name = get_request_name ($request_code);
+
 # Submit Request
 $v_req_id = insert_request($request_code);
 if (is_null($v_req_id)) {
    $v_msg = "Error occured while enqueing request...";
 } else {
-   $v_msg = "Requesting submitted - Req ID: " . $v_req_id;
+   $v_msg = $v_request_name . " Requesting submitted";
 }
 
 

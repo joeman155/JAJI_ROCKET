@@ -13,6 +13,34 @@ function insert_request($p_request_code)
 }
 
 
+// Given reqeuest code, get the request name
+function get_request_name($p_request_code)
+{
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+      return NULL;
+     }
+
+ $sql = "SELECT request_name
+         FROM request_types_t
+         WHERE request_code = ?";
+
+ $sth = $dbh->prepare($sql);
+ $sth->execute($p_request_code);
+
+ $row = $sth->fetch();
+ $v_request_name = $row['request_name'];
+
+ return $v_request_name;
+}
+
+
+
 function insert_request_internal($p_request_code, $p_source, $p_destination, $p_ip)
 {
  global $db_file;

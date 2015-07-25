@@ -427,8 +427,8 @@ sub decode_rx()
 
     # We have 3 second delay after getting heartbeat.... so we quickly get
     # stats on state of link
-    # Every 5 iterations...get stats
-    if ($radio_stats_count > 4) {
+    # Every 15 iterations...get stats
+    if ($radio_stats_count > 14) {
 	get_radio_stats();
         $radio_stats_count = 0;
     } else {
