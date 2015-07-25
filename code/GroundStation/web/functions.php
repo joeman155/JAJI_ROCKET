@@ -16,6 +16,8 @@ function insert_request($p_request_code)
 // Given reqeuest code, get the request name
 function get_request_name($p_request_code)
 {
+ global $db_file;
+
  # Initialise DB connection
  try {
       $dbh = new PDO("sqlite:" . $db_file);
@@ -31,7 +33,7 @@ function get_request_name($p_request_code)
          WHERE request_code = ?";
 
  $sth = $dbh->prepare($sql);
- $sth->execute($p_request_code);
+ $sth->execute(array($p_request_code));
 
  $row = $sth->fetch();
  $v_request_name = $row['request_name'];

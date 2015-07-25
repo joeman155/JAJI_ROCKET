@@ -36,7 +36,7 @@ $v_req_id = insert_request($request_code);
 if (is_null($v_req_id)) {
    $v_msg = "Error occured while enqueing request...";
 } else {
-   $v_msg = $v_request_name . " Requesting submitted";
+   $v_msg = $v_request_name . " Request submitted";
 }
 
 

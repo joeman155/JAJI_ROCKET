@@ -66,17 +66,12 @@ html, body {
     border: 1px solid black; 
     display: none;
 
-    background:url(images/ajax-loader.gif) no-repeat center center;
 }
 
 #msgText {
     font-size: 20px;
 }
 
-
-.loading {
-    background:url(images/ajax-loader.gif) no-repeat center center;
-}
 
 .styled-button-on {
     display: block;

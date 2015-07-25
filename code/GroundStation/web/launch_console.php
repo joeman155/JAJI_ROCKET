@@ -44,7 +44,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 
 	// AJAX stuff for buttons
         $("#powertoggle").click(function() {
-        $("#powertoggle").addClass( "loading" );
+        $("#powertoggle").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
@@ -62,7 +62,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 
 
         $("#arm").click(function() {
-        $("#arm").addClass( "loading" );
+        $("#arm").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
@@ -79,7 +79,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
         });
 
         $("#continuitytest").click(function() {
-        $("#continuitytest").addClass( "loading" );
+        $("#continuitytest").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         $.ajax({
                 url: "enqueueRequest.php",
@@ -140,7 +140,7 @@ if (is_null($rls_arm_status)) {
 ?>
 <script>
         $("#launch").click(function() {
-        $("#launch").addClass( "loading" );
+        $("#launch").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         var r = confirm("Proceed to Launch?");
         if (r == true) {
