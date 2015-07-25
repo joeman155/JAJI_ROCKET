@@ -70,20 +70,23 @@ var executeOnce = (function (fn, delay) {
 });
 
 
-function showMsg()
-{
-  $("#msg").dialog("open");
-  setTimeout(function(){ $("#msg").dialog("option", "hide", "fade").dialog("close"); reload_paused = 0; }, 2000);
-}
-
 function hideMsg()
 {
   $("#msg").dialog("close");
 }
 
 
+function showMsg()
+{
+  $("#msg").dialog("open");
+  setTimeout(function(){ $("#msg").dialog("option", "hide", "fade").dialog("close"); reload_paused = 0; }, 2000);
+}
+
+
+
 function getRlsStatus(p_request_code)
 {
+ var v_status;
         $.ajax({
                 url: "getRlsStatus.php",
                 async: false,
@@ -92,28 +95,29 @@ function getRlsStatus(p_request_code)
                        request: p_request_code
                       },
                 success: function(s,x) {
-			alert(s);
+			v_status = s;
                 }
             });
-        });
 
+ return v_status;
 }
 
 
-function pollStatus()
+function checkStatus(p_old_status,p_request_code)
 {
  var timesRun = 0;
  var refreshId = setInterval(function() {
 
- alert('test ' + timesRun);
- if (timesRun > 5) {
-    clearInterval(refreshId);
- }
+    // alert('test ' + timesRun);
+    v_new_status = getRlsStatus(p_request_code)
+alert('old status: ' + p_old_status + ', new status: ' + v_new_status);
+    if (timesRun > 5) {
+       clearInterval(refreshId);
+    }
 
- timesRun = timesRun + 1; 
+    timesRun = timesRun + 1; 
     
 
  }, 1000);
-
 
 }
