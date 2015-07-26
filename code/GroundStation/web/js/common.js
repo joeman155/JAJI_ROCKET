@@ -129,7 +129,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
        hideMsg();                            // Hide the Message Box
     }
 
-    if (timesRun > 5) {
+    if (timesRun > 20) {
        // Got to here with no suggestion that the status changed. It _could_ have changed
        // but we got no indication that it did change
        // Setting to state to indicate we aren't sure.
@@ -145,11 +145,21 @@ function checkStatus(buttonName, p_old_status,p_request_code)
     timesRun = timesRun + 1; 
     
 
- }, 1000);
+ }, 300);
 
 }
 
 
+// Toggle colours on button and remove spinner
+// Notes: 
+//  -- buttonName is name of button
+//  -- oldState is old state  0 or 1 or something else. 
+//  -- newState is the new state 0 or 1 or something else
+//
+// State 0 is a special state (off)
+// State 1 is a special state (on)
+// State X (where X > 1) is usually an error...or unknown
+//
 function toggle(buttonName, oldState, newState)
 {
 

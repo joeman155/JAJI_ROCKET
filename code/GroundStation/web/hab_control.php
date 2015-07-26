@@ -16,6 +16,8 @@ catch (PDOException $e)
 
 <script>
         $("#cutdown").click(function() {
+        reload_paused = 1;
+        $("#cutdown").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         $.ajax({
                 url: "enqueueRequest.php",
                 data: {
@@ -24,12 +26,19 @@ catch (PDOException $e)
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
+                        setTimeout(function() { 
+                                               $("#msg").dialog("option", "hide", "fade").dialog("close"); 
+                                               reload_paused = 0; 
+                                               $("#cutdown").css("background", "");
+                        }, 2000);
                 }
             });
         });
 
 
         $("#nophotos").click(function() {
+        reload_paused = 1;
+        $("#nophotos").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         $.ajax({
                 url: "enqueueRequest.php",
                 data: {
@@ -38,6 +47,11 @@ catch (PDOException $e)
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
+                        setTimeout(function() { 
+                                               $("#msg").dialog("option", "hide", "fade").dialog("close"); 
+                                               reload_paused = 1; 
+                                               $("#nophotos").css("background", "");
+                        }, 2000);
                 }
             });
         });
