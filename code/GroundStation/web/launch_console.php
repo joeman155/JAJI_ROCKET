@@ -56,8 +56,17 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                 success: function(s,x) {
                         $("#msgText").html(s);
                         $("#msg").dialog("open");
-			checkStatus('<?= $rls_power_status?>', 'P');
 			showMsg();
+			hasStatusChanged = checkStatus('<?= $rls_power_status?>', 'P');
+                        if (hasStatusChanged == 1) {
+                           if (<?= $rls_power_status?> == 1) {
+                              $("#powertoggle").addClass("styled-button-off");
+                           } else {
+                              $("#powertoggle").addClass("styled-button-on");
+                           }
+                           $("#powertoggle").css("background", "");
+                        } 
+                        hideMsg();
                 }
             });
         });
