@@ -105,6 +105,39 @@ function set_request_status($p_request_id, $p_status_code)
 }
 
 
+# Get latest request status for given request code
+function get_latest_request_status($p_request_code)
+{
+ global $db_file;
+
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+     }
+
+
+ $sql = "SELECT status_code
+         FROM   requests_t 
+         WHERE  id = (SELECT max(id)
+                      FROM   requests_t
+                      WHERE  request_code = ?)";
+
+
+ $sth = $dbh->prepare($sql);
+ $sth->execute(array($p_request_code));
+
+ $row = $sth->fetch();
+ $v_request_status = $row['request_status'];
+
+ return $v_request_status;
+
+}
+
+
 
 # Get the last known status of particular state of rocket launch system
 #
@@ -147,7 +180,7 @@ function get_rls_status($p_attribute, $p_exclude_pending = 0)
  }
 
  $sth = $dbh->prepare($sql);
- $sth->execute($p_attribute);
+ $sth->execute(array($p_attribute));
 
  $row = $sth->fetch();
  $result["status"] = $row['status'];
