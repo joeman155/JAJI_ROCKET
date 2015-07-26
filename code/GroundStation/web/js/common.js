@@ -145,7 +145,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
     timesRun = timesRun + 1; 
     
 
- }, 300);
+ }, 500);
 
 }
 
