@@ -106,7 +106,12 @@ function set_request_status($p_request_id, $p_status_code)
 
 
 
-function get_rls_status($p_attribute)
+# Get the last known status of particular state of rocket launch system
+#
+# Pending is a special state...it is a quasi state between changes.
+# Because we can't ALWAYS rely upon the radio transmission...there is some
+# level of uncertainty, and we wish to reflect that here.
+function get_rls_status($p_attribute, $p_exclude_pending = 0)
 {
  global $db_file;
  $result = array();
@@ -121,20 +126,34 @@ function get_rls_status($p_attribute)
      }
 
 
- $sql = "select *
-         from   launch_system_status_t
-         WHERE  id = (select max(id) FROM launch_system_status_t where attribute = '" . $p_attribute . "')";
+ # If p_exclude_pending == 0, this means we don't care what sttus
+ if ($p_exclude_pending == 0) {
+    $sql = "SELECT *
+            FROM   launch_system_status_t
+            WHERE  id = (SELECT MAX(id) 
+                         FROM   launch_system_status_t 
+                         WHERE  attribute = ?)";
+
+ } else {
+ # Else we DO wish to skip the pending status
+    $sql = "SELECT *
+            FROM   launch_system_status_t
+            WHERE  id = (SELECT MAX(id) 
+                         FROM   launch_system_status_t 
+                         WHERE  attribute = ?
+                         AND    status >= 0)";
+
+
+ }
 
  $sth = $dbh->prepare($sql);
- $sth->execute();
+ $sth->execute($p_attribute);
 
  $row = $sth->fetch();
  $result["status"] = $row['status'];
  $result["notes"]  = $row['notes'];
  $result["creation_date"] = $row['creation_date'];
 
-$n = $row['notes'];
-`echo $n > /tmp/whatthe`;
  return $result;
 }
 

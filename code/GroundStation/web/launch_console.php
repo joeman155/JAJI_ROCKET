@@ -60,7 +60,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        v_current_status = getRlsStatus('P')
+                        v_current_status = getRlsStatus('P', 1);
 			checkStatus('powertoggle', v_current_status, 'P');
                 }
             });
@@ -84,7 +84,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        v_current_status = getRlsStatus('A')
+                        v_current_status = getRlsStatus('A', 1);
 			checkStatus('arm', v_current_status, 'A');
                 }
             });
@@ -107,7 +107,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        v_current_status = getRlsStatus('C')
+                        v_current_status = getRlsStatus('C', 1);
 			checkStatus('continuitytest', v_current_status, 'C');
                 }
             });
@@ -182,7 +182,7 @@ if (is_null($rls_arm_status)) {
                    success: function(s,x) {
                            $("#msgText").html(s);
                            showMsg();
-                           v_current_status = getRlsStatus('L')
+                           v_current_status = getRlsStatus('L', 1);
 			   checkStatus('launch', v_current_status, 'L');
                    }
                });

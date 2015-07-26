@@ -84,7 +84,7 @@ function showMsg()
 
 
 
-function getRlsStatus(p_request_code)
+function getRlsStatus(p_request_code, p_exclude_pending)
 {
  var v_status;
         $.ajax({
@@ -92,7 +92,8 @@ function getRlsStatus(p_request_code)
                 async: false,
                 cache: false,
 		data: {
-                       request: p_request_code
+                       request: p_request_code,
+		       exclude_pending: p_exclude_pending
                       },
                 success: function(s,x) {
 			v_status = s;
@@ -118,7 +119,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
  var status_changed = -1;
  var refreshId = setInterval(function() {
 
-    v_new_status = getRlsStatus(p_request_code)
+    v_new_status = getRlsStatus(p_request_code, 1)
     // alert('old status: ' + p_old_status + ', new status: ' + v_new_status);
 
     // See if status has changed.... if so...return 1

@@ -26,7 +26,7 @@ catch (PDOException $e)
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        v_current_status = getRlsStatus('K')
+                        v_current_status = getRlsStatus('K', 1);
                         checkStatus('cutdown', v_current_status, 'K');
                 }
             });
