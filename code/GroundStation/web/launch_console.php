@@ -160,6 +160,8 @@ if (is_null($rls_arm_status)) {
                    success: function(s,x) {
                            $("#msgText").html(s);
                            showMsg();
+                           v_current_status = getRlsStatus('L')
+			   checkStatus('launch', v_current_status, 'L');
                    }
                });
         }
