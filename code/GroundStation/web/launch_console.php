@@ -55,7 +55,6 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                       },
                 success: function(s,x) {
                         $("#msgText").html(s);
-                        $("#msg").dialog("open");
 			showMsg();
                         v_old_status = getRlsStatus('P')
 			checkStatus('powertoggle', v_old_status, 'P');
