@@ -26,11 +26,8 @@ catch (PDOException $e)
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        setTimeout(function() { 
-                                               $("#msg").dialog("option", "hide", "fade").dialog("close"); 
-                                               reload_paused = 0; 
-                                               $("#cutdown").css("background", "");
-                        }, 2000);
+                        v_current_status = getRlsStatus('K')
+                        checkStatus('cutdown', v_current_status, 'K');
                 }
             });
         });

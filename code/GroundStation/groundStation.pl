@@ -1055,8 +1055,20 @@ sub process_requests()
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^K/) {
        print "** Cutdown request...\n" if $DEBUG;
-       sendModemRequest("R07", "A07", $v_req_id);
+
+       set_launch_console_attribute("K", -1, "Pending");
+       $v_result = sendModemRequest("R07", "A07", $v_req_id);
+
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
+
+       # Based on result, set appropriate INFO message.
+       if ($v_result == 1) {
+          $v_cutdown_msg = "Cutdown initiated";
+       } elsif ($v_result == 0) {
+          $v_cutdown_msg = "Cutdown failed.";
+       }
+
+       set_launch_console_attribute("K", $v_result, $v_cutdown_msg);
     }  else {
        print "** Unknown request " . $v_request_code . "\n" if $DEBUG;
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
