@@ -138,6 +138,45 @@ function get_latest_request_status($p_request_code)
 }
 
 
+# Check to see if there is a request newer than the latest result from the launch system
+# Return:-
+# - 1 if yes
+# - 0 if no
+function is_pending_request($p_request_code)
+{
+ global $db_file;
+
+ # Initialise DB connection
+ try {
+      $dbh = new PDO("sqlite:" . $db_file);
+     }
+ catch (PDOException $e)
+     {
+      echo $e->getMessage();
+     }
+
+ $sql = "SELECT count(*) rowcount
+         FROM   requests_t
+         WHERE  id = (SELECT max(id)
+                      FROM   requests_t
+                      WHERE  request_code = ?)
+         AND    creation_date > (SELECT creation_date
+                                 FROM   launch_system_status_t
+                                 WHERE  id = (SELECT max(id)
+                                              FROM   launch_system_status_t
+                                              WHERE  attribute = ?))";
+
+
+ $sth = $dbh->prepare($sql);
+ $sth->execute(array($p_request_code));
+
+ $row = $sth->fetch();
+ $v_rowcount = $row['rowcount'];
+
+ return $rowcount;
+}
+
+
 
 # Get the last known status of particular state of rocket launch system
 #
