@@ -112,7 +112,7 @@ function getRlsStatus(p_request_code)
 // Note: We are only dealing with 'on/off' logic here...
 //       p_old_status will be 1 (on) or 0 (off)
 //
-function checkStatus(p_old_status,p_request_code)
+function checkStatus(buttonName, p_old_status,p_request_code)
 {
  var timesRun = 0;
  var status_changed = -1;
@@ -122,8 +122,9 @@ function checkStatus(p_old_status,p_request_code)
     // alert('old status: ' + p_old_status + ', new status: ' + v_new_status);
 
     // See if status has changed.... if so...return 1
-    if (p_old_status <> v_new_status) {
-       return 1;
+    if (p_old_status != v_new_status) {
+       clearInterval(refreshId);
+       toggle(buttonName, p_old_status);
     }
 
     if (timesRun > 5) {
@@ -137,5 +138,22 @@ function checkStatus(p_old_status,p_request_code)
 
  // Got to here with no suggestion that the status changed. It _could_ have changed
  // but we got no indication that it did change
- return 0;
+}
+
+
+function toggle(buttonName, oldState)
+{
+
+ if (oldState == 0) {
+    $('#' + buttonName).addClass("styled-button-on");
+    alert('ON');
+ } else if (oldState == 1) {
+    $('#' + buttonName).addClass("styled-button-off");
+    alert('OFF');
+ } else {
+    $('#' + buttonName).addClass("styled-button-un");
+ }
+
+ $("#" + buttonName).css("background", "");
+
 }

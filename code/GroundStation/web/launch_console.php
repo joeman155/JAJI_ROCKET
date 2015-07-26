@@ -57,15 +57,18 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
                         $("#msgText").html(s);
                         $("#msg").dialog("open");
 			showMsg();
-			hasStatusChanged = checkStatus('<?= $rls_power_status?>', 'P');
-                        if (hasStatusChanged == 1) {
-                           if (<?= $rls_power_status?> == 1) {
-                              $("#powertoggle").addClass("styled-button-off");
-                           } else {
-                              $("#powertoggle").addClass("styled-button-on");
-                           }
-                           $("#powertoggle").css("background", "");
-                        } 
+                        v_old_status = getRlsStatus('P')
+			checkStatus('powertoggle', v_old_status, 'P');
+//                        if (hasStatusChanged == 1) {
+//                           if (<?= $rls_power_status?> == 1) {
+//                              alert('updating status');
+//			   }
+//                             $("#powertoggle").addClass("styled-button-off");
+//                         } else {
+//                              $("#powertoggle").addClass("styled-button-on");
+//                           }
+//                           $("#powertoggle").css("background", "");
+//                        } 
                         hideMsg();
                 }
             });
