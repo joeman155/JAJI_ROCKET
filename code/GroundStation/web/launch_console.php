@@ -131,6 +131,9 @@ if (is_null($rls_power_status)) {
 } else if ($rls_power_status == 0) {
   $v_power_status = $rls_power_notes;
   $v_power_status_css = "off";
+} else if ($rls_power_status == -1) {
+  $v_power_status = $rls_power_notes;
+  $v_power_status_css = "un";
 }
 
 
@@ -147,6 +150,9 @@ if (is_null($rls_arm_status)) {
 } else if ($rls_arm_status == 3) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
+} else if ($rls_arm_status == -1) {
+  $v_arm_status = $rls_arm_notes;
+  $v_arm_status_css = "un";
 } else if ($rls_arm_status == 2) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";
@@ -196,15 +202,18 @@ if (is_null($rls_arm_status)) {
 if (is_null($rls_ct_status)) {
   $v_ct_status = "Unknown";
   $v_ct_status_css = "un";
-} else if ($rls_ct_status == 2) {
-  $v_ct_status = $rls_ct_notes;
-  $v_ct_status_css = "off";
 } else if ($rls_ct_status == 1) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "on";
 } else if ($rls_ct_status == 0) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "off";
+} else if ($rls_ct_status == 2) {
+  $v_ct_status = $rls_ct_notes;
+  $v_ct_status_css = "off";
+} else if ($rls_ct_status == -1) {
+  $v_ct_status = $rls_ct_notes;
+  $v_ct_status_css = "un";
 }
 
 

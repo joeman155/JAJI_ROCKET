@@ -964,6 +964,7 @@ sub process_requests()
     if ($v_request_code =~ /P/) { 
        print "** Power request...\n" if $DEBUG;
 
+       set_launch_console_attribute("P", -1, "Pending");
        $v_result = sendModemRequest("R01", "A01", $v_req_id);
 
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
@@ -980,6 +981,7 @@ sub process_requests()
     } elsif ($v_request_code =~ /^A/) {
        print "** Arm request...\n" if $DEBUG;
 
+       set_launch_console_attribute("A", -1, "Pending");
        $v_result = sendModemRequest("R02", "A02", $v_req_id);
 
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
@@ -1006,6 +1008,7 @@ sub process_requests()
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
 
+       set_launch_console_attribute("C", -1, "Pending");
        $v_result = sendModemRequest("R03", "A03", $v_req_id);
 
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
@@ -1023,6 +1026,7 @@ sub process_requests()
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
 
+       set_launch_console_attribute("L", -1, "Pending");
        sendModemRequest("R04", "A04", $v_req_id);
 
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
