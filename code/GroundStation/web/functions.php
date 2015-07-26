@@ -168,12 +168,12 @@ function is_pending_request($p_request_code)
 
 
  $sth = $dbh->prepare($sql);
- $sth->execute(array($p_request_code));
+ $sth->execute(array($p_request_code, $p_request_code));
 
  $row = $sth->fetch();
  $v_rowcount = $row['rowcount'];
 
- return $rowcount;
+ return $v_rowcount;
 }
 
 

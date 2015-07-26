@@ -20,12 +20,14 @@ $rls_power_status          = $power_status["status"];
 $rls_power_notes           = $power_status["notes"];
 $rls_power_status_date_raw = $power_status["creation_date"];
 $rls_power_status_date     =  date("Y-m-d H:i:s", strtotime($rls_power_status_date_raw));
+$rls_power_is_pending      = is_pending_request("P");
 
 $arm_status                = get_rls_status("A");
 $rls_arm_status            = $arm_status["status"];
 $rls_arm_notes             = $arm_status["notes"];
 $rls_arm_status_date_raw   = $arm_status["creation_date"];
 $rls_arm_status_date       =  date("Y-m-d H:i:s", strtotime($rls_arm_status_date_raw));
+$rls_arm_is_pending        = is_pending_request("A");
 
 
 $ct_status                 = get_rls_status("C");
@@ -33,11 +35,14 @@ $rls_ct_status             = $ct_status["status"];
 $rls_ct_notes              = $ct_status["notes"];
 $rls_ct_status_date_raw    = $ct_status["creation_date"];
 $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_raw));
+$rls_ct_is_pending         = is_pending_request("C");
 
+# print "P: " . $rls_power_is_pending . "<br>\n";
+# print "A: " . $rls_arm_is_pending . "<br>\n";
+# print "C: " . $rls_ct_is_pending . "<br>\n";
 
 ?>
 
-<?= $rls_power_status_date_raw?>
 <script>
 	// Initialise fuzzy timeago
 	$("abbr.timeago").timeago();
@@ -123,7 +128,7 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 
 
 // Power
-if (is_null($rls_power_status)) {
+if (is_null($rls_power_status) || $rls_power_is_pending == 1) {
   $v_power_status = "Unknown";
   $v_power_status_css = "un";
 } else if ($rls_power_status == 1) {
@@ -145,7 +150,7 @@ $v_launch_css = "off";
 
 
 // Arm
-if (is_null($rls_arm_status)) {
+if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
   $v_arm_status = "Unknown";
   $v_arm_status_css = "un";
 } else if ($rls_arm_status == 3) {
@@ -200,7 +205,7 @@ if (is_null($rls_arm_status)) {
 
 
 // Continuity Test
-if (is_null($rls_ct_status)) {
+if (is_null($rls_ct_status) || $rls_ct_is_pending == 1) {
   $v_ct_status = "Unknown";
   $v_ct_status_css = "un";
 } else if ($rls_ct_status == 1) {
