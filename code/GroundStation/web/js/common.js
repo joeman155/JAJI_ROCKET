@@ -126,6 +126,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
        clearInterval(refreshId);
        toggle(buttonName, p_old_status);
        reload_paused = 0;                    // Re-enable page reloads
+       hideMsg();                            // Hide the Message Box
     }
 
     if (timesRun > 5) {
@@ -138,6 +139,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
        $('#' + buttonName).removeClass("styled-button-off");
        $('#' + buttonName).addClass("styled-button-un");
        reload_paused = 0;                    // Re-enable page reloads
+       hideMsg();                            // Hide the Message Box
     }
 
     timesRun = timesRun + 1; 

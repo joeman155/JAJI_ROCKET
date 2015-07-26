@@ -59,17 +59,6 @@ $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_
 			showMsg();
                         v_old_status = getRlsStatus('P')
 			checkStatus('powertoggle', v_old_status, 'P');
-//                        if (hasStatusChanged == 1) {
-//                           if (<?= $rls_power_status?> == 1) {
-//                              alert('updating status');
-//			   }
-//                             $("#powertoggle").addClass("styled-button-off");
-//                         } else {
-//                              $("#powertoggle").addClass("styled-button-on");
-//                           }
-//                           $("#powertoggle").css("background", "");
-//                        } 
-                        hideMsg();
                 }
             });
         });
