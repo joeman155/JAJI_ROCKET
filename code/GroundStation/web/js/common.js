@@ -125,10 +125,19 @@ function checkStatus(buttonName, p_old_status,p_request_code)
     if (p_old_status != v_new_status) {
        clearInterval(refreshId);
        toggle(buttonName, p_old_status);
+       reload_paused = 0;                    // Re-enable page reloads
     }
 
     if (timesRun > 5) {
+       // Got to here with no suggestion that the status changed. It _could_ have changed
+       // but we got no indication that it did change
+       // Setting to state to indicate we aren't sure.
        clearInterval(refreshId);
+       $("#" + buttonName).css("background", "");
+       $('#' + buttonName).removeClass("styled-button-on");
+       $('#' + buttonName).removeClass("styled-button-off");
+       $('#' + buttonName).addClass("styled-button-un");
+       reload_paused = 0;                    // Re-enable page reloads
     }
 
     timesRun = timesRun + 1; 
@@ -136,8 +145,6 @@ function checkStatus(buttonName, p_old_status,p_request_code)
 
  }, 1000);
 
- // Got to here with no suggestion that the status changed. It _could_ have changed
- // but we got no indication that it did change
 }
 
 
@@ -145,12 +152,14 @@ function toggle(buttonName, oldState)
 {
 
  if (oldState == 0) {
+    $('#' + buttonName).removeClass("styled-button-off");
     $('#' + buttonName).addClass("styled-button-on");
-    alert('ON');
  } else if (oldState == 1) {
+    $('#' + buttonName).removeClass("styled-button-on");
     $('#' + buttonName).addClass("styled-button-off");
-    alert('OFF');
  } else {
+    $('#' + buttonName).removeClass("styled-button-on");
+    $('#' + buttonName).removeClass("styled-button-off");
     $('#' + buttonName).addClass("styled-button-un");
  }
 
