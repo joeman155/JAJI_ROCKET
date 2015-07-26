@@ -124,7 +124,7 @@ function checkStatus(buttonName, p_old_status,p_request_code)
     // See if status has changed.... if so...return 1
     if (p_old_status != v_new_status) {
        clearInterval(refreshId);
-       toggle(buttonName, p_old_status);
+       toggle(buttonName, p_old_status, v_new_status);
        reload_paused = 0;                    // Re-enable page reloads
        hideMsg();                            // Hide the Message Box
     }
@@ -150,13 +150,13 @@ function checkStatus(buttonName, p_old_status,p_request_code)
 }
 
 
-function toggle(buttonName, oldState)
+function toggle(buttonName, oldState, newState)
 {
 
- if (oldState == 0) {
+ if (oldState == 0 && (newState == 1 || newState == 0)) {
     $('#' + buttonName).removeClass("styled-button-off");
     $('#' + buttonName).addClass("styled-button-on");
- } else if (oldState == 1) {
+ } else if (oldState == 1 && (newState == 1 || newState == 0)) {
     $('#' + buttonName).removeClass("styled-button-on");
     $('#' + buttonName).addClass("styled-button-off");
  } else {
