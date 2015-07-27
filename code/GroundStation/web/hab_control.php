@@ -47,11 +47,8 @@ $rls_cutdown_is_pending        = is_pending_request("K");
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        setTimeout(function() { 
-                                               $("#msg").dialog("option", "hide", "fade").dialog("close"); 
-                                               reload_paused = 1; 
-                                               $("#nophotos").css("background", "");
-                        }, 2000);
+                        v_current_status = getRlsStatus('N', 1);
+                        checkStatus('nophotos', 'N', v_current_status);
                 }
             });
         });
