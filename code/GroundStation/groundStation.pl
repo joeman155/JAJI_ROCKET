@@ -171,6 +171,12 @@ if (!defined $v_cutdown_status || $v_cutdown_status != 3) {
 }
 
 
+# Initialise photos
+$v_nophotos_status = get_last_status("N");
+if (!defined $v_nophotos_status || $v_nophotos_status != 1) {
+   set_launch_console_attribute("N", 1, "System Startup");
+}
+
 
 # Commence Serial Port monitoring
 monitor_systems();
@@ -1311,3 +1317,13 @@ sub get_last_status($;$)
 }
 
 
+
+# Return 1 if photo downloads enabled, 0 if photo downloads disabled
+sub is_photo_downloads_enabled()
+{
+
+ $v_result = get_last_status('N', 1);
+
+ return $v_result;
+
+}
