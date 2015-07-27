@@ -124,7 +124,7 @@ function checkStatus(buttonName, p_request_code, p_old_status)
     // See if status has changed.... if so...return 1
     if (p_old_status != v_new_status) {
        clearInterval(refreshId);
-       toggle(buttonName, p_old_status, v_new_status);
+       toggle(buttonName, v_new_status);
        reload_paused = 0;                    // Re-enable page reloads
        hideMsg();                            // Hide the Message Box
     }
@@ -164,7 +164,7 @@ function invalidateContinuity(buttonName, p_request_code)
        submitContinuityTest();
     }
 
-    if (timesRun > 20) {
+    if (timesRun > 40) {
        // Got to here with no suggestion that the status changed. It _could_ have changed
        // but we got no indication that it did change
        // Setting to state to indicate we aren't sure.
@@ -189,42 +189,42 @@ function invalidateContinuity(buttonName, p_request_code)
 function submitContinuityTest()
 {
 
-   // Submit request to perform the Continuity Test
-   $.ajax({
-           url: "enqueueRequest.php",
-           async: false,
-           cache: false,
-           data: {
-                  request: "C"
-                 },
-           success: function(s,x) {
-                   $("#msgText").html(s);
-                   showMsg();
-                   v_current_status = getRlsStatus('C', 1);
-                   checkStatus('continuitytest', 'C', v_current_status);
-           }
-       });
-
+ // Submit request to perform the Continuity Test
+ $.ajax({
+         url: "enqueueRequest.php",
+         async: false,
+         cache: false,
+         data: {
+                request: "C"
+               },
+         success: function(s,x) {
+                 $("#msgText").html(s);
+                 showMsg();
+                 v_current_status = getRlsStatus('C', 1);
+                 checkStatus('continuitytest', 'C', v_current_status);
+         }
+     });
 }
 
 
 // Toggle colours on button and remove spinner
 // Notes: 
 //  -- buttonName is name of button
-//  -- oldState is old state  0 or 1 or something else. 
 //  -- newState is the new state 0 or 1 or something else
 //
 // State 0 is a special state (off)
 // State 1 is a special state (on)
 // State X (where X > 1) is usually an error...or unknown
 //
-function toggle(buttonName, oldState, newState)
+function toggle(buttonName, newState)
 {
 
- if (oldState == 0 && (newState == 1 || newState == 0)) {
+ $("#" + buttonName).css("background", "");
+
+ if (newState == 1 ) {
     $('#' + buttonName).removeClass("styled-button-off");
     $('#' + buttonName).addClass("styled-button-on");
- } else if (oldState == 1 && (newState == 1 || newState == 0)) {
+ } else if (newState == 0) {
     $('#' + buttonName).removeClass("styled-button-on");
     $('#' + buttonName).addClass("styled-button-off");
  } else {
@@ -233,6 +233,5 @@ function toggle(buttonName, oldState, newState)
     $('#' + buttonName).addClass("styled-button-un");
  }
 
- $("#" + buttonName).css("background", "");
 
 }
