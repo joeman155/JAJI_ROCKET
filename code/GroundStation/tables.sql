@@ -95,6 +95,8 @@ INSERT INTO request_types_t (request_code, request_name) VALUES ('A', 'Arm');
 
 INSERT INTO request_types_t (request_code, request_name) VALUES ('C', 'Continuity Test');
 
+INSERT INTO request_types_t (request_code, request_name) VALUES ('T', 'Invalidate Continuity Test');
+
 INSERT INTO request_types_t (request_code, request_name) VALUES ('L', 'Launch');
 
 INSERT INTO request_types_t (request_code, request_name) VALUES ('N', 'NoPhotos');

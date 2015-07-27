@@ -103,6 +103,22 @@ print "C: " . $rls_ct_is_pending . "<br>\n";
 
         $("#continuitytest").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
+
+        // Submit request to return Continuity Test to 'Invalidated'
+        $.ajax({
+                url: "enqueueRequest.php",
+                async: false,
+                cache: false,
+                data: {  
+                       request: "T"
+                      },
+                success: function(s,x) {
+                        $("#msgText").html(s);
+			showMsg();
+                }
+            });
+
+        // Submit request to perform the Continuity Test
         $.ajax({
                 url: "enqueueRequest.php",
                 async: false,
@@ -114,6 +130,8 @@ print "C: " . $rls_ct_is_pending . "<br>\n";
                         $("#msgText").html(s);
 			showMsg();
                         v_current_status = getRlsStatus('C', 1);
+//joe
+alert(v_current_status);
 			checkStatus('continuitytest', 'C', v_current_status);
                 }
             });

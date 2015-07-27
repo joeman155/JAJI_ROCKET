@@ -1023,6 +1023,11 @@ sub process_requests()
        }
 
        set_launch_console_attribute("C", $v_result, $v_ct_msg);
+    } elsif ($v_request_code =~ /^T/) {
+       print "** Invalidating previous Continuity Test...\n" if $DEBUG;
+
+       set_launch_console_attribute("C", 3, "Invalidate Continuity Test");
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
 
