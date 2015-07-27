@@ -113,7 +113,7 @@ function getRlsStatus(p_request_code, p_exclude_pending)
 // Note: We are only dealing with 'on/off' logic here...
 //       p_old_status will be 1 (on) or 0 (off)
 //
-function checkStatus(buttonName, p_old_status,p_request_code)
+function checkStatus(buttonName, p_request_code, p_old_status)
 {
  var timesRun = 0;
  var status_changed = -1;

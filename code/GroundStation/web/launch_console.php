@@ -67,7 +67,7 @@ $rls_ct_is_pending         = is_pending_request("C");
                         $("#msgText").html(s);
 			showMsg();
                         v_current_status = getRlsStatus('P', 1);
-			checkStatus('powertoggle', v_current_status, 'P');
+			checkStatus('powertoggle', 'P', v_current_status);
                 }
             });
         });
@@ -91,7 +91,7 @@ $rls_ct_is_pending         = is_pending_request("C");
                         $("#msgText").html(s);
 			showMsg();
                         v_current_status = getRlsStatus('A', 1);
-			checkStatus('arm', v_current_status, 'A');
+			checkStatus('arm', 'A', v_current_status);
                 }
             });
         });
@@ -114,7 +114,7 @@ $rls_ct_is_pending         = is_pending_request("C");
                         $("#msgText").html(s);
 			showMsg();
                         v_current_status = getRlsStatus('C', 1);
-			checkStatus('continuitytest', v_current_status, 'C');
+			checkStatus('continuitytest', 'C', v_current_status);
                 }
             });
         });
@@ -189,7 +189,7 @@ if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
                            $("#msgText").html(s);
                            showMsg();
                            v_current_status = getRlsStatus('L', 1);
-			   checkStatus('launch', v_current_status, 'L');
+			   checkStatus('launch', 'L', v_current_status);
                    }
                });
         }

@@ -27,7 +27,7 @@ catch (PDOException $e)
                         $("#msgText").html(s);
 			showMsg();
                         v_current_status = getRlsStatus('K', 1);
-                        checkStatus('cutdown', v_current_status, 'K');
+                        checkStatus('cutdown', 'K', v_current_status);
                 }
             });
         });

@@ -15,7 +15,7 @@ catch (PDOException $e)
 
 
 
-$request_code = $_REQUEST['request'];
+$request_code    = $_REQUEST['request'];
 $exclude_pending = $_REQUEST['exclude_pending'];
 
 
@@ -27,7 +27,7 @@ if (! in_array($request_code, array("P","A","C","L","N","K", "X"))) {
 
 
 # Get latest launch systms status
-$request_status              = get_rls_status($request_code, $exclude_pending);
+$request_status = get_rls_status($request_code, $exclude_pending);
 
 
 echo $request_status["status"];
