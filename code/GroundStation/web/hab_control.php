@@ -2,6 +2,7 @@
 
 # CONFIGURATION
 include "config.inc";
+include "functions.php";
 
 # Get all the latest measurements
 try {
@@ -12,26 +13,28 @@ catch (PDOException $e)
      echo $e->getMessage();
     }
 
+
+# Get latest launch systms status
+$nophotos_status              = get_rls_status("N");
+$rls_nophotos_status          = $nophotos_status["status"];
+$rls_nophots_notes            = $nophotos_status["notes"];
+$rls_nophotos_status_date_raw = $nophotos_status["creation_date"];
+$rls_nophots_status_date      =  date("Y-m-d H:i:s", strtotime($rls_nophotos_status_date_raw));
+$rls_nophots_is_pending       = is_pending_request("N");
+
+$cutdown_status                = get_rls_status("K");
+$rls_cutdown_status            = $cutdown_status["status"];
+$rls_cutdown_notes             = $cutdown_status["notes"];
+$rls_cutdown_status_date_raw   = $cutdown_status["creation_date"];
+$rls_cutdown_status_date       =  date("Y-m-d H:i:s", strtotime($rls_cutdown_status_date_raw));
+$rls_cutdown_is_pending        = is_pending_request("K");
+
+# print "rls_nophotos_status: " . $rls_nophotos_status . "<br>\n";
+# print "rls_cutdown_status: "  . $rls_cutdown_status . "<br>\n";
+
 ?>
 
 <script>
-        $("#cutdown").click(function() {
-        reload_paused = 1;
-        $("#cutdown").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
-        $.ajax({
-                url: "enqueueRequest.php",
-                data: {
-                       request: "K"
-                      },
-                success: function(s,x) {
-                        $("#msgText").html(s);
-			showMsg();
-                        v_current_status = getRlsStatus('K', 1);
-                        checkStatus('cutdown', 'K', v_current_status);
-                }
-            });
-        });
-
 
         $("#nophotos").click(function() {
         reload_paused = 1;
@@ -55,46 +58,79 @@ catch (PDOException $e)
 </script>
 <h3>HAB control</h3>
 
-<div id="list_wrapper">
-<ul class="multiple_columns">
-<li>
-<h2>Cutdown</h2>
-<?
-if (file_exists($cutdown_init_file)) {
-  $cutdown_msg = "Cutdown initiated";
-} else if (file_exists($cutdown_req_file)) {
-  $cutdown_msg = "Cutdown requested";
-} else {
-  $cutdown_msg = "";
-}
 
-if ($cutdown_msg != "") {
-?>
-        <b>Cutdown Status</b>: <?= $cutdown_msg ?>
 <?
-} else {
+
+# NO PHOTOS
+ if ($rls_nophotos_status == 1) {
+    $nophotos_msg = "Enabled";
+    $nophotos_button_msg = "Disable";
+    $rls_nophotos_status_css = "on";
+ } else if ($rls_nophotos_status == 0) {
+    $nophotos_msg = "Disabled";
+    $nophotos_button_msg = "Enable";
+    $rls_nophotos_status_css = "off";
+ } else {
+    $rls_nophotos_status_css = "un";
+ } 
+
+
+
+# CUTDOWN
+ if ($rls_cutdown_status == 1) {
+    $rls_cutdown_status_css = "on";
+ } else if ($rls_cutdown_status == 0) {
+    $rls_cutdown_status_css = "off";
+ } else { 
+    $rls_cutdown_status_css = "un";
+ }
+
+
+
+# Only allow cutdown button to work IF the cutdown status <> 1...i.e. cutdown not initiated yet.
+if ($rls_cutdown_status != 1) {
 ?>
-<input id="cutdown" type="button" class="styled-button-on" value="Initiate Cutdown"/>
+<script>
+        $("#cutdown").click(function() {
+        reload_paused = 1;
+        $("#cutdown").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
+        $.ajax({
+                url: "enqueueRequest.php",
+                data: {
+                       request: "K"
+                      },
+                success: function(s,x) {
+                        $("#msgText").html(s);
+                        showMsg();
+                        v_current_status = getRlsStatus('K', 1);
+                        checkStatus('cutdown', 'K', v_current_status);
+                }
+            });
+        });
+</script>
 <?
 }
 ?>
-</li>
-<li>
-<h2>Enable/Disable Photo Downloads</h2>
-<?
-if (file_exists($nophotos_file)) {
-  $nophotos_msg = "Disabled";
-  $nophotos_button_msg = "Enable";
-  $nophotos_css = "off";
-} else {
-  $nophotos_msg = "Enabled";
-  $nophotos_button_msg = "Disable";
-  $nophotos_css = "on";
-}
-?>
-<input id="nophotos" type="button" class="styled-button-<?= $nophotos_css?>" value="<?=$nophotos_button_msg?> Photo Download"/>
-(Currently <?=$nophotos_msg?>)
-</li>
-</ul>
+
+
+
+
+<div id="list_wrapper">
+   <ul class="multiple_columns">
+      <li>
+         <h2>Cutdown</h2>
+         <a id="cutdown" class="styled-button-<?= $rls_cutdown_status_css?>">Initiate Cutdown</a>
+           <div>
+              <?= $cutdown_msg?>
+           </div>
+      </li>
+      <li>
+         <h2>Enable/Disable Photo Downloads</h2>
+         <a id="nophotos" class="styled-button-<?= $rls_nophotos_status_css?>"><?=$nophotos_button_msg?> Photos Download</a> 
+         <div>
+           (Currently <?=$nophotos_msg?>)
+         </div>
+      </li>
+   </ul>
 </div>
 

@@ -37,12 +37,7 @@ $rls_ct_status_date_raw    = $ct_status["creation_date"];
 $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_raw));
 $rls_ct_is_pending         = is_pending_request("C");
 
-# print "P: " . $rls_power_is_pending . "<br>\n";
-# print "A: " . $rls_arm_is_pending . "<br>\n";
-# print "C: " . $rls_ct_is_pending . "<br>\n";
-
 ?>
-
 <script>
 	// Initialise fuzzy timeago
 	$("abbr.timeago").timeago();
@@ -156,12 +151,12 @@ $v_launch_css = "off";
 if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
   $v_arm_status = "Unknown";
   $v_arm_status_css = "un";
-} else if ($rls_arm_status == 3) {
-  $v_arm_status = $rls_arm_notes;
-  $v_arm_status_css = "off";
 } else if ($rls_arm_status == -1) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "un";
+} else if ($rls_arm_status == 3) {
+  $v_arm_status = $rls_arm_notes;
+  $v_arm_status_css = "off";
 } else if ($rls_arm_status == 2) {
   $v_arm_status = $rls_arm_notes;
   $v_arm_status_css = "off";

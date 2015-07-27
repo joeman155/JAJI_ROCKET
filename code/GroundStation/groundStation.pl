@@ -164,6 +164,13 @@ if (!defined $v_ct_status || $v_ct_status != 3) {
    set_launch_console_attribute("C", 3, "System Startup");
 }
 
+# Initialise Cutdown results...so it is 3 (Not been run yet...)
+$v_cutdown_status = get_last_status("K");
+if (!defined $v_cutdown_status || $v_cutdown_status != 3) {
+   set_launch_console_attribute("K", 3, "System Startup");
+}
+
+
 
 # Commence Serial Port monitoring
 monitor_systems();
@@ -1043,10 +1050,13 @@ sub process_requests()
     } elsif ($v_request_code =~ /^N/) {
        print "** Photos on/off request...\n" if $DEBUG;
 
-       if (-f $nophotos_file) {
-          `rm -f $nophotos_file`;
+       set_launch_console_attribute("N", -1, "Pending");
+
+       $v_photos_status = get_last_status("N", 1);
+       if ($v_photos_status == 1) {
+          set_launch_console_attribute("N", 0, "No photos");
        } else {
-          `touch $nophotos_file`;
+          set_launch_console_attribute("N", 1, "Download photos");
        }
 
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
@@ -1261,9 +1271,11 @@ sub set_lc_arm_status($)
 
 
 # Get last status for particular attribute of the launch console
-sub get_last_status($)
+sub get_last_status($;$)
 {
- local ($p_attribute) = @_;
+ local ($p_attribute, $p_exclude_pending) = @_;
+
+ $p_exclude_pending //= 0;
 
  $v_status = 0; # Default status
 
@@ -1271,14 +1283,23 @@ sub get_last_status($)
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "SELECT status
-           FROM   launch_system_status_t
-           WHERE  id = (select max(id) 
-                        FROM launch_system_status_t
-                        WHERE attribute = '" . $p_attribute . "')";
+ if ($p_exclude_pending == 1) {
+    $query = "SELECT status
+              FROM   launch_system_status_t
+              WHERE  id = (select max(id) 
+                           FROM launch_system_status_t
+                           WHERE attribute = ?
+                           AND    status >= 0)";
+ } else {
+    $query = "SELECT status
+              FROM   launch_system_status_t
+              WHERE  id = (select max(id) 
+                           FROM launch_system_status_t
+                           WHERE attribute = ?)";
+ }
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute($p_attribute);
 
  ($v_status) = $sth->fetchrow_array();
  $sth->finish();
