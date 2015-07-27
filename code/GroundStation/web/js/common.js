@@ -56,34 +56,25 @@ function gps_error_callback(p)
 }
 
 
-var executeOnce = (function (fn, delay) {
-  var executed = false;
-  return function (/* args */) {
-    var args = arguments;
-    if (!executed) {
-      setTimeout(function () {
-        fn.apply(null, args); // preserve arguments
-      }, delay);
-      executed = true;
-    }
-  };
-});
-
-
+// Hide Dialog Box
 function hideMsg()
 {
   $("#msg").dialog("close");
 }
 
-
+// Show Dialog Box
 function showMsg()
 {
   $("#msg").dialog("open");
-  // setTimeout(function(){ $("#msg").dialog("option", "hide", "fade").dialog("close"); reload_paused = 0; }, 2000);
 }
 
 
-
+// Get Status of particular attribute
+// Parameters are:-
+// - p_request_code   - the particular attribute we are interested in
+// - p_exclude_pendng - 1 if we wish to exclude PENDING statuses
+//                      0 if we do wish to include PENDING statuses.    
+//
 function getRlsStatus(p_request_code, p_exclude_pending)
 {
  var v_status;
@@ -176,10 +167,7 @@ function invalidateContinuity(buttonName, p_request_code)
        reload_paused = 0;                    // Re-enable page reloads
        hideMsg();                            // Hide the Message Box 
     }
-
     timesRun = timesRun + 1;
-
-   
  }, 500);
 
 }
