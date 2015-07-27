@@ -37,9 +37,9 @@ $rls_ct_status_date_raw    = $ct_status["creation_date"];
 $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_raw));
 $rls_ct_is_pending         = is_pending_request("C");
 
-print "P: " . $rls_power_is_pending . "<br>\n";
-print "A: " . $rls_arm_is_pending . "<br>\n";
-print "C: " . $rls_ct_is_pending . "<br>\n";
+# print "P: " . $rls_power_is_pending . "<br>\n";
+# print "A: " . $rls_arm_is_pending . "<br>\n";
+# print "C: " . $rls_ct_is_pending . "<br>\n";
 
 ?>
 
@@ -96,6 +96,7 @@ print "C: " . $rls_ct_is_pending . "<br>\n";
             });
         });
 
+
         $("#continuitytest").click(function() {
         if (reload_paused == 2) {
            return; // The page reload is running
@@ -115,26 +116,10 @@ print "C: " . $rls_ct_is_pending . "<br>\n";
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
+                        invalidateContinuity('continuitytest', 'C');
                 }
             });
 
-        // Submit request to perform the Continuity Test
-        $.ajax({
-                url: "enqueueRequest.php",
-                async: false,
-                cache: false,
-                data: {  
-                       request: "C"
-                      },
-                success: function(s,x) {
-                        $("#msgText").html(s);
-			showMsg();
-                        v_current_status = getRlsStatus('C', 1);
-//joe
-alert(v_current_status);
-			checkStatus('continuitytest', 'C', v_current_status);
-                }
-            });
         });
 
 
@@ -236,7 +221,7 @@ if (is_null($rls_ct_status) || $rls_ct_is_pending == 1) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "off";
 } else if ($rls_ct_status == 3) {
-  $v_ct_status = "Invalidated";
+  $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "un";
 } else if ($rls_ct_status == -1) {
   $v_ct_status = $rls_ct_notes;

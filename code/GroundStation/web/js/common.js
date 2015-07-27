@@ -150,6 +150,64 @@ function checkStatus(buttonName, p_request_code, p_old_status)
 }
 
 
+// Handle the 'Invalidation' of previous test and then fire off test again
+function invalidateContinuity(buttonName, p_request_code)
+{
+ var timesRun = 0;
+ var refreshId = setInterval(function() {
+
+    v_new_status = getRlsStatus(p_request_code, 1)
+
+    // See if status is changed to Invalidated...then we can now continue to re-test
+    if (v_new_status == 3) {
+       clearInterval(refreshId);
+       submitContinuityTest();
+    }
+
+    if (timesRun > 20) {
+       // Got to here with no suggestion that the status changed. It _could_ have changed
+       // but we got no indication that it did change
+       // Setting to state to indicate we aren't sure.
+       clearInterval(refreshId);
+       $("#" + buttonName).css("background", "");
+       $('#' + buttonName).removeClass("styled-button-on");
+       $('#' + buttonName).removeClass("styled-button-off");
+       $('#' + buttonName).addClass("styled-button-un");
+       reload_paused = 0;                    // Re-enable page reloads
+       hideMsg();                            // Hide the Message Box 
+    }
+
+    timesRun = timesRun + 1;
+
+   
+ }, 500);
+
+}
+
+
+// Submit request to perform continuity test
+function submitContinuityTest()
+{
+
+   // Submit request to perform the Continuity Test
+   $.ajax({
+           url: "enqueueRequest.php",
+           async: false,
+           cache: false,
+           data: {
+                  request: "C"
+                 },
+           success: function(s,x) {
+                   $("#msgText").html(s);
+                   showMsg();
+                   v_current_status = getRlsStatus('C', 1);
+                   checkStatus('continuitytest', 'C', v_current_status);
+           }
+       });
+
+}
+
+
 // Toggle colours on button and remove spinner
 // Notes: 
 //  -- buttonName is name of button

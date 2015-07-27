@@ -974,8 +974,8 @@ sub process_requests()
        # If we turn power off, we want to set continuity test to 'un tested'
        if ($v_result == 0) {
           $v_ct_status = get_last_status("C");
-          if (!defined $v_ct_status || $v_ct_status != 0) {
-             set_launch_console_attribute("C", 0, "Power turned off");
+          if (!defined $v_ct_status || $v_ct_status != 3) {
+             set_launch_console_attribute("C", 3, "Power turned off");
           }
        }
     } elsif ($v_request_code =~ /^A/) {
