@@ -37,9 +37,9 @@ $rls_ct_status_date_raw    = $ct_status["creation_date"];
 $rls_ct_status_date        =  date("Y-m-d H:i:s", strtotime($rls_ct_status_date_raw));
 $rls_ct_is_pending         = is_pending_request("C");
 
-# print "P: " . $rls_power_is_pending . "<br>\n";
-# print "A: " . $rls_arm_is_pending . "<br>\n";
-# print "C: " . $rls_ct_is_pending . "<br>\n";
+print "P: " . $rls_power_is_pending . "<br>\n";
+print "A: " . $rls_arm_is_pending . "<br>\n";
+print "C: " . $rls_ct_is_pending . "<br>\n";
 
 ?>
 
@@ -217,6 +217,9 @@ if (is_null($rls_ct_status) || $rls_ct_is_pending == 1) {
 } else if ($rls_ct_status == 2) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "off";
+} else if ($rls_ct_status == 3) {
+  $v_ct_status = "Invalidated";
+  $v_ct_status_css = "un";
 } else if ($rls_ct_status == -1) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "un";

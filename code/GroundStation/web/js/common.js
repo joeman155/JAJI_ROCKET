@@ -116,7 +116,6 @@ function getRlsStatus(p_request_code, p_exclude_pending)
 function checkStatus(buttonName, p_request_code, p_old_status)
 {
  var timesRun = 0;
- var status_changed = -1;
  var refreshId = setInterval(function() {
 
     v_new_status = getRlsStatus(p_request_code, 1)

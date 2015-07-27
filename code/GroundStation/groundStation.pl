@@ -157,11 +157,11 @@ if ($mode == 2) { print " -- NORMAL MODE --\n"; }
 $port->are_match("\r\n");
 
 
-# Initalise Continuity Test result...so it is 0 (needs testing)
+# Initalise Continuity Test result...so it is 3 (Invalidated ... requiring testing)
 # If the "C" record indicates it needs testing...no need to insert.
 $v_ct_status = get_last_status("C");
-if (!defined $v_ct_status || $v_ct_status != 0) {
-   set_launch_console_attribute("C", 0, "System startup");
+if (!defined $v_ct_status || $v_ct_status != 3) {
+   set_launch_console_attribute("C", 3, "System Startup");
 }
 
 
