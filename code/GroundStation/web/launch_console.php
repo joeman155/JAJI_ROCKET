@@ -111,7 +111,7 @@ $rls_ct_is_pending         = is_pending_request("C");
                 success: function(s,x) {
                         $("#msgText").html(s);
 			showMsg();
-                        invalidateContinuity('continuitytest', 'C');
+                        performContinuityTest('continuitytest', 'C');
                 }
             });
 
@@ -181,13 +181,12 @@ if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
                    async: false,
                    cache: false,
                    data: {
-                          request: "L"
+                          request: "M"
                          },
                    success: function(s,x) {
                            $("#msgText").html(s);
                            showMsg();
-                           v_current_status = getRlsStatus('L', 1);
-			   checkStatus('launch', 'L', v_current_status);
+                           performLaunch('launch', 'L');
                    }
                });
         }
@@ -214,7 +213,7 @@ if (is_null($rls_ct_status) || $rls_ct_is_pending == 1) {
   $v_ct_status_css = "off";
 } else if ($rls_ct_status == 2) {
   $v_ct_status = $rls_ct_notes;
-  $v_ct_status_css = "off";
+  $v_ct_status_css = "un";
 } else if ($rls_ct_status == 3) {
   $v_ct_status = $rls_ct_notes;
   $v_ct_status_css = "un";

@@ -99,6 +99,8 @@ INSERT INTO request_types_t (request_code, request_name) VALUES ('T', 'Invalidat
 
 INSERT INTO request_types_t (request_code, request_name) VALUES ('L', 'Launch');
 
+INSERT INTO request_types_t (request_code, request_name) VALUES ('M', 'Resetting previous Launch status');
+
 INSERT INTO request_types_t (request_code, request_name) VALUES ('N', 'NoPhotos');
 
 INSERT INTO request_types_t (request_code, request_name) VALUES ('K', 'Cutdown');

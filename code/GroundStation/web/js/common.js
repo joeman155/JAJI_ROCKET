@@ -142,7 +142,7 @@ function checkStatus(buttonName, p_request_code, p_old_status)
 
 
 // Handle the 'Invalidation' of previous test and then fire off test again
-function invalidateContinuity(buttonName, p_request_code)
+function performContinuityTest(buttonName, p_request_code)
 {
  var timesRun = 0;
  var refreshId = setInterval(function() {
@@ -155,7 +155,7 @@ function invalidateContinuity(buttonName, p_request_code)
        submitContinuityTest();
     }
 
-    if (timesRun > 40) {
+    if (timesRun > 20) {
        // Got to here with no suggestion that the status changed. It _could_ have changed
        // but we got no indication that it did change
        // Setting to state to indicate we aren't sure.
@@ -171,6 +171,39 @@ function invalidateContinuity(buttonName, p_request_code)
  }, 500);
 
 }
+
+
+// Handle the 'Invalidation' of previous launch and then perform launch
+function performLaunch(buttonName, p_request_code)
+{
+ var timesRun = 0;
+ var refreshId = setInterval(function() {
+
+    v_new_status = getRlsStatus(p_request_code, 1)
+
+    // See if status is changed to Invalidated...then we can now continue to re-test
+    if (v_new_status == 9) { 
+       clearInterval(refreshId);
+       submitLaunch();
+    }
+
+    if (timesRun > 20) {
+       // Got to here with no suggestion that the status changed. It _could_ have changed
+       // but we got no indication that it did change
+       // Setting to state to indicate we aren't sure.
+       clearInterval(refreshId);
+       $("#" + buttonName).css("background", "");
+       $('#' + buttonName).removeClass("styled-button-on");
+       $('#' + buttonName).removeClass("styled-button-off");
+       $('#' + buttonName).addClass("styled-button-un");
+       reload_paused = 0;                    // Re-enable page reloads
+       hideMsg();                            // Hide the Message Box
+    }
+    timesRun = timesRun + 1;
+ }, 500);
+
+}
+
 
 
 // Submit request to perform continuity test
@@ -195,6 +228,29 @@ function submitContinuityTest()
 }
 
 
+
+// Submit request to perform Launch
+function submitLaunch()
+{
+
+ // Submit request to perform the Continuity Test
+ $.ajax({
+         url: "enqueueRequest.php",
+         async: false,
+         cache: false,
+         data: {
+                request: "L"
+               },
+         success: function(s,x) {
+                 $("#msgText").html(s);
+                 showMsg();
+                 v_current_status = getRlsStatus('L', 1);
+                 checkStatus('launch', 'L', v_current_status);
+         }
+     });
+}
+
+
 // Toggle colours on button and remove spinner
 // Notes: 
 //  -- buttonName is name of button
@@ -207,12 +263,12 @@ function submitContinuityTest()
 function toggle(buttonName, newState)
 {
 
- $("#" + buttonName).css("background", "");
-
  if (newState == 1 ) {
+    $('#' + buttonName).removeClass("styled-button-un");
     $('#' + buttonName).removeClass("styled-button-off");
     $('#' + buttonName).addClass("styled-button-on");
  } else if (newState == 0) {
+    $('#' + buttonName).removeClass("styled-button-un");
     $('#' + buttonName).removeClass("styled-button-on");
     $('#' + buttonName).addClass("styled-button-off");
  } else {
@@ -221,5 +277,6 @@ function toggle(buttonName, newState)
     $('#' + buttonName).addClass("styled-button-un");
  }
 
+ $("#" + buttonName).css("background", "");
 
 }

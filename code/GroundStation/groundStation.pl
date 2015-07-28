@@ -165,6 +165,12 @@ if (!defined $v_nophotos_status || $v_nophotos_status != 1) {
    set_launch_console_attribute("N", 1, "System Startup");
 }
 
+# Initialise Launch status
+$v_launch_status = get_last_status("L");
+if (!defined $v_launch_status || $v_launch_status != 9) {
+   set_launch_console_attribute("N", 9, "System Startup");
+}
+
 
 # Commence Serial Port monitoring
 monitor_systems();
@@ -975,12 +981,20 @@ sub process_requests()
        if ($v_result == 2) {
           $v_ct_msg = "Failed: Power not on";
        } elsif ($v_result == 0) {
-          $v_ct_msg = "Failed.";
+          $v_ct_msg = "Failed. Dis-continuous";
        } elsif ($v_result == 1) {
           $v_ct_msg = "Successful";
+       } else {
+          $v_ct_msg = "Unknown result.";
        }
 
+
        set_launch_console_attribute("C", $v_result, $v_ct_msg);
+    } elsif ($v_request_code =~ /^M/) {
+       print "** Invalidating previous Launch...\n" if $DEBUG;
+
+       set_launch_console_attribute("L", 9, "Resetting Launch Status");
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
     } elsif ($v_request_code =~ /^T/) {
        print "** Invalidating previous Continuity Test...\n" if $DEBUG;
 
@@ -990,13 +1004,28 @@ sub process_requests()
        print "** Launch request...\n" if $DEBUG;
 
        set_launch_console_attribute("L", -1, "Pending");
-       sendModemRequest("R04", "A04", $v_req_id);
+       $v_result = sendModemRequest("R04", "A04", $v_req_id);
 
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
 
+       # Based on results, set appropriate Info Message
+       if ($v_result == 1) {
+          $v_launch_msg = "Successful Launch";
+       } elsif ($v_result == 2) {
+          $v_launch_msg = "Failed: Power is off";
+       } elsif ($v_result == 3) {
+          $v_launch_msg = "Failed: Not Armed";
+       } elsif ($v_result == 4) {
+          $v_launch_msg = "Failed: Continuity failed";
+       } 
+# joe
+       set_launch_console_attribute("L", $v_result, $v_launch_msg);
+
+
+       # Update Continuity status after launch
        $v_ct_status = get_last_status("C");
-       if (!defined $v_ct_status || $v_ct_status != 0) {
-          set_launch_console_attribute("C", 0, "Reset after launch");
+       if (!defined $v_ct_status || $v_ct_status != 3) {
+          set_launch_console_attribute("C", 3, "Reset after launch");
        }
     } elsif ($v_request_code =~ /^N/) {
        print "** Photos on/off request...\n" if $DEBUG;
