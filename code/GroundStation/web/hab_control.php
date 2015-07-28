@@ -68,6 +68,7 @@ $rls_cutdown_is_pending        = is_pending_request("K");
     $nophotos_button_msg = "Enable";
     $rls_nophotos_status_css = "off";
  } else {
+    $nophotos_msg = "Unknown";
     $rls_nophotos_status_css = "un";
  } 
 
@@ -92,20 +93,26 @@ if ($rls_cutdown_status != 1) {
 ?>
 <script>
         $("#cutdown").click(function() {
-        reload_paused = 1;
-        $("#cutdown").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
-        $.ajax({
-                url: "enqueueRequest.php",
-                data: {
-                       request: "K"
-                      },
-                success: function(s,x) {
-                        $("#msgText").html(s);
-                        showMsg();
-                        v_current_status = getRlsStatus('K', 1);
-                        checkStatus('cutdown', 'K', v_current_status);
-                }
-            });
+           reload_paused = 1;
+
+           var r = confirm("Proceed with Cutdown?");
+           if (r == true) {
+              $("#cutdown").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
+              $.ajax({
+                      url: "enqueueRequest.php",
+                      data: {
+                             request: "K"
+                            },
+                      success: function(s,x) {
+                              $("#msgText").html(s);
+                              showMsg();
+                              v_current_status = getRlsStatus('K', 1);
+                              checkStatus('cutdown', 'K', v_current_status);
+                      }
+                  });
+           } else {
+              reload_paused = 0;
+           }
         });
 </script>
 <?

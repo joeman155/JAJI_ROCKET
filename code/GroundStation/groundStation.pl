@@ -168,7 +168,7 @@ if (!defined $v_nophotos_status || $v_nophotos_status != 1) {
 # Initialise Launch status
 $v_launch_status = get_last_status("L");
 if (!defined $v_launch_status || $v_launch_status != 9) {
-   set_launch_console_attribute("N", 9, "System Startup");
+   set_launch_console_attribute("L", 9, "System Startup");
 }
 
 

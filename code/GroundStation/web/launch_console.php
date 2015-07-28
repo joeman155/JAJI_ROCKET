@@ -172,10 +172,10 @@ if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
            return; // The page reload is running
         }
 
-        $("#launch").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         var r = confirm("Proceed to Launch?");
         if (r == true) {
+           $("#launch").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
            $.ajax({
                    url: "enqueueRequest.php",
                    async: false,
@@ -189,6 +189,8 @@ if (is_null($rls_arm_status) || $rls_arm_is_pending == 1) {
                            performLaunch('launch', 'L');
                    }
                });
+        } else {
+           reload_paused = 0;
         }
         });
 </script>
