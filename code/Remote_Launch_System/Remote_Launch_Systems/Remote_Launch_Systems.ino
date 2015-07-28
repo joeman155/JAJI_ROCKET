@@ -31,6 +31,9 @@ int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 
 
+// States
+short int cutdown = 0; // Start up disabled
+
 // Sensors
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
@@ -121,7 +124,8 @@ int processRxSerial(char *rxString)
        }
     }
 
-   
+
+// DEBUGGING
 //   Serial2.print("Param:");
 //   Serial2.println(String(param));
 //   Serial2.println(strlen(param));   
@@ -163,6 +167,21 @@ int processRxSerial(char *rxString)
       state = armRequest(param);
       sendPacket(String("A02:") + String(state));
    } 
+   else if (strcmp(rxString, "R05") == 0) 
+   {
+      // Download Photo - TODO
+      sendPacket(String("A05"));        
+   }    
+   else if (strcmp(rxString, "R06") == 0) 
+   {
+      // Skip Download of photo - TODO
+      sendPacket(String("A06"));        
+   }       
+   else if (strcmp(rxString, "R07") == 0) 
+   {
+       cutdown = 1;
+      sendPacket(String("A07"));        
+   }    
    else if (strcmp(rxString, "R09") == 0) 
    {
       sendPacket(String("A09:") + String(isLaunchSystemArmed()));        
