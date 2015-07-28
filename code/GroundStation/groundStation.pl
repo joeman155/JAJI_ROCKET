@@ -159,7 +159,6 @@ if (!defined $v_cutdown_status || $v_cutdown_status != 3) {
    set_launch_console_attribute("K", 3, "System Startup");
 }
 
-
 # Initialise photos
 $v_nophotos_status = get_last_status("N");
 if (!defined $v_nophotos_status || $v_nophotos_status != 1) {
