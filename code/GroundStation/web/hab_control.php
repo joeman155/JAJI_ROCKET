@@ -76,12 +76,15 @@ $rls_cutdown_is_pending        = is_pending_request("K");
 # CUTDOWN
  if ($rls_cutdown_status == 1) {
     $rls_cutdown_status_css = "on";
+ } else if ($rls_cutdown_status == 2) {
+    $rls_cutdown_status_css = "on";
  } else if ($rls_cutdown_status == 0) {
     $rls_cutdown_status_css = "off";
  } else { 
     $rls_cutdown_status_css = "un";
  }
 
+ $cutdown_msg = $rls_cutdown_notes;
 
 
 # Only allow cutdown button to work IF the cutdown status <> 1...i.e. cutdown not initiated yet.

@@ -54,17 +54,6 @@ $gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
 # Measurements_file
 $measurements_file = $home_dir . "out/measurements.txt";
 
-# Cutdown file
-$cutdown_req_file  = $home_dir . "run/cutdown_requested.txt";
-$cutdown_init_file = $home_dir . "run/cutdown_initiated.txt";
-`rm -f $cutdown_req_file`;
-`rm -f $cutdown_init_file`;
-$cutdown_initiated = 0;      # Indicates if cutdown has been initiated.
-
-# No Photos
-$nophotos_file = $home_dir . "run/nophotos.txt";
-`rm -f $nophotos_file`;
-
 
 # X-MODEM
 # X-Modem packet file
@@ -238,54 +227,11 @@ while (1 == 1)
         process_requests();
 
 
-        #
-        # If cutdown request file exists...the initiate cutdown (so long as cutdown hasn't already been intiated)
-        #
-
-## HAS USER REQUESTED CUTDOWN?
-	if (-f $cutdown_req_file && $cutdown_initiated == 0) {
-	  $cutdown_initiated = 1;
-	  `touch $cutdown_init_file`;
-          $count_out = $port->write("4\r\n");
-          $str = "Sent request intiate cutdown\n";
-          log_message($str);
-  
-          my $gotit = "";
-          until ("" ne $gotit) {
-            $gotit = $port->lookfor;       # poll until data ready
-            die "Aborted without match\n" unless (defined $gotit);
-            select(undef,undef,undef,0.3);
-          }
-          if ($gotit =~ /B/)
-          {
-            $str = "RLS cutdown initiated!\n";
-            log_message($str);
-          }
-          elsif ($gotit =~ /W/)
-          {
-            $str = "(trying to initiate cutdown) - Timeout waiting for response from ground station.\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          elsif ($gotit =~ /^Q:(.*)$/)
-          {
-            $str = "(trying to initiate cutdown) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          else
-          {
-            $str = "RLS never responded as expected....perhaps it didnt get request to initiate CUTDOWN. Got $gotit \n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-
-	}
-        elsif ($mode == 0)
+        if ($mode == 0)
         {
           # We don't want to d/l EACH time we are offered...just occasionally
           # and we do not want to download if disabled
-          if ($pic_download_offered % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && ! -f $nophotos_file)
+          if ($pic_download_offered % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && is_photo_downloads_enabled() == 1)
           {
 
             $v_result = sendModemRequest("R05", "A05", 0);
@@ -1323,6 +1269,20 @@ sub is_photo_downloads_enabled()
 {
 
  $v_result = get_last_status('N', 1);
+
+ return $v_result;
+
+}
+
+
+# indicates current cutdown status
+# - 0 - cutdown failed
+# - 1 - cutdown initiated
+# - 3 - No cutdown request made yet (original state)
+sub is_cutdown_request_made()
+{
+
+ $v_result = get_last_status('K', 1);
 
  return $v_result;
 
