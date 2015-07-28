@@ -1032,6 +1032,8 @@ sub process_requests()
           $v_cutdown_msg = "Cutdown initiated";
        } elsif ($v_result == 0) {
           $v_cutdown_msg = "Cutdown failed.";
+       } else {
+          $v_cutdown_msg = "Cutdown failed. Code: " . $v_result;
        }
 
        set_launch_console_attribute("K", $v_result, $v_cutdown_msg);

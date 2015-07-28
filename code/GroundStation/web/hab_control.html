@@ -12,18 +12,21 @@
 	   function load_hab_control()
 	   {
 
+             if (reload_paused == 0) {
+                reload_paused = 2;
+                $.ajax({
+                        url: "hab_control.php",
+	   	        type: "GET",
+		        cache: false,
+                        success: function(s,x) {
+                            $("#hab_control").html(s);
+//                            $("#msgText").html("");
+	   	        }
+                });
+                reload_paused = 0;
+             }
 
-           $.ajax({
-                   url: "hab_control.php",
-	   	   type: "GET",
-		   cache: false,
-                   success: function(s,x) {
-                       $("#hab_control").html(s);
-//                       $("#msgText").html("");
-	   	   }
-           })
-
-	}
+	   }
 </script>
 <div id="hab_control">
 </div>
