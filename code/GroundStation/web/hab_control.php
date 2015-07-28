@@ -69,6 +69,7 @@ $rls_cutdown_is_pending        = is_pending_request("K");
     $rls_nophotos_status_css = "off";
  } else {
     $nophotos_msg = "Unknown";
+    $nophotos_button_msg = "Enable";
     $rls_nophotos_status_css = "un";
  } 
 

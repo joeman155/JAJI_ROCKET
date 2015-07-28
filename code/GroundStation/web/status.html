@@ -2,12 +2,13 @@
 	var current_index = $("#tabs").tabs("option","active"); 
 	if (current_index == 0) {
 
-	// Initial Load
-	load_status();
+   	   // Initial Load
+	   load_status();
 
-        setInterval(function(){
-	load_status();
-        }, 5000);
+           if (typeof isStatusJob === 'undefined') {
+              setInterval(function(){ load_status(); }, 5000);
+              var isStatusJob = 1;
+           }
 	}
 
 

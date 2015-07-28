@@ -1,11 +1,14 @@
 <script>
+var reload_paused=0;
 	var current_index = $("#tabs").tabs("option","active"); 
 	if (current_index == 4) {
 	   load_hab_control();  // Initial load
 
-           setInterval(function(){
-	      load_hab_control();
-              }, 5000);
+           if (typeof isHabControJob === 'undefined') {
+              setInterval(function(){ load_hab_control(); }, 5000);
+              var isHabControJob = 1;
+           }
+
 	   }
 
 

@@ -2,16 +2,18 @@
 var reload_paused=0;
 	var current_index = $("#tabs").tabs("option","active"); 
 	if (current_index == 6) {
-	   load_launch_console();  // Initial load
+	    load_launch_console();  // Initial load
 
-           setInterval(function(){
-	      load_launch_console();
-              }, 1000);
-	   }
+            if (typeof isLaunchJob === 'undefined') {
+               setInterval(function(){ load_launch_console(); }, 5000);
+               var isLaunchJob = 1;
+            }
+
+	}
 
 
-	   function load_launch_console()
-	   {
+	function load_launch_console()
+	{
            if (reload_paused == 0) {
               reload_paused = 2;
               $.ajax({
