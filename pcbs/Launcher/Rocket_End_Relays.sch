@@ -14981,80 +14981,6 @@ schottky</description>
 </deviceset>
 </devicesets>
 </library>
-<library name="con-wago-500">
-<description>&lt;b&gt;Wago Screw Clamps&lt;/b&gt;&lt;p&gt;
-Grid 5.00 mm&lt;p&gt;
-&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
-<packages>
-<package name="W237-102">
-<description>&lt;b&gt;WAGO SCREW CLAMP&lt;/b&gt;</description>
-<wire x1="-3.491" y1="-2.286" x2="-1.484" y2="-0.279" width="0.254" layer="51"/>
-<wire x1="1.488" y1="-2.261" x2="3.469" y2="-0.254" width="0.254" layer="51"/>
-<wire x1="-4.989" y1="-5.461" x2="4.993" y2="-5.461" width="0.1524" layer="21"/>
-<wire x1="4.993" y1="3.734" x2="4.993" y2="3.531" width="0.1524" layer="21"/>
-<wire x1="4.993" y1="3.734" x2="-4.989" y2="3.734" width="0.1524" layer="21"/>
-<wire x1="-4.989" y1="-5.461" x2="-4.989" y2="-3.073" width="0.1524" layer="21"/>
-<wire x1="-4.989" y1="-3.073" x2="-3.389" y2="-3.073" width="0.1524" layer="21"/>
-<wire x1="-3.389" y1="-3.073" x2="-1.611" y2="-3.073" width="0.1524" layer="51"/>
-<wire x1="-1.611" y1="-3.073" x2="1.615" y2="-3.073" width="0.1524" layer="21"/>
-<wire x1="3.393" y1="-3.073" x2="4.993" y2="-3.073" width="0.1524" layer="21"/>
-<wire x1="-4.989" y1="-3.073" x2="-4.989" y2="3.531" width="0.1524" layer="21"/>
-<wire x1="4.993" y1="-3.073" x2="4.993" y2="-5.461" width="0.1524" layer="21"/>
-<wire x1="-4.989" y1="3.531" x2="4.993" y2="3.531" width="0.1524" layer="21"/>
-<wire x1="-4.989" y1="3.531" x2="-4.989" y2="3.734" width="0.1524" layer="21"/>
-<wire x1="4.993" y1="3.531" x2="4.993" y2="-3.073" width="0.1524" layer="21"/>
-<wire x1="1.615" y1="-3.073" x2="3.393" y2="-3.073" width="0.1524" layer="51"/>
-<circle x="-2.5" y="-1.27" radius="1.4986" width="0.1524" layer="51"/>
-<circle x="-2.5" y="2.2098" radius="0.508" width="0.1524" layer="21"/>
-<circle x="2.5038" y="-1.27" radius="1.4986" width="0.1524" layer="51"/>
-<circle x="2.5038" y="2.2098" radius="0.508" width="0.1524" layer="21"/>
-<pad name="1" x="-2.5" y="-1.27" drill="1.1938" shape="long" rot="R90"/>
-<pad name="2" x="2.5" y="-1.27" drill="1.1938" shape="long" rot="R90"/>
-<text x="-5.04" y="-7.62" size="1.27" layer="27" ratio="10">&gt;VALUE</text>
-<text x="-3.8462" y="-5.0038" size="1.27" layer="25" ratio="10">&gt;NAME</text>
-<text x="-4.532" y="0.635" size="1.27" layer="21" ratio="10">1</text>
-<text x="0.421" y="0.635" size="1.27" layer="21" ratio="10">2</text>
-</package>
-</packages>
-<symbols>
-<symbol name="KL">
-<circle x="1.27" y="0" radius="1.27" width="0.254" layer="94"/>
-<text x="0" y="0.889" size="1.778" layer="95" rot="R180">&gt;NAME</text>
-<pin name="KL" x="5.08" y="0" visible="off" length="short" direction="pas" rot="R180"/>
-</symbol>
-<symbol name="KL+V">
-<circle x="1.27" y="0" radius="1.27" width="0.254" layer="94"/>
-<text x="-2.54" y="-3.683" size="1.778" layer="96">&gt;VALUE</text>
-<text x="0" y="0.889" size="1.778" layer="95" rot="R180">&gt;NAME</text>
-<pin name="KL" x="5.08" y="0" visible="off" length="short" direction="pas" rot="R180"/>
-</symbol>
-</symbols>
-<devicesets>
-<deviceset name="W237-102" prefix="X" uservalue="yes">
-<description>&lt;b&gt;WAGO SCREW CLAMP&lt;/b&gt;</description>
-<gates>
-<gate name="-1" symbol="KL" x="0" y="5.08" addlevel="always"/>
-<gate name="-2" symbol="KL+V" x="0" y="0" addlevel="always"/>
-</gates>
-<devices>
-<device name="" package="W237-102">
-<connects>
-<connect gate="-1" pin="KL" pad="1"/>
-<connect gate="-2" pin="KL" pad="2"/>
-</connects>
-<technologies>
-<technology name="">
-<attribute name="MF" value="" constant="no"/>
-<attribute name="MPN" value="237-102" constant="no"/>
-<attribute name="OC_FARNELL" value="unknown" constant="no"/>
-<attribute name="OC_NEWARK" value="70K9898" constant="no"/>
-</technology>
-</technologies>
-</device>
-</devices>
-</deviceset>
-</devicesets>
-</library>
 <library name="SparkFun-Connectors">
 <description>&lt;h3&gt;SparkFun Electronics' preferred foot prints&lt;/h3&gt;
 In this library you'll find connectors and sockets- basically anything that can be plugged into or onto.&lt;br&gt;&lt;br&gt;
@@ -18094,6 +18020,109 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 </deviceset>
 </devicesets>
 </library>
+<library name="con-phoenix-350">
+<description>&lt;b&gt;Phoenix Connectors&lt;/b&gt; Grid 3.50 mm&lt;p&gt;
+&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
+<packages>
+<package name="1751248">
+<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
+Nennstrom: 10 A&lt;br&gt;
+Bemessungsspannung: 160 V&lt;br&gt;
+Raster: 3,5 mm&lt;br&gt;
+Polzahl: 2&lt;br&gt;
+Montageart: Löten&lt;br&gt;
+Anschlussart: Schraubanschluss&lt;br&gt;
+Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
+Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
+<wire x1="-3.75" y1="3.65" x2="3.75" y2="3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="3.65" x2="-3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.0993" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-1.6163" x2="3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.0993" x2="3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-1.6163" x2="3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="1.9123" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="1.9123" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="1.4367" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="1.4367" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="3.75" y2="-1.6163" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="3.65" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-2.0993" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="-2.956" y1="-0.811" x2="-1.039" y2="1.106" width="0.1016" layer="51"/>
+<wire x1="3.75" y1="-2.911" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.65" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-3.35" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.35" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.35" x2="-3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-2.911" x2="-3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.911" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="-0.544" y1="0.611" x2="-0.55" y2="0.605" width="0.1016" layer="21"/>
+<wire x1="-0.55" y1="0.605" x2="-2.461" y2="-1.306" width="0.1016" layer="51"/>
+<wire x1="0.544" y1="-0.811" x2="2.461" y2="1.106" width="0.1016" layer="51"/>
+<wire x1="2.956" y1="0.611" x2="2.95" y2="0.605" width="0.1016" layer="21"/>
+<wire x1="2.95" y1="0.605" x2="1.039" y2="-1.306" width="0.1016" layer="51"/>
+<circle x="-1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
+<circle x="1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
+<pad name="1" x="-1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
+<pad name="2" x="1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
+<text x="-2.2" y="2.2225" size="1.27" layer="21" font="vector">1</text>
+<text x="1.2925" y="2.2225" size="1.27" layer="21" font="vector">2</text>
+<text x="-4.105" y="-2.8575" size="1.27" layer="25" rot="R90">&gt;NAME</text>
+<text x="-2.0525" y="4.1275" size="1.27" layer="27">&gt;VALUE</text>
+<polygon width="0.1016" layer="21">
+<vertex x="-3.1525" y="-2.8575"/>
+<vertex x="-3.47" y="-2.2225"/>
+<vertex x="-2.835" y="-2.2225"/>
+</polygon>
+</package>
+</packages>
+<symbols>
+<symbol name="SCHRAUBKLEMME">
+<wire x1="0" y1="-1.27" x2="0" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="0" y2="-1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="0" y1="1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<circle x="11.43" y="0" radius="0.6839" width="0.254" layer="94"/>
+<text x="1.27" y="-0.889" size="1.778" layer="95">&gt;NAME</text>
+<text x="13.97" y="-0.889" size="1.778" layer="96">&gt;VALUE</text>
+<pin name="K" x="-2.54" y="0" visible="off" length="short" direction="pas"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="1751248" prefix="X">
+<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
+Nennstrom: 10 A&lt;br&gt;
+Bemessungsspannung: 160 V&lt;br&gt;
+Raster: 3,5 mm&lt;br&gt;
+Polzahl: 2&lt;br&gt;
+Montageart: Löten&lt;br&gt;
+Anschlussart: Schraubanschluss&lt;br&gt;
+Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
+Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
+<gates>
+<gate name="-1" symbol="SCHRAUBKLEMME" x="2.54" y="0" addlevel="always"/>
+<gate name="-2" symbol="SCHRAUBKLEMME" x="2.54" y="-7.62" addlevel="always"/>
+</gates>
+<devices>
+<device name="" package="1751248">
+<connects>
+<connect gate="-1" pin="K" pad="1"/>
+<connect gate="-2" pin="K" pad="2"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="MF" value="" constant="no"/>
+<attribute name="MPN" value="" constant="no"/>
+<attribute name="OC_FARNELL" value="unknown" constant="no"/>
+<attribute name="OC_NEWARK" value="unknown" constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -18149,10 +18178,10 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <part name="D5" library="diode" deviceset="1N5908" device="" value="1N5822"/>
 <part name="SUPPLY2" library="supply2" deviceset="VCC" device=""/>
 <part name="R10" library="rcl" deviceset="R-US_" device="0207/7" value="10k"/>
-<part name="X5" library="con-wago-500" deviceset="W237-102" device=""/>
-<part name="X4" library="con-wago-500" deviceset="W237-102" device=""/>
 <part name="JP1" library="SparkFun-Connectors" deviceset="M08" device=""/>
 <part name="JP2" library="SparkFun-Connectors" deviceset="M08" device=""/>
+<part name="X1" library="con-phoenix-350" deviceset="1751248" device=""/>
+<part name="X4" library="con-phoenix-350" deviceset="1751248" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -18165,11 +18194,11 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <text x="-53.34" y="-17.78" size="1.778" layer="91">Arm</text>
 <text x="-91.44" y="35.56" size="1.778" layer="91">Continuity</text>
 <text x="5.08" y="-50.8" size="1.778" layer="91">Continuity 'Sense' wire</text>
-<text x="-129.54" y="93.98" size="1.778" layer="91">Igniter</text>
+<text x="-121.92" y="81.28" size="1.778" layer="91">Igniter</text>
 <text x="-2.54" y="-78.74" size="1.778" layer="91" rot="R90">+12 Volt Igniter PSU</text>
 <text x="2.54" y="-116.84" size="1.778" layer="91" rot="R90">Gnd of 12 volt Igniter PSU is connected to common Ground</text>
 <text x="2.54" y="124.46" size="1.778" layer="91" rot="R90">PSU providing power to Micro Electronics</text>
-<text x="-45.72" y="109.22" size="1.778" layer="91">PSU For
+<text x="-55.88" y="124.46" size="1.778" layer="91">PSU For
 Igniters</text>
 <text x="-152.4" y="137.16" size="1.778" layer="91">Micro electronics PSU</text>
 </plain>
@@ -18227,12 +18256,12 @@ Igniters</text>
 <instance part="D5" gate="1" x="-106.68" y="157.48" rot="R90"/>
 <instance part="SUPPLY2" gate="G$1" x="-149.86" y="193.04"/>
 <instance part="R10" gate="G$1" x="-99.06" y="-15.24" rot="R90"/>
-<instance part="X5" gate="-1" x="-53.34" y="109.22" rot="R180"/>
-<instance part="X5" gate="-2" x="-53.34" y="114.3" rot="R180"/>
-<instance part="X4" gate="-1" x="-114.3" y="96.52"/>
-<instance part="X4" gate="-2" x="-114.3" y="91.44"/>
 <instance part="JP1" gate="G$1" x="96.52" y="81.28" rot="R180"/>
 <instance part="JP2" gate="G$1" x="-48.26" y="160.02" rot="R270"/>
+<instance part="X1" gate="-1" x="-58.42" y="116.84"/>
+<instance part="X1" gate="-2" x="-58.42" y="109.22"/>
+<instance part="X4" gate="-1" x="-111.76" y="88.9" rot="R180"/>
+<instance part="X4" gate="-2" x="-111.76" y="96.52" rot="R180"/>
 </instances>
 <busses>
 </busses>
@@ -18273,8 +18302,8 @@ Igniters</text>
 <pinref part="GND6" gate="1" pin="GND"/>
 </segment>
 <segment>
-<wire x1="-58.42" y1="109.22" x2="-58.42" y2="106.68" width="0.1524" layer="91"/>
-<wire x1="-58.42" y1="106.68" x2="-22.86" y2="106.68" width="0.1524" layer="91"/>
+<wire x1="-60.96" y1="109.22" x2="-60.96" y2="106.68" width="0.1524" layer="91"/>
+<wire x1="-60.96" y1="106.68" x2="-22.86" y2="106.68" width="0.1524" layer="91"/>
 <wire x1="-22.86" y1="106.68" x2="-22.86" y2="68.58" width="0.1524" layer="91"/>
 <pinref part="T4" gate="G$1" pin="E"/>
 <wire x1="-38.1" y1="68.58" x2="-30.48" y2="68.58" width="0.1524" layer="91"/>
@@ -18286,7 +18315,7 @@ Igniters</text>
 <junction x="-30.48" y="68.58"/>
 <pinref part="K4" gate="2" pin="P"/>
 <wire x1="-22.86" y1="68.58" x2="-30.48" y2="68.58" width="0.1524" layer="91"/>
-<pinref part="X5" gate="-1" pin="KL"/>
+<pinref part="X1" gate="-2" pin="K"/>
 </segment>
 <segment>
 <pinref part="U1" gate="G$1" pin="GND@4"/>
@@ -18314,7 +18343,7 @@ Igniters</text>
 <pinref part="D5" gate="1" pin="A"/>
 <wire x1="-106.68" y1="154.94" x2="-106.68" y2="147.32" width="0.1524" layer="91"/>
 <wire x1="-88.9" y1="147.32" x2="-76.2" y2="147.32" width="0.1524" layer="91"/>
-<wire x1="-76.2" y1="147.32" x2="-55.88" y2="147.32" width="0.1524" layer="91"/>
+<wire x1="-76.2" y1="147.32" x2="-38.1" y2="147.32" width="0.1524" layer="91"/>
 <pinref part="C3" gate="G$1" pin="-"/>
 <wire x1="-149.86" y1="160.02" x2="-149.86" y2="152.4" width="0.1524" layer="91"/>
 <pinref part="R14" gate="G$1" pin="1"/>
@@ -18326,8 +18355,8 @@ Igniters</text>
 <wire x1="-106.68" y1="147.32" x2="-111.76" y2="142.24" width="0.1524" layer="91"/>
 <pinref part="IC2" gate="G$1" pin="GND"/>
 <wire x1="-129.54" y1="152.4" x2="-129.54" y2="154.94" width="0.1524" layer="91"/>
-<pinref part="JP2" gate="G$1" pin="1"/>
-<wire x1="-55.88" y1="154.94" x2="-55.88" y2="147.32" width="0.1524" layer="91"/>
+<pinref part="JP2" gate="G$1" pin="8"/>
+<wire x1="-38.1" y1="147.32" x2="-38.1" y2="154.94" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="VCC" class="0">
@@ -18489,7 +18518,7 @@ Igniters</text>
 <pinref part="K4" gate="2" pin="S"/>
 <pinref part="K7" gate="2" pin="P"/>
 <junction x="-96.52" y="27.94"/>
-<pinref part="X4" gate="-1" pin="KL"/>
+<pinref part="X4" gate="-2" pin="K"/>
 </segment>
 </net>
 <net name="N$17" class="0">
@@ -18500,10 +18529,11 @@ Igniters</text>
 <wire x1="-43.18" y1="-35.56" x2="-48.26" y2="-35.56" width="0.1524" layer="91"/>
 <wire x1="-48.26" y1="-35.56" x2="-48.26" y2="-27.94" width="0.1524" layer="91"/>
 <junction x="-48.26" y="-27.94"/>
-<wire x1="-109.22" y1="91.44" x2="-109.22" y2="-27.94" width="0.1524" layer="91"/>
 <pinref part="K5" gate="2" pin="S"/>
+<wire x1="-109.22" y1="88.9" x2="-109.22" y2="-27.94" width="0.1524" layer="91"/>
 <wire x1="-43.18" y1="-27.94" x2="-43.18" y2="-20.32" width="0.1524" layer="91"/>
-<pinref part="X4" gate="-2" pin="KL"/>
+<pinref part="X4" gate="-1" pin="K"/>
+<junction x="-109.22" y="88.9"/>
 </segment>
 </net>
 <net name="N$25" class="0">
@@ -18544,31 +18574,31 @@ Igniters</text>
 <wire x1="0" y1="-20.32" x2="0" y2="-83.82" width="0.1524" layer="91"/>
 <wire x1="0" y1="-83.82" x2="-139.7" y2="-83.82" width="0.1524" layer="91"/>
 <wire x1="-139.7" y1="-83.82" x2="-139.7" y2="121.92" width="0.1524" layer="91"/>
-<wire x1="-139.7" y1="121.92" x2="-58.42" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="-139.7" y1="121.92" x2="-60.96" y2="121.92" width="0.1524" layer="91"/>
 <pinref part="R3" gate="G$1" pin="2"/>
-<wire x1="-58.42" y1="121.92" x2="-5.08" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="-60.96" y1="121.92" x2="-5.08" y2="121.92" width="0.1524" layer="91"/>
 <wire x1="-5.08" y1="121.92" x2="-5.08" y2="78.74" width="0.1524" layer="91"/>
-<wire x1="-58.42" y1="114.3" x2="-58.42" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="-60.96" y1="116.84" x2="-60.96" y2="121.92" width="0.1524" layer="91"/>
 <pinref part="K6" gate="2" pin="S"/>
-<pinref part="X5" gate="-2" pin="KL"/>
+<pinref part="X1" gate="-1" pin="K"/>
 </segment>
 </net>
 <net name="N$1" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="16(TX2)"/>
-<wire x1="63.5" y1="78.74" x2="63.5" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="63.5" y1="96.52" x2="58.42" y2="96.52" width="0.1524" layer="91"/>
-<pinref part="JP1" gate="G$1" pin="5"/>
-<wire x1="63.5" y1="78.74" x2="91.44" y2="78.74" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="81.28" x2="68.58" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="96.52" x2="58.42" y2="96.52" width="0.1524" layer="91"/>
+<pinref part="JP1" gate="G$1" pin="4"/>
+<wire x1="68.58" y1="81.28" x2="91.44" y2="81.28" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$2" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="17(RX2)"/>
 <wire x1="58.42" y1="93.98" x2="66.04" y2="93.98" width="0.1524" layer="91"/>
-<wire x1="66.04" y1="93.98" x2="66.04" y2="81.28" width="0.1524" layer="91"/>
-<pinref part="JP1" gate="G$1" pin="4"/>
-<wire x1="66.04" y1="81.28" x2="91.44" y2="81.28" width="0.1524" layer="91"/>
+<wire x1="66.04" y1="93.98" x2="66.04" y2="78.74" width="0.1524" layer="91"/>
+<pinref part="JP1" gate="G$1" pin="5"/>
+<wire x1="66.04" y1="78.74" x2="91.44" y2="78.74" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$14" class="0">
@@ -18622,8 +18652,8 @@ Igniters</text>
 <pinref part="D2" gate="G$1" pin="C"/>
 <wire x1="0" y1="-15.24" x2="-2.54" y2="-15.24" width="0.1524" layer="91"/>
 <wire x1="-73.66" y1="139.7" x2="-33.02" y2="139.7" width="0.1524" layer="91"/>
-<wire x1="-33.02" y1="139.7" x2="-33.02" y2="147.32" width="0.1524" layer="91"/>
-<wire x1="-33.02" y1="147.32" x2="-33.02" y2="170.18" width="0.1524" layer="91"/>
+<wire x1="-33.02" y1="139.7" x2="-33.02" y2="152.4" width="0.1524" layer="91"/>
+<wire x1="-33.02" y1="152.4" x2="-33.02" y2="170.18" width="0.1524" layer="91"/>
 <wire x1="-33.02" y1="170.18" x2="-76.2" y2="170.18" width="0.1524" layer="91"/>
 <pinref part="L1" gate="G$1" pin="2"/>
 <pinref part="C4" gate="G$1" pin="+"/>
@@ -18631,10 +18661,10 @@ Igniters</text>
 <wire x1="-88.9" y1="167.64" x2="-88.9" y2="170.18" width="0.1524" layer="91"/>
 <pinref part="R13" gate="G$1" pin="2"/>
 <junction x="-76.2" y="170.18"/>
-<wire x1="-53.34" y1="147.32" x2="-33.02" y2="147.32" width="0.1524" layer="91"/>
-<junction x="-33.02" y="147.32"/>
-<pinref part="JP2" gate="G$1" pin="2"/>
-<wire x1="-53.34" y1="147.32" x2="-53.34" y2="154.94" width="0.1524" layer="91"/>
+<wire x1="-33.02" y1="152.4" x2="-40.64" y2="152.4" width="0.1524" layer="91"/>
+<pinref part="JP2" gate="G$1" pin="7"/>
+<wire x1="-40.64" y1="152.4" x2="-40.64" y2="154.94" width="0.1524" layer="91"/>
+<junction x="-33.02" y="152.4"/>
 </segment>
 </net>
 <net name="N$16" class="0">
