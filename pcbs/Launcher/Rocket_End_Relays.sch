@@ -16284,8 +16284,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <rectangle x1="21.336" y1="2.286" x2="21.844" y2="2.794" layer="51"/>
 <hole x="3.81" y="50.8" drill="3.2"/>
 <hole x="2.54" y="2.54" drill="3.2"/>
-<hole x="54.61" y="35.56" drill="3.2"/>
-<hole x="54.61" y="7.62" drill="3.2"/>
 <hole x="78.74" y="50.8" drill="3.2"/>
 <hole x="85.09" y="2.54" drill="3.2"/>
 <wire x1="85.09" y1="53.34" x2="90.17" y2="53.34" width="0.127" layer="21"/>
@@ -18671,9 +18669,9 @@ Igniters</text>
 <segment>
 <pinref part="X2" gate="-4" pin="S"/>
 <wire x1="88.9" y1="99.06" x2="86.36" y2="99.06" width="0.1524" layer="91"/>
-<wire x1="86.36" y1="99.06" x2="86.36" y2="-7.62" width="0.1524" layer="91"/>
-<wire x1="86.36" y1="-7.62" x2="12.7" y2="-7.62" width="0.1524" layer="91"/>
-<wire x1="12.7" y1="-7.62" x2="12.7" y2="7.62" width="0.1524" layer="91"/>
+<wire x1="86.36" y1="99.06" x2="86.36" y2="-15.24" width="0.1524" layer="91"/>
+<wire x1="86.36" y1="-15.24" x2="12.7" y2="-15.24" width="0.1524" layer="91"/>
+<wire x1="12.7" y1="-15.24" x2="12.7" y2="7.62" width="0.1524" layer="91"/>
 <wire x1="12.7" y1="7.62" x2="17.78" y2="7.62" width="0.1524" layer="91"/>
 <pinref part="U1" gate="G$1" pin="GND@2"/>
 </segment>
@@ -18735,6 +18733,9 @@ Igniters</text>
 </nets>
 </sheet>
 </sheets>
+<errors>
+<approved hash="108,1,-101.6,96.52,N$15,,,,,"/>
+</errors>
 </schematic>
 </drawing>
 <compatibility>
