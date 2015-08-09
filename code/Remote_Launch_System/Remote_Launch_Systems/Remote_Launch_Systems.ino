@@ -1,4 +1,6 @@
 #include <voltage.h>
+#include <SPI.h>
+#include <SD.h>
 
 // Pins
 const int  continuitySensePin = 8;  // PORTH, 5 
@@ -8,8 +10,13 @@ const int  continuityTestPin = 5;   // PORTE, 3
 const int  launchPin = 4;           // PORTG, 5
 const int  igniterPsuPin = A3;
 const int  arduinoPsuPin = A2;
-const int  igniterBurnDelay = 1000;
+const int  igniterBurnDelay = 2000;
 int state;
+
+// SD Card and file declarations
+const int chipSelect = 4;
+const static char measurement_file[] PROGMEM = "measurements.txt";
+File myFile;
 
 // Generic declarations
 char inData[20]; // Allocate some space for the string
@@ -53,54 +60,71 @@ void setup() {
  
   initLaunchSystem();
   resetLaunchSystem();
- 
- 
+/*
+  if (!SD.begin(chipSelect)) {
+    sendPacket("E00");
+  } 
+*/
 }
 
 void loop() {
 
-
  // Get Serial Input (menu) 
  pollSerial();
- 
+  
+ // Heartbeat
+ heartbeat();
+
+
+
+ // Air Pressure, Temperature
+ // Prefix: D00
+ /*
+ myFile = SD.open(measurement_file, FILE_WRITE);
+ myFile.close();
+
+  // Check to see if the file exists:
+  if (SD.exists((char *) measurement_file)) {
+    Serial.println("Measurement file exists.");
+  }
+  else {
+    Serial.println("Measurement doesn't exist.");
+  }
+  */
+
+ // GPS Tracking
+ // Prefix: D01
+
+
+ // Local Time 
+ // Prefix: D02
+  
+  
+ // Voltages
+ // Prefix: D04, D05
+ ardupsu.read();
+ dtostrf(ardupsu.value(),5, 2, outstr);   
+ sendPacket (String("D04:") + String(outstr)); 
+
+ ignpsu.read();
+ dtostrf(ignpsu.value(),5, 2, outstr);  
+ sendPacket (String("D05:") + String(outstr));   
    
-  // Launch System status
-  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
-  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
-  
-  // Voltages
-  // Prefix: VX   (where X is a number)
-  
-  
-  
-  // Local Time 
-  // Prefix: T
-  
-  
-  
-  // GPS Tracking
-  // Prefix: G
-  
-  
-  
-  // IMU Code
-  // Prefix: I
-  
-  
-  
-  // Air Pressure
-  // Prefix: P
-  
-  
-  
-  // Temperature
-  // Prefix: TX   (where X is a number)
    
+ // IMU Code
+ // Prefix: D06
+   
+   
+   
+ // Launch System status
+ // Prefix: D07, D08
+ sendPacket(String("D07:") + String(isLaunchSystemPowered()));
+ sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
   
   
   
-  // Heartbeat
-  heartbeat();
+  
+  
   
    
   delay(500);
