@@ -18180,6 +18180,7 @@ Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
 <part name="JP2" library="SparkFun-Connectors" deviceset="M08" device=""/>
 <part name="X1" library="con-phoenix-350" deviceset="1751248" device=""/>
 <part name="X4" library="con-phoenix-350" deviceset="1751248" device=""/>
+<part name="X5" library="con-molex" deviceset="22-23-2021" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -18260,6 +18261,8 @@ Igniters</text>
 <instance part="X1" gate="-2" x="-58.42" y="109.22"/>
 <instance part="X4" gate="-1" x="-111.76" y="88.9" rot="R180"/>
 <instance part="X4" gate="-2" x="-111.76" y="96.52" rot="R180"/>
+<instance part="X5" gate="-1" x="-165.1" y="185.42" rot="R90"/>
+<instance part="X5" gate="-2" x="-162.56" y="185.42" rot="R90"/>
 </instances>
 <busses>
 </busses>
@@ -18377,8 +18380,9 @@ Igniters</text>
 <junction x="-149.86" y="172.72"/>
 <pinref part="SUPPLY2" gate="G$1" pin="VCC"/>
 <wire x1="-149.86" y1="172.72" x2="-149.86" y2="190.5" width="0.1524" layer="91"/>
-<pinref part="X3" gate="-1" pin="S"/>
-<wire x1="-149.86" y1="172.72" x2="-172.72" y2="172.72" width="0.1524" layer="91"/>
+<pinref part="X5" gate="-2" pin="S"/>
+<wire x1="-162.56" y1="182.88" x2="-162.56" y2="172.72" width="0.1524" layer="91"/>
+<wire x1="-162.56" y1="172.72" x2="-149.86" y2="172.72" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$7" class="0">
@@ -18728,6 +18732,14 @@ Igniters</text>
 <pinref part="U1" gate="G$1" pin="5V@1"/>
 <wire x1="17.78" y1="99.06" x2="10.16" y2="99.06" width="0.1524" layer="91"/>
 <wire x1="-20.32" y1="124.46" x2="10.16" y2="124.46" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$18" class="0">
+<segment>
+<pinref part="X5" gate="-1" pin="S"/>
+<wire x1="-165.1" y1="182.88" x2="-165.1" y2="172.72" width="0.1524" layer="91"/>
+<pinref part="X3" gate="-1" pin="S"/>
+<wire x1="-165.1" y1="172.72" x2="-172.72" y2="172.72" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
