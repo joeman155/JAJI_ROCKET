@@ -229,10 +229,11 @@ while (1 == 1)
       if ($result =~ /Menu/) {
 
         # Look for requests from Web Connected Systems.
-        process_requests();
+        $v_request_processed = process_requests();
 
 
-        if ($mode == 0)
+	# Only attempt to process image requests IF in normal mode and no reqeuest submitted above
+        if ($mode == 0 && $v_request_processed == 0)
         {
           # We don't want to d/l EACH time we are offered...just occasionally
           # and we do not want to download if disabled
@@ -269,7 +270,7 @@ while (1 == 1)
             }
 
           }
-          else
+          else 
           {
              print "** No Requests, so exit the menu...\n" if $DEBUG;
              sendModemRequest("R00", "A00", 0);
@@ -911,8 +912,11 @@ sub get_request_code($)
 
 
 # Look for requests to pick up and process
+# Returns 0 if no processes
+#         1 if there is a process
 sub process_requests()
 {
+ $v_req_id = 0; # Default value.
 
  # Look for requests from Web Connected Systems.
  $v_req_id = dequeue_request();
@@ -1018,7 +1022,6 @@ sub process_requests()
        } elsif ($v_result == 4) {
           $v_launch_msg = "Failed: Continuity failed";
        } 
-# joe
        set_launch_console_attribute("L", $v_result, $v_launch_msg);
 
 
@@ -1073,6 +1076,14 @@ sub process_requests()
 
 
  }
+
+ # Indicate to calling routine if a request was processed.
+ if (!defined $v_req_id || $v_req_id > 0) {
+   return 1;
+ } else {
+   return 0;
+ }
+
 }
 
 
@@ -1086,6 +1097,7 @@ sub sendModemRequest($$$)
  $count_out = $port->write($p_request_string . "\r\n");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
+ print "** " . $str if $DEBUG;
 
  my $gotit = "";
  until ("" ne $gotit) {
@@ -1106,7 +1118,8 @@ sub sendModemRequest($$$)
     } else {
        $v_result = 1;
     }
-    $str = "RLS received request and actioning\n";
+#joe
+    $str = "RLS received request (" . $p_response_string . ") and actioning\n";
     print "** " . $str if $DEBUG;
     print "**    Data: " . $data . "\n" if $DEBUG && $data;
     updateRequestDetails ($p_request_id, $str);
