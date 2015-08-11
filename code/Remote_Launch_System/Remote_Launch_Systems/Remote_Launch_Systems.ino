@@ -1,4 +1,6 @@
 #include <voltage.h>
+#include <SPI.h>
+#include <SD.h>
 
 // Pins
 const int  continuitySensePin = 8;  // PORTH, 5 
@@ -8,8 +10,16 @@ const int  continuityTestPin = 5;   // PORTE, 3
 const int  launchPin = 4;           // PORTG, 5
 const int  igniterPsuPin = A3;
 const int  arduinoPsuPin = A2;
-const int  igniterBurnDelay = 1000;
+const int  igniterBurnDelay = 2000;
 int state;
+
+// SD Card and file declarations
+const int chipSelect = 4;
+const static char measurement_file[] PROGMEM = "measurements.txt";
+File myFile;
+Sd2Card card;
+SdVolume volume;
+SdFile root;
 
 // Generic declarations
 char inData[20]; // Allocate some space for the string
@@ -53,54 +63,145 @@ void setup() {
  
   initLaunchSystem();
   resetLaunchSystem();
- 
- 
+
+
+  if (!SD.begin(chipSelect)) {
+    sendPacket("E00");
+    Serial.println("E00");
+  } 
+
+
+/*
+  Serial.print("\nInitializing SD card...");
+  
+  // we'll use the initialization code from the utility libraries
+  // since we're just testing if the card is working!
+  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+    Serial.println("initialization failed. Things to check:");
+    Serial.println("* is a card inserted?");
+    Serial.println("* is your wiring correct?");
+    Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    return;
+  } else {
+    Serial.println("Wiring is correct and a card is present.");
+  }
+
+  // print the type of card
+  Serial.print("\nCard type: ");
+  switch (card.type()) {
+    case SD_CARD_TYPE_SD1:
+      Serial.println("SD1");
+      break;
+    case SD_CARD_TYPE_SD2:
+      Serial.println("SD2");
+      break;
+    case SD_CARD_TYPE_SDHC:
+      Serial.println("SDHC");
+      break;
+    default:
+      Serial.println("Unknown");
+  }
+
+
+  // print the type and size of the first FAT-type volume
+  uint32_t volumesize;
+  Serial.print("\nVolume type is FAT");
+  Serial.println(volume.fatType(), DEC);
+  Serial.println();
+
+  volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+  volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+  volumesize *= 512;                            // SD card blocks are always 512 bytes
+  Serial.print("Volume size (bytes): ");
+  Serial.println(volumesize);
+  Serial.print("Volume size (Kbytes): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+  Serial.print("Volume size (Mbytes): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+
+
+  Serial.println("\nFiles found on the card (name, date and size in bytes): ");
+  root.openRoot(volume);
+
+  // list all files in the card with date and size
+  root.ls(LS_R | LS_DATE | LS_SIZE);
+*/  
 }
 
 void loop() {
 
-
  // Get Serial Input (menu) 
  pollSerial();
- 
+  
+ // Heartbeat
+ heartbeat();
+
+
+
+ // Air Pressure, Temperature
+ // Prefix: D00
+ myFile = SD.open("measure.txt", FILE_WRITE);
+
+
+  // if the file opened okay, write to it:
+  if (myFile) {
+    Serial.print("Writing to measurements.txt...");
+    myFile.println("testing 1, 2, 3.");
+    // close the file:
+    myFile.close();
+    Serial.println("done.");
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening test.txt");
+  }
    
-  // Launch System status
-  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
-  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
-  
-  // Voltages
-  // Prefix: VX   (where X is a number)
-  
-  
-  
-  // Local Time 
-  // Prefix: T
+
+  // Check to see if the file exists:
+  if (SD.exists("measure.txt")) {
+    Serial.println("Measurement file exists.");
+  }
+  else {
+    Serial.println("Measurement doesn't exist.");
+  }
   
   
   
-  // GPS Tracking
-  // Prefix: G
+
+ // GPS Tracking
+ // Prefix: D01
+
+
+ // Local Time 
+ // Prefix: D02
   
   
-  
-  // IMU Code
-  // Prefix: I
-  
-  
-  
-  // Air Pressure
-  // Prefix: P
-  
-  
-  
-  // Temperature
-  // Prefix: TX   (where X is a number)
+ // Voltages
+ // Prefix: D04, D05
+ ardupsu.read();
+ dtostrf(ardupsu.value(),5, 2, outstr);   
+ sendPacket (String("D04:") + String(outstr)); 
+
+ ignpsu.read();
+ dtostrf(ignpsu.value(),5, 2, outstr);  
+ sendPacket (String("D05:") + String(outstr));   
    
+   
+ // IMU Code
+ // Prefix: D06
+   
+   
+   
+ // Launch System status
+ // Prefix: D07, D08
+ sendPacket(String("D07:") + String(isLaunchSystemPowered()));
+ sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
   
   
   
-  // Heartbeat
-  heartbeat();
+  
+  
   
    
   delay(500);

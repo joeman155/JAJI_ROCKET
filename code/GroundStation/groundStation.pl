@@ -70,7 +70,6 @@ $pic_dl_freq = 5;            # How often to download a pic.i.e. download every '
 
 
 # INITIALISATIONS
-$mode = 0;          # Setting default operating mode
 $DEBUG = 1;         # Enable/Disable debugging
 
 
@@ -92,26 +91,6 @@ my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and the
 #----------END OF CONFIGURATION -------------------#
 
 
-
-# PARAMETERS
-$param1 = $ARGV[0];
-
-if ($param1) 
-{
-  if ($param1 =~ /^T$/) 
-    {
-     $mode = 1; # TESTING
-    }
-  elsif ($param1 =~ /^N$/)
-    {
-     $mode = 2; # NORMAL
-    }
-  else 
-    {
-     print "If providing parameter, it must only be T (fewer pics) or N (No pics)\n";
-     exit;
-    }
-}
 
 print "GroundStation started....beginning Serial Port initialisation...\n";
 
@@ -139,8 +118,6 @@ if (my $e = $@)
 
 
 print "Connected to Serial Port and Listening...\n";
-if ($mode == 1) { print " -- TEST MODE --\n"; }
-if ($mode == 2) { print " -- NORMAL MODE --\n"; }
 
 
 $port->are_match("\r\n");
@@ -232,140 +209,64 @@ while (1 == 1)
         $v_request_processed = process_requests();
 
 
-	# Only attempt to process image requests IF in normal mode and no reqeuest submitted above
-        if ($mode == 0 && $v_request_processed == 0)
-        {
-          # We don't want to d/l EACH time we are offered...just occasionally
-          # and we do not want to download if disabled
-          if ($pic_download_offered % $pic_dl_freq == 0 && $image_error == 0 && $result =~ /Menu_Image/ && is_photo_downloads_enabled() == 1)
-          {
 
-            $v_result = sendModemRequest("R05", "A05", 0);
-            if ($v_result == 1) {
-               $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
-               $str = "Starting download in 5 seconds to $v_file....\n";
-               log_message($str);
-               print "** " . $str if $DEBUG;
+        # We only want to process other requests IF no request was processed above
+        if ($v_request_processed == 0) {
+           # We only want to download an image when the following conditions apply
+           # - Image Menu is presented
+           # - We are up to multiple of pic_dl_freq offering
+           # - There were no image errors
+           # - Photo downloading is enabled
+           if ($result =~ /Menu_Image/ && 
+               $pic_download_offered % $pic_dl_freq == 0 
+               && $image_error == 0 && 
+               is_photo_downloads_enabled() == 1)
+           {
+
+              $v_result = sendModemRequest("R05", "A05", 0);
+              if ($v_result == 1) {
+                 $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
+                 $str = "Starting download in 5 seconds to $v_file....\n";
+                 log_message($str);
+                 print "** " . $str if $DEBUG;
  
-# COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
-#               sleep 5;
-#               $str = "Download started.\n";
-#               `echo 1 > $download_file_status`;
-#               log_message($str);
-#               print "** " . $str if $DEBUG;
+# COMMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
+#                 sleep 5;
+#                 $str = "Download started.\n";
+#                 `echo 1 > $download_file_status`;
+#                 log_message($str);
+#                 print "** " . $str if $DEBUG;
 # 
-#               my $receive = Device::SerialPort::Xmodem::Receive->new(
-#                     port     => $port,
-#                     filename => $home_dir . 'out/images/' . $v_file,
-#                     DEBUG    => 1
-#               );
+#                 my $receive = Device::SerialPort::Xmodem::Receive->new(
+#                       port     => $port,
+#                       filename => $home_dir . 'out/images/' . $v_file,
+#                       DEBUG    => 1
+#                 );
 # 
-#               $receive->start();
-#               $file_num++;
-#               $str = "Finished Transmission\n";
-#               `echo 0 > $download_file_status`;
-#               `echo "" > $x_modem_packet_num`;
-#               log_message($str);
-#               print "** " . $str if $DEBUG;
+#                 $receive->start();
+#                 $file_num++;
+#                 $str = "Finished Transmission\n";
+#                 `echo 0 > $download_file_status`;
+#                 `echo "" > $x_modem_packet_num`;
+#                 log_message($str);
+#                 print "** " . $str if $DEBUG;
+              }
+
+            }
+            else
+            {
+               print "** No Requests, so exit the menu...\n" if $DEBUG;
+               sendModemRequest("R00", "A00", 0);
             }
 
-          }
-          else 
-          {
-             print "** No Requests, so exit the menu...\n" if $DEBUG;
-             sendModemRequest("R00", "A00", 0);
-          }
-
-	  # If no error...then imcrement count.
-	  if ($image_error == 0 && $result =~ /Menu_Image/) {
-          	$pic_download_offered++;
-	  }
-        }
-        elsif ($mode == 1)
-        {
-# MODE 1 - PUT IN TEST MODE
-# WHICH MEANS NOT TOO MANY PICS
-          $count_out = $port->write("1\r\n");
-          $str = "Sent request put in test mode\n";
-          log_message($str);
- 
-          my $gotit = "";
-          until ("" ne $gotit) {
-            $gotit = $port->lookfor;       # poll until data ready
-            die "Aborted without match\n" unless (defined $gotit);
-            select(undef,undef,undef,0.3);
-          }
-
-          if ($gotit =~ /T/) 
-          {
-            $str = "RLS is now in Test mode\n";
-            log_message($str);
-          }
-          elsif ($gotit =~ /W/)
-          {
-            $str = "(Trying to put in Test mode) - Timeout waiting for response from ground station.\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          elsif ($gotit =~ /^Q:(.*)$/)
-          {
-            $str = "(Trying to put in Test mode) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          else
-          {
-            $str = "RLS never responded as expected....perhaps it didnt get request to put in TEST mode. Got $gotit\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-
-        }
-        elsif ($mode == 2)
-        {
-# MODE 2 - PUT IN NORMAL MODE
-# WHICH MEANS TAKE NORMAL # OF PICS
-          $count_out = $port->write("3\r\n");
-          $str = "Sent request put in normal mode\n";
-          log_message($str);
-  
-          my $gotit = "";
-          until ("" ne $gotit) {
-            $gotit = $port->lookfor;       # poll until data ready
-            die "Aborted without match\n" unless (defined $gotit);
-            select(undef,undef,undef,0.3);
-          }
-
-          if ($gotit =~ /N/)
-          {
-            $str = "RLS is now in Normal mode\n";
-            log_message($str);
-          }
-          elsif ($gotit =~ /W/)
-          {
-            $str = "(Trying to put in Normal mode) - Timeout waiting for response from ground station.\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          elsif ($gotit =~ /^Q:(.*)$/)
-          {
-            $str = "(Trying to put in Normal mode) - Did not recognise response from station. Response was: " . $1 . "\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-          else
-          {
-            $str = "RLS never responded as expected....perhaps it didnt get request to put in NORMAL mode. Got $gotit\n";
-            log_message($str);
-            print "** " . $str if $DEBUG;
-          }
-
-
-        }
-      }
+            # If no error...then imcrement count.
+            if ($image_error == 0 && $result =~ /Menu_Image/) {
+               $pic_download_offered++;
+            }
+         }
+       }
     }
-
-}
+  }
 }
 
 exit;
