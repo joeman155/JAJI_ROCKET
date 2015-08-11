@@ -18202,7 +18202,7 @@ Igniters</text>
 <text x="-152.4" y="137.16" size="1.778" layer="91">Micro electronics PSU</text>
 </plain>
 <instances>
-<instance part="U1" gate="G$1" x="38.1" y="53.34"/>
+<instance part="U1" gate="G$1" x="40.64" y="53.34"/>
 <instance part="X2" gate="-1" x="91.44" y="106.68"/>
 <instance part="X2" gate="-2" x="91.44" y="104.14"/>
 <instance part="X2" gate="-3" x="91.44" y="101.6"/>
@@ -18273,7 +18273,7 @@ Igniters</text>
 <wire x1="88.9" y1="106.68" x2="68.58" y2="106.68" width="0.1524" layer="91"/>
 <pinref part="U1" gate="G$1" pin="14(TX3)"/>
 <wire x1="68.58" y1="106.68" x2="68.58" y2="101.6" width="0.1524" layer="91"/>
-<wire x1="68.58" y1="101.6" x2="58.42" y2="101.6" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="101.6" x2="60.96" y2="101.6" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$33" class="0">
@@ -18320,7 +18320,7 @@ Igniters</text>
 </segment>
 <segment>
 <pinref part="U1" gate="G$1" pin="GND@4"/>
-<wire x1="17.78" y1="2.54" x2="15.24" y2="2.54" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="2.54" x2="15.24" y2="2.54" width="0.1524" layer="91"/>
 <wire x1="15.24" y1="2.54" x2="15.24" y2="-7.62" width="0.1524" layer="91"/>
 <pinref part="GND10" gate="1" pin="GND"/>
 </segment>
@@ -18368,7 +18368,7 @@ Igniters</text>
 </segment>
 <segment>
 <pinref part="U1" gate="G$1" pin="VIN"/>
-<wire x1="17.78" y1="104.14" x2="15.24" y2="104.14" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="104.14" x2="15.24" y2="104.14" width="0.1524" layer="91"/>
 <wire x1="15.24" y1="104.14" x2="15.24" y2="111.76" width="0.1524" layer="91"/>
 <pinref part="SUPPLY3" gate="G$1" pin="VCC"/>
 </segment>
@@ -18388,7 +18388,7 @@ Igniters</text>
 <net name="N$7" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="A2"/>
-<wire x1="17.78" y1="81.28" x2="2.54" y2="81.28" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="81.28" x2="2.54" y2="81.28" width="0.1524" layer="91"/>
 <pinref part="R1" gate="G$1" pin="1"/>
 <pinref part="R2" gate="G$1" pin="2"/>
 <junction x="2.54" y="81.28"/>
@@ -18397,7 +18397,7 @@ Igniters</text>
 <net name="N$3" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="A3"/>
-<wire x1="17.78" y1="78.74" x2="7.62" y2="78.74" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="78.74" x2="7.62" y2="78.74" width="0.1524" layer="91"/>
 <wire x1="7.62" y1="78.74" x2="7.62" y2="68.58" width="0.1524" layer="91"/>
 <wire x1="7.62" y1="68.58" x2="-5.08" y2="68.58" width="0.1524" layer="91"/>
 <pinref part="R3" gate="G$1" pin="1"/>
@@ -18405,20 +18405,14 @@ Igniters</text>
 <junction x="-5.08" y="68.58"/>
 </segment>
 </net>
-<net name="N$4" class="0">
-<segment>
-<wire x1="-43.18" y1="33.02" x2="-43.18" y2="50.8" width="0.1524" layer="91"/>
-<pinref part="R5" gate="G$1" pin="1"/>
-<pinref part="U1" gate="G$1" pin="5"/>
-<wire x1="-43.18" y1="33.02" x2="17.78" y2="33.02" width="0.1524" layer="91"/>
-</segment>
-</net>
 <net name="N$9" class="0">
 <segment>
 <pinref part="R6" gate="G$1" pin="2"/>
-<pinref part="U1" gate="G$1" pin="7"/>
 <wire x1="-53.34" y1="27.94" x2="-53.34" y2="17.78" width="0.1524" layer="91"/>
-<wire x1="17.78" y1="27.94" x2="-53.34" y2="27.94" width="0.1524" layer="91"/>
+<wire x1="-53.34" y1="27.94" x2="-5.08" y2="27.94" width="0.1524" layer="91"/>
+<wire x1="-5.08" y1="27.94" x2="-5.08" y2="30.48" width="0.1524" layer="91"/>
+<wire x1="-5.08" y1="30.48" x2="20.32" y2="30.48" width="0.1524" layer="91"/>
+<pinref part="U1" gate="G$1" pin="6"/>
 </segment>
 </net>
 <net name="N$10" class="0">
@@ -18492,7 +18486,7 @@ Igniters</text>
 <net name="N$26" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="8"/>
-<wire x1="17.78" y1="25.4" x2="10.16" y2="25.4" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="25.4" x2="10.16" y2="25.4" width="0.1524" layer="91"/>
 <wire x1="10.16" y1="25.4" x2="10.16" y2="-43.18" width="0.1524" layer="91"/>
 <pinref part="T5" gate="G$1" pin="C"/>
 <wire x1="-91.44" y1="-2.54" x2="-91.44" y2="0" width="0.1524" layer="91"/>
@@ -18582,7 +18576,7 @@ Igniters</text>
 <segment>
 <pinref part="U1" gate="G$1" pin="16(TX2)"/>
 <wire x1="68.58" y1="81.28" x2="68.58" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="68.58" y1="96.52" x2="58.42" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="68.58" y1="96.52" x2="60.96" y2="96.52" width="0.1524" layer="91"/>
 <pinref part="JP1" gate="G$1" pin="4"/>
 <wire x1="68.58" y1="81.28" x2="91.44" y2="81.28" width="0.1524" layer="91"/>
 </segment>
@@ -18590,7 +18584,7 @@ Igniters</text>
 <net name="N$2" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="17(RX2)"/>
-<wire x1="58.42" y1="93.98" x2="66.04" y2="93.98" width="0.1524" layer="91"/>
+<wire x1="60.96" y1="93.98" x2="66.04" y2="93.98" width="0.1524" layer="91"/>
 <wire x1="66.04" y1="93.98" x2="66.04" y2="78.74" width="0.1524" layer="91"/>
 <pinref part="JP1" gate="G$1" pin="5"/>
 <wire x1="66.04" y1="78.74" x2="91.44" y2="78.74" width="0.1524" layer="91"/>
@@ -18599,7 +18593,7 @@ Igniters</text>
 <net name="N$14" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="9"/>
-<wire x1="17.78" y1="22.86" x2="-17.78" y2="22.86" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="22.86" x2="-17.78" y2="22.86" width="0.1524" layer="91"/>
 <pinref part="R8" gate="G$1" pin="2"/>
 <wire x1="-17.78" y1="22.86" x2="-17.78" y2="12.7" width="0.1524" layer="91"/>
 </segment>
@@ -18607,7 +18601,7 @@ Igniters</text>
 <net name="N$27" class="0">
 <segment>
 <pinref part="U1" gate="G$1" pin="15(RX3)"/>
-<wire x1="71.12" y1="99.06" x2="58.42" y2="99.06" width="0.1524" layer="91"/>
+<wire x1="71.12" y1="99.06" x2="60.96" y2="99.06" width="0.1524" layer="91"/>
 <wire x1="71.12" y1="99.06" x2="71.12" y2="104.14" width="0.1524" layer="91"/>
 <pinref part="X2" gate="-2" pin="S"/>
 <wire x1="71.12" y1="104.14" x2="88.9" y2="104.14" width="0.1524" layer="91"/>
@@ -18669,7 +18663,7 @@ Igniters</text>
 <wire x1="86.36" y1="99.06" x2="86.36" y2="-15.24" width="0.1524" layer="91"/>
 <wire x1="86.36" y1="-15.24" x2="12.7" y2="-15.24" width="0.1524" layer="91"/>
 <wire x1="12.7" y1="-15.24" x2="12.7" y2="7.62" width="0.1524" layer="91"/>
-<wire x1="12.7" y1="7.62" x2="17.78" y2="7.62" width="0.1524" layer="91"/>
+<wire x1="12.7" y1="7.62" x2="20.32" y2="7.62" width="0.1524" layer="91"/>
 <pinref part="U1" gate="G$1" pin="GND@2"/>
 </segment>
 </net>
@@ -18680,7 +18674,7 @@ Igniters</text>
 <wire x1="-5.08" y1="53.34" x2="5.08" y2="53.34" width="0.1524" layer="91"/>
 <wire x1="5.08" y1="53.34" x2="5.08" y2="5.08" width="0.1524" layer="91"/>
 <pinref part="U1" gate="G$1" pin="GND@3"/>
-<wire x1="5.08" y1="5.08" x2="17.78" y2="5.08" width="0.1524" layer="91"/>
+<wire x1="5.08" y1="5.08" x2="20.32" y2="5.08" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$37" class="0">
@@ -18723,7 +18717,7 @@ Igniters</text>
 <wire x1="10.16" y1="99.06" x2="10.16" y2="124.46" width="0.1524" layer="91"/>
 <wire x1="10.16" y1="124.46" x2="76.2" y2="124.46" width="0.1524" layer="91"/>
 <pinref part="U1" gate="G$1" pin="5V@1"/>
-<wire x1="17.78" y1="99.06" x2="10.16" y2="99.06" width="0.1524" layer="91"/>
+<wire x1="20.32" y1="99.06" x2="10.16" y2="99.06" width="0.1524" layer="91"/>
 <wire x1="-20.32" y1="124.46" x2="10.16" y2="124.46" width="0.1524" layer="91"/>
 </segment>
 </net>
@@ -18735,12 +18729,19 @@ Igniters</text>
 <wire x1="-165.1" y1="172.72" x2="-172.72" y2="172.72" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="N$8" class="0">
+<net name="N$4" class="0">
 <segment>
 <pinref part="R7" gate="G$1" pin="1"/>
-<wire x1="-50.8" y1="33.02" x2="-50.8" y2="30.48" width="0.1524" layer="91"/>
-<pinref part="U1" gate="G$1" pin="6"/>
-<wire x1="-50.8" y1="30.48" x2="17.78" y2="30.48" width="0.1524" layer="91"/>
+<pinref part="U1" gate="G$1" pin="5"/>
+<wire x1="-50.8" y1="33.02" x2="20.32" y2="33.02" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$8" class="0">
+<segment>
+<pinref part="R5" gate="G$1" pin="1"/>
+<wire x1="-43.18" y1="50.8" x2="-43.18" y2="38.1" width="0.1524" layer="91"/>
+<pinref part="U1" gate="G$1" pin="3"/>
+<wire x1="-43.18" y1="38.1" x2="20.32" y2="38.1" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
