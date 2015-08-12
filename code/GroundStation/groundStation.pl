@@ -270,7 +270,8 @@ while (1 == 1)
             # Every 15 iterations...get stats
             # NOTE: We only want to get status IF the power is not on...stats gather is
             #       to time consuming and unnecessary during launches
-            if ((get_last_status("P) == 0) {
+            $v_power_status = get_last_status("P");
+            if ($v_power_status == 0) {
                if ($radio_stats_count > 14) {
                    get_radio_stats();
                    $radio_stats_count = 0;
