@@ -3,11 +3,11 @@
 #include <SD.h>
 
 // Pins
-const int  continuitySensePin = 8;  // PORTH, 5 
+const int  continuitySensePin = 8;  // This is the pin number...not direct access
 const int  powerPin = 6;            // PORTH, 6   -- Digital pin 9
 const int  armPin   = 3;            // PORTH, 3   -- Digital pin 6
-const int  continuityTestPin = 5;   // PORTE, 3
-const int  launchPin = 4;           // PORTG, 5
+const int  continuityTestPin = 5;   // This is the pin number...not direct access
+const int  launchPin = 3;           // This is the pin number...not direct access
 const int  igniterPsuPin = A3;
 const int  arduinoPsuPin = A2;
 const int  igniterBurnDelay = 2000;
@@ -204,7 +204,7 @@ void loop() {
   
   
    
-  delay(500);
+  delay(1000);
 }
 
 
@@ -400,10 +400,11 @@ int checkContinuity(){
   if (! isLaunchSystemPowered()) return 2;
   
   relayOn(continuityTestPin);   // turn the LED on (HIGH is the voltage level)
-  delay(200);                              // wait briefly... incase of contact bounce
+  delay(400);                              // wait briefly... incase of contact bounce
     
   continuityState = digitalRead(continuitySensePin);
 
+  delay(400);                              // wait briefly... incase of contact bounce
   relayOff(continuityTestPin);   // turn the LED on (HIGH is the voltage level) 
   delay(200);                              // wait briefly... incase of contact bounce  
   
