@@ -206,61 +206,81 @@ while (1 == 1)
       if ($result =~ /Menu/) {
 
         # Look for requests from Web Connected Systems.
-        process_requests();
+        $v_request_processed = process_requests();
 
 
-        # We only want to download an image when the following conditions apply
-        # - Image Menu is presented
-        # - We are up to multiple of pic_dl_freq offering
-        # - There were no image errors
-        # - Photo downloading is enabled
-        if ($result =~ /Menu_Image/ && 
-            $pic_download_offered % $pic_dl_freq == 0 
-            && $image_error == 0 && 
-            is_photo_downloads_enabled() == 1)
-        {
 
-           $v_result = sendModemRequest("R05", "A05", 0);
-           if ($v_result == 1) {
-              $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
-              $str = "Starting download in 5 seconds to $v_file....\n";
-              log_message($str);
-              print "** " . $str if $DEBUG;
+        # We only want to process other requests IF no request was processed above
+        if ($v_request_processed == 0) {
+           # We only want to download an image when the following conditions apply
+           # - Image Menu is presented
+           # - We are up to multiple of pic_dl_freq offering
+           # - There were no image errors
+           # - Photo downloading is enabled
+           if ($result =~ /Menu_Image/ && 
+               $pic_download_offered % $pic_dl_freq == 0 
+               && $image_error == 0 && 
+               is_photo_downloads_enabled() == 1)
+           {
+
+              $v_result = sendModemRequest("R05", "A05", 0);
+              if ($v_result == 1) {
+                 $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
+                 $str = "Starting download in 5 seconds to $v_file....\n";
+                 log_message($str);
+                 print "** " . $str if $DEBUG;
  
 # COMMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
-#              sleep 5;
-#              $str = "Download started.\n";
-#              `echo 1 > $download_file_status`;
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
+#                 sleep 5;
+#                 $str = "Download started.\n";
+#                 `echo 1 > $download_file_status`;
+#                 log_message($str);
+#                 print "** " . $str if $DEBUG;
 # 
-#              my $receive = Device::SerialPort::Xmodem::Receive->new(
-#                    port     => $port,
-#                    filename => $home_dir . 'out/images/' . $v_file,
-#                    DEBUG    => 1
-#              );
+#                 my $receive = Device::SerialPort::Xmodem::Receive->new(
+#                       port     => $port,
+#                       filename => $home_dir . 'out/images/' . $v_file,
+#                       DEBUG    => 1
+#                 );
 # 
-#              $receive->start();
-#              $file_num++;
-#              $str = "Finished Transmission\n";
-#              `echo 0 > $download_file_status`;
-#              `echo "" > $x_modem_packet_num`;
-#              log_message($str);
-#              print "** " . $str if $DEBUG;
-           }
+#                 $receive->start();
+#                 $file_num++;
+#                 $str = "Finished Transmission\n";
+#                 `echo 0 > $download_file_status`;
+#                 `echo "" > $x_modem_packet_num`;
+#                 log_message($str);
+#                 print "** " . $str if $DEBUG;
+              }
 
-         }
-         else
-         {
-            print "** No Requests, so exit the menu...\n" if $DEBUG;
-            sendModemRequest("R00", "A00", 0);
-         }
+            }
+            else
+            {
+               print "** No Requests, so exit the menu...\n" if $DEBUG;
+               sendModemRequest("R00", "A00", 0);
+            }
 
-         # If no error...then imcrement count.
-         if ($image_error == 0 && $result =~ /Menu_Image/) {
-            $pic_download_offered++;
-	 }
-      }
+            # If no error...then imcrement count.
+            if ($image_error == 0 && $result =~ /Menu_Image/) {
+               $pic_download_offered++;
+            }
+
+
+            # We have 3 second delay after getting heartbeat.... so we quickly get
+            # stats on state of link
+            # Every 15 iterations...get stats
+            # NOTE: We only want to get status IF the power is not on...stats gather is
+            #       to time consuming and unnecessary during launches
+            $v_power_status = get_last_status("P");
+            if ($v_power_status == 0) {
+               if ($radio_stats_count > 14) {
+                   get_radio_stats();
+                   $radio_stats_count = 0;
+               } else {
+                   ++$radio_stats_count;
+               }
+            }
+         }
+       }
     }
   }
 }
@@ -284,19 +304,7 @@ sub decode_rx()
   } elsif ($p_line =~ /^H:([0-9]+)$/)
   {
     $v_result = "Heartbeat Count: " . $1;
-    
     insert_heartbeat($1);
-
-    # We have 3 second delay after getting heartbeat.... so we quickly get
-    # stats on state of link
-    # Every 15 iterations...get stats
-    if ($radio_stats_count > 14) {
-	get_radio_stats();
-        $radio_stats_count = 0;
-    } else {
-        ++$radio_stats_count;
-    }
-
   } elsif ($p_line =~ /^D07:(.*$)/)
   {
     set_lc_power_status($1);
@@ -809,8 +817,11 @@ sub get_request_code($)
 
 
 # Look for requests to pick up and process
+# Returns 0 if no processes
+#         1 if there is a process
 sub process_requests()
 {
+ $v_req_id = 0; # Default value.
 
  # Look for requests from Web Connected Systems.
  $v_req_id = dequeue_request();
@@ -916,7 +927,6 @@ sub process_requests()
        } elsif ($v_result == 4) {
           $v_launch_msg = "Failed: Continuity failed";
        } 
-# joe
        set_launch_console_attribute("L", $v_result, $v_launch_msg);
 
 
@@ -971,6 +981,14 @@ sub process_requests()
 
 
  }
+
+ # Indicate to calling routine if a request was processed.
+ if (defined $v_req_id && $v_req_id > 0) {
+   return 1;
+ } else {
+   return 0;
+ }
+
 }
 
 
@@ -984,6 +1002,7 @@ sub sendModemRequest($$$)
  $count_out = $port->write($p_request_string . "\r\n");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
+ print "** " . $str if $DEBUG;
 
  my $gotit = "";
  until ("" ne $gotit) {
@@ -1004,7 +1023,7 @@ sub sendModemRequest($$$)
     } else {
        $v_result = 1;
     }
-    $str = "RLS received request and actioning\n";
+    $str = "RLS received request (" . $p_response_string . ") and actioning. Responded with $data_component\n";
     print "** " . $str if $DEBUG;
     print "**    Data: " . $data . "\n" if $DEBUG && $data;
     updateRequestDetails ($p_request_id, $str);
