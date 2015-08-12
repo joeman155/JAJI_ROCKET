@@ -263,6 +263,21 @@ while (1 == 1)
             if ($image_error == 0 && $result =~ /Menu_Image/) {
                $pic_download_offered++;
             }
+
+
+            # We have 3 second delay after getting heartbeat.... so we quickly get
+            # stats on state of link
+            # Every 15 iterations...get stats
+            # NOTE: We only want to get status IF the power is not on...stats gather is
+            #       to time consuming and unnecessary during launches
+            if ((get_last_status("P) == 0) {
+               if ($radio_stats_count > 14) {
+                   get_radio_stats();
+                   $radio_stats_count = 0;
+               } else {
+                   ++$radio_stats_count;
+               }
+            }
          }
        }
     }
@@ -288,19 +303,7 @@ sub decode_rx()
   } elsif ($p_line =~ /^H:([0-9]+)$/)
   {
     $v_result = "Heartbeat Count: " . $1;
-    
     insert_heartbeat($1);
-
-    # We have 3 second delay after getting heartbeat.... so we quickly get
-    # stats on state of link
-    # Every 15 iterations...get stats
-    if ($radio_stats_count > 14) {
-	get_radio_stats();
-        $radio_stats_count = 0;
-    } else {
-        ++$radio_stats_count;
-    }
-
   } elsif ($p_line =~ /^D07:(.*$)/)
   {
     set_lc_power_status($1);
@@ -1019,7 +1022,6 @@ sub sendModemRequest($$$)
     } else {
        $v_result = 1;
     }
-#joe
     $str = "RLS received request (" . $p_response_string . ") and actioning. Responded with $data_component\n";
     print "** " . $str if $DEBUG;
     print "**    Data: " . $data . "\n" if $DEBUG && $data;
