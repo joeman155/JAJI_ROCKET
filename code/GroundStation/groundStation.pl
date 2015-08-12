@@ -1020,7 +1020,7 @@ sub sendModemRequest($$$)
        $v_result = 1;
     }
 #joe
-    $str = "RLS received request (" . $p_response_string . ") and actioning\n";
+    $str = "RLS received request (" . $p_response_string . ") and actioning. Responded with $data_component\n";
     print "** " . $str if $DEBUG;
     print "**    Data: " . $data . "\n" if $DEBUG && $data;
     updateRequestDetails ($p_request_id, $str);
