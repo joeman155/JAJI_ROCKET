@@ -983,7 +983,7 @@ sub process_requests()
  }
 
  # Indicate to calling routine if a request was processed.
- if (!defined $v_req_id || $v_req_id > 0) {
+ if (defined $v_req_id && $v_req_id > 0) {
    return 1;
  } else {
    return 0;
