@@ -4,13 +4,11 @@ CREATE TABLE messages_t (id integer primary key autoincrement,
                          creation_date datetime);
 
 
-CREATE TABLE measurements_t (id integer primary key autoincrement,
+CREATE TABLE measurement_t (id integer primary key autoincrement,
                          instance_id varchar2(100),
-                         voltage float,
-                         pressure float,
-			 estimated_altitude integer,
-                         internal_temp float,
-                         external_temp float,
+			 source varchar2(10),
+                         name   varchar2(20),
+                         value float,
                          creation_date datetime);
 
 

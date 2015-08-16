@@ -315,19 +315,21 @@ sub decode_rx()
     $v_internal_temp = $1;
     $v_external_temp = $2;
     $v_air_pressure = $3;
+    $v_alt = get_altitude($v_air_pressure);
     insert_measurement($RLS_SOURCE, "INT TEMP", $v_internal_temp); 
     insert_measurement($RLS_SOURCE, "EXT TEMP", $v_external_temp); 
     insert_measurement($RLS_SOURCE, "AIR PRESSURE", $v_air_pressure); 
-  } elsif ($p_line =~ m/^D01:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
+    insert_measurement($RLS_SOURCE, "ESTIMATED ALT", $v_alt); 
+  } elsif ($p_line =~ m/^D01:La:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
   {
-    $v_lat = $1/100000;
-    $v_long = $2/100000;
-    $v_alt = $3;
-    $v_gps_date = $4;
-    $v_gps_time = $5;
-    $v_speed = $6;
-    $v_course = $7;
-    $v_satellites = $8;
+    $v_lat         = $1/100000;
+    $v_long        = $2/100000;
+    $v_alt         = $3;
+    $v_gps_date    = $4;
+    $v_gps_time    = $5;
+    $v_speed       = $6;
+    $v_course      = $7;
+    $v_satellites  = $8;
     $v_result = "GPS\nLatitude: " . $v_lat . "\nLongitude: " . $v_long . "\nAltitude: " . $v_alt . "\nDate: " . $v_gps_date . "\nTime: " . $v_gps_time . "\nSpeed: " . $v_speed . "\nCourse: " . $v_course . "\nSatellites: " . $v_satellites . "\n";
     $v_line = $4 . "," . $5 . "," . $v_lat . "," . $v_long . "," . $3 . "\n";
     open(my $gps_fh, '>>' . $gps_file) or die "issue opening gps file";
@@ -569,7 +571,7 @@ sub insert_measurement()
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO measurements_t (source, name, value, creation_date)
+ $query = "INSERT INTO measurement_t (source, name, value, creation_date)
                    values (?,?,?,datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);

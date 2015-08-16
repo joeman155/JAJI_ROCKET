@@ -120,17 +120,12 @@ if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long !
 
 
 # Pressure, internal temp, external temp
-$sql = "select * from measurements_t where id = (select max(id) from measurements_t)";
-$sth = $dbh->prepare($sql);
-$sth->execute();
-$row = $sth->fetch();
-
-$measurement_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
-$voltage = $row['voltage'];
-$pressure = $row['pressure'];
-$internal_temp = $row['internal_temp'];
-$external_temp = $row['external_temp'];
-$estimated_altitude = $row['estimated_altitude'];
+list ($cpu_voltage, $cv_date)    = getMeasurement("RLS", "CPU VOLTAGE");
+list ($ign_voltage, $iv_date)    = getMeasurement("RLS", "IGN VOLTAGE");
+list ($air_pressure, $ap_date)   = getMeasurement("RLS", "AIR PRESSURE");
+list ($internal_temp, $it_date)  = getMeasurement("RLS", "INT TEMP");
+list ($external_temp, $et_date)  = getMeasurement("RLS", "EXT TEMP");
+list ($estimated_altitude, $ea_date)  = getMeasurement("RLS", "ESTIMATED ALT");
 
 
 
@@ -306,15 +301,19 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 
 <h3>HAB Measurements - <abbr class="timeago" title="<?= $gps_creation_date?>"></abbr></h3>
 <div>
-<h2>Latest Measurements (<?= $measurement_date?>)</h2>
+<h2>Latest Measurements (<?= $cv_date?>)</h2>
 <table id="measurements">
 <tr>
-  <th>PSU Voltage</th>
-  <td><?= $voltage?></td>
+  <th>CPU Voltage</th>
+  <td><?= $cpu_voltage?></td>
+</tr>
+<tr>
+  <th>IGN Voltage</th>
+  <td><?= $ign_voltage?></td>
 </tr>
 <tr>
   <th>Air Pressure (Pa)</th>
-  <td><?= $pressure?></td>
+  <td><?= $air_pressure?></td>
 </tr>
 <tr>
   <th>Internal Temp (K)</th>
@@ -408,7 +407,7 @@ if ($download_file_status == 1) {
 <br />
 <a href="/table.php?table=heartbeat_t">Heartbeat Table</a>
 <br />
-<a href="/table.php?table=measurements_t">Measurements Table</a>
+<a href="/table.php?table=measurement_t">Measurement Table</a>
 <br />
 <a href="/table.php?table=radio_stats_t">Radio Stats Table</a>
 </div>
@@ -468,3 +467,20 @@ function time2seconds($time='00:00:00')
     return ($hours * 3600 ) + ($mins * 60 ) + $secs;
 }
 
+
+function getMeasurement($p_source, $p_name) {
+    
+    $sql = "select * 
+            from measurement_t 
+            where id = (select max(id) from measurement_t 
+                        where source = ?
+                        and   name   = ?)";
+    $sth = $dbh->prepare($sql);
+    $sth->execute(array($p_source, $p_name));
+    $row = $sth->fetch();
+
+    $data = $row['value'];
+    $data_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
+
+    return array($data, $data_date);
+}
