@@ -51,9 +51,9 @@ load_air_data($home_dir . "air_data.txt");
 # GPS_file
 $gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
 
-# Measurements_file
-$measurements_file = $home_dir . "out/measurements.txt";
-
+# Sources
+$RLS_SOURCE = "RLS";
+$GS_SOURCE  = "GS";
 
 # X-MODEM
 # X-Modem packet file
@@ -67,6 +67,7 @@ my $filename = "";
 my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
 $pic_download_offered = 0;   # How many times the Launch System has offered a picture for download
 $pic_dl_freq = 5;            # How often to download a pic.i.e. download every 'pic_dl_freq'th pic offered
+$image_error = 0;            # Indicates if an issue with images
 
 
 # INITIALISATIONS
@@ -188,6 +189,9 @@ while (1 == 1)
     $str = "** Decoding Serial RX: '" . $serial_rx . "'\n" if $DEBUG;
     print $str if $DEBUG;
 
+    $image_error = 0; # Reset image error back to no error
+
+    # Decode what we receive
     $result = decode_rx($serial_rx);
     
     if (length($result) > 0) {
@@ -195,19 +199,12 @@ while (1 == 1)
        print "** LOGGING MESSAGE: $str \n" if $DEBUG;
        log_message($str);
 
-       # If image not taken properly...E5 error...then make sure we don't try to download it.
-       $image_error = 0;
-       if  ($serial_rx =~ /^E5$/) {
-          $image_error = 1;
-       }
-    
 
 ## SEE IF MENU BEING PRESENTED BY RLS
       if ($result =~ /Menu/) {
 
         # Look for requests from Web Connected Systems.
         $v_request_processed = process_requests();
-
 
 
         # We only want to process other requests IF no request was processed above
@@ -305,14 +302,6 @@ sub decode_rx()
   {
     $v_result = "Heartbeat Count: " . $1;
     insert_heartbeat($1);
-  } elsif ($p_line =~ /^D07:(.*$)/)
-  {
-    set_lc_power_status($1);
-    $v_result = "Power status: " . $1;
-  } elsif ($p_line =~ /^D08:(.*$)/)
-  {
-    set_lc_arm_status($1);
-    $v_result = "Arm status: " . $1;
   } elsif ($p_line =~ /^L\/R(.*$)/)
   {
     $v_result = "Radio Signal: L/R: " . $1;
@@ -322,19 +311,14 @@ sub decode_rx()
   } elsif ($p_line =~ /^G$/)
   {
     $v_result = "RLS powered up";
-  } elsif ($p_line =~ m/^M(.+),(.+),(.+),(.+)$/)
-  {
-    $voltage = $voltage_multiplier * $4;
-    $voltage = sprintf("%.2f", $voltage);
-    $v_result = "Air Pressure: $1\nExternal Temp: $2, Internal Temp: $3, Voltage: " . $voltage . "\n";
-    $now_string = localtime;
-    open(my $meas_fh, '>>' . $measurements_file) or die "issue opening measurements file";
-    print $meas_fh "T:" . $now_string . ",P:" . $1 . ",ET:" . $2 . ",IT:" . $3 . ",V:" . $voltage . "\n";
-    close($meas_fh);
-
-    insert_measurements($voltage, $1, $3, $2);
-
-  } elsif ($p_line =~ m/^La:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
+  } elsif ($p_line =~ m/^D00:(.+),(.+),(.+)$/)
+    $v_internal_temp = $1;
+    $v_external_temp = $2;
+    $v_air_pressure = $3;
+    insert_measurement($RLS_SOURCE, "INT TEMP", $v_internal_temp); 
+    insert_measurement($RLS_SOURCE, "EXT TEMP", $v_external_temp); 
+    insert_measurement($RLS_SOURCE, "AIR PRESSURE", $v_air_pressure); 
+  } elsif ($p_line =~ m/^D01:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
   {
     $v_lat = $1/100000;
     $v_long = $2/100000;
@@ -355,42 +339,73 @@ sub decode_rx()
     # Generate the kml file each time we have more gps data
     create_kml($gps_file);
 
-  } elsif ($p_line =~ /^C$/)
+  } elsif ($p_line =~ m/^D02:(.+)$/)
+  {
+    $v_time = $1;
+    insert_measurement($RLS_SOURCE, "UPTIME", $v_time);
+  } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
-  } elsif ($p_line =~ /^E0$/)
+  } elsif ($p_line =~ m/^D04:(.+)$/)
   {
-    $v_result = "Error initialising SD";
-  } elsif ($p_line =~ /^E1$/)
+    $voltage = $1;
+    $voltage = sprintf("%.2f", $voltage);
+    insert_measurement($RLS_SOURCE, "CPU VOLTAGE", $voltage);
+  } elsif ($p_line =~ m/^D05:(.+)$/)
   {
-    $v_result = "Error initialising SD";
-  } elsif ($p_line =~ /^E2$/)
+    $voltage = $1;
+    $voltage = sprintf("%.2f", $voltage);
+    insert_measurement($RLS_SOURCE, "IGN VOLTAGE", $voltage);
+  } elsif ($p_line =~ /^D06:(.*$)/)
   {
-    $v_result = "Error creating image file on SD";
-  } elsif ($p_line =~ /^E3$/)
+    
+    $v_result = "IMU: " . $1;
+  } elsif ($p_line =~ /^D07:(.*$)/)
   {
-    $v_result = "Error opening GPS file on SD";
-  } elsif ($p_line =~ /^E4$/)
+    set_lc_power_status($1);
+    $v_result = "Power status: " . $1;
+  } elsif ($p_line =~ /^D08:(.*$)/)
   {
-    $v_result = "Error opening file for pressure/temp measurements on SD";
+    set_lc_arm_status($1);
+    $v_result = "Arm status: " . $1;
+  } elsif ($p_line =~ /^D10$/)
+  {
+    $v_result = "Finished taking picture";
+  } elsif ($p_line =~ /^D11$/)
+  {
+    $v_result = "Finished writing picture to microSD";
+  } elsif ($p_line =~ /^D12$/)
+  {
+    $v_result = "Finished sending picture";
+  } elsif ($p_line =~ /^E00$/)
+  {
+    $v_result = "Error initialising microSD Card";
+  } elsif ($p_line =~ /^E01$/)
+  {
+    $v_result = "Error writing GPS information to microSD Card";
+  } elsif ($p_line =~ /^E02$/)
+  {
+    $v_result = "Error writing Log to microSD Card";
+  } elsif ($p_line =~ /^E03$/)
+  {
+    $v_result = "Error writing image to microSD Card";
+    $image_error = 1;
+  } elsif ($p_line =~ /^E04$/)
+  {
+    $v_result = "Error/timeout taking picture. Took more than 90 seconds.";
+    $image_error = 1;
   } elsif ($p_line =~ /^Q:(.*)$/)
   {
     $v_result = "Did not recognise response from station. Response: " . $1;
   } elsif ($p_line =~ /^W$/)
   {
     $v_result = "Timeout while waiting for user menu option to be made.";
-  } elsif ($p_line =~ /^E5$/)
+  } elsif ($p_line =~ /^E05$/)
   {
-    $v_result = "Error/timeout taking picture.";
-  } elsif ($p_line =~ /^D$/)
-  {
-    $v_result = "Finished taking picture";
+    $v_result = "Error downloading picture to GroundStation.";
   } elsif ($p_line =~ /^B$/)
   {
     $v_result = "Reached Max Altitude - Cutdown initiated";
-  } elsif ($p_line =~ /^Y$/)
-  {
-    $v_result = "Finished sending picture";
   } elsif ($p_line =~ /^Z$/)
   {
     $v_result = "Failed to send picture.";
@@ -543,9 +558,10 @@ sub log_message($)
 
 
 
-sub insert_measurements()
+# Insert Measurement
+sub insert_measurement()
 {
- local($voltage, $pressure, $internal_temp, $external_temp) = @_;
+ local($measurement_source, $measurement_name, $measurement_value) = @_;
 
  $alt = get_altitude($pressure);
 
@@ -553,11 +569,11 @@ sub insert_measurements()
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO measurements_t (voltage, pressure, internal_temp, external_temp, estimated_altitude, creation_date)
-                   values (?,?,?,?,?,datetime('now', 'localtime'))";
+ $query = "INSERT INTO measurements_t (source, name, value, creation_date)
+                   values (?,?,?,datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute($voltage, $pressure, $internal_temp, $external_temp, $alt);
+ $sth->execute($measurement_source, $measurement_name, $measurement_value);
  
  $dbh->disconnect();
 }
