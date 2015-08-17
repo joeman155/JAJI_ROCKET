@@ -206,18 +206,25 @@ while (1 == 1)
         # Look for requests from Web Connected Systems.
         $v_request_processed = process_requests();
 
+        # If in Power status, we want to disable activities that could
+        # interfere (delay) the launch sequence. So we get the status here
+        $v_power_status = get_last_status("P");
 
-        # We only want to process other requests IF no request was processed above
+
+        # ALSO... we only want to process other requests IF no request was 
+        # processed above
         if ($v_request_processed == 0) {
            # We only want to download an image when the following conditions apply
            # - Image Menu is presented
            # - We are up to multiple of pic_dl_freq offering
            # - There were no image errors
            # - Photo downloading is enabled
+           # - The Power is not on
            if ($result =~ /Menu_Image/ && 
                $pic_download_offered % $pic_dl_freq == 0 
                && $image_error == 0 && 
-               is_photo_downloads_enabled() == 1)
+               is_photo_downloads_enabled() == 1 &&
+               $v_power_status == 0)
            {
 
               $v_result = sendModemRequest("R05", "A05", 0);
@@ -265,9 +272,8 @@ while (1 == 1)
             # We have 3 second delay after getting heartbeat.... so we quickly get
             # stats on state of link
             # Every 15 iterations...get stats
-            # NOTE: We only want to get status IF the power is not on...stats gather is
-            #       to time consuming and unnecessary during launches
-            $v_power_status = get_last_status("P");
+            # NOTE: We only want to get status IF the power is not on...
+            # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
                if ($radio_stats_count > 14) {
                    get_radio_stats();
