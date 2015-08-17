@@ -566,8 +566,6 @@ sub insert_measurement()
 {
  local($measurement_source, $measurement_name, $measurement_value) = @_;
 
- $alt = get_altitude($pressure);
-
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
