@@ -312,6 +312,7 @@ sub decode_rx()
   {
     $v_result = "RLS powered up";
   } elsif ($p_line =~ m/^D00:(.+),(.+),(.+)$/)
+  {
     $v_internal_temp = $1;
     $v_external_temp = $2;
     $v_air_pressure = $3;
