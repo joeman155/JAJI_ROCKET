@@ -469,6 +469,7 @@ function time2seconds($time='00:00:00')
 
 
 function getMeasurement($p_source, $p_name) {
+    global $dbh;
     
     $sql = "select * 
             from measurement_t 
