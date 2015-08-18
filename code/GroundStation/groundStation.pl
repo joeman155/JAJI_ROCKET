@@ -351,6 +351,7 @@ sub decode_rx()
   } elsif ($p_line =~ m/^D02:(.+)$/)
   {
     $v_time = $1;
+    $v_result = "Uptime of " . $v_time . "\n";
     insert_measurement($RLS_SOURCE, "UPTIME", $v_time);
   } elsif ($p_line =~ /^D03$/)
   {
@@ -360,11 +361,13 @@ sub decode_rx()
     $voltage = $1;
     $voltage = sprintf("%.2f", $voltage);
     insert_measurement($RLS_SOURCE, "CPU VOLTAGE", $voltage);
+    $v_result = "CPU Voltage of " . $voltage . "\n";
   } elsif ($p_line =~ m/^D05:(.+)$/)
   {
     $voltage = $1;
     $voltage = sprintf("%.2f", $voltage);
     insert_measurement($RLS_SOURCE, "IGN VOLTAGE", $voltage);
+    $v_result = "Igniter Voltage of " . $voltage . "\n";
   } elsif ($p_line =~ /^D06:(.*$)/)
   {
     
