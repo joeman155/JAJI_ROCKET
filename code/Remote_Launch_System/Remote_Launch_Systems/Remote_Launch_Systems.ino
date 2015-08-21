@@ -1,6 +1,7 @@
 #include <voltage.h>
 #include <SPI.h>
 #include <SD.h>
+#include <TinyGPS.h>
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -37,7 +38,6 @@ unsigned long menutime = 5000;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 
-
 // States
 short int cutdown = 0; // Start up disabled
 
@@ -45,10 +45,19 @@ short int cutdown = 0; // Start up disabled
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 
+// GPS
+TinyGPS gps;
 
+// Debugging
+unsigned short int DEBUGGING = 1;
 void setup() {
+  // Serial Port we program with
   Serial.begin(57600);
   
+  // GPS
+  Serial1.begin(4800);
+  
+  // Radio Modem
   Serial2.begin(57600);
   sendPacket ("S");  
   
@@ -88,6 +97,45 @@ void loop() {
 
  // GPS Tracking
  // Prefix: D01
+  bool newData = false;
+  unsigned long chars;
+  unsigned short sentences, failed;
+  unsigned int read_time = 1000;
+  
+  // For one second we parse GPS data and report some key values
+  for (unsigned long start = millis(); millis() - start < read_time;)
+  {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
+      if (gps.encode(c)) // Did a new valid sentence come in?
+         newData = true;
+    }
+  }  
+  
+
+  if (newData)
+  {
+    float flat, flon;
+    float flat_processed, flon_processed;
+    short int sat_count;
+    unsigned long age;
+    gps.f_get_position(&flat, &flon, &age);
+    flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
+    flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
+    sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
+    
+    dtostrf(flat_processed, 12, 8, outstr);
+    sendPacket(String("LAT=") + String(outstr));
+    
+    dtostrf(flon_processed, 12, 8, outstr);
+    sendPacket(String("LON=") + String(outstr));;
+    
+    sendPacket(String("SAT=") + String(sat_count));
+    // sendPacket(" PREC=");
+    //sendPacket(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop()));
+  }  
 
 
  // Local Time 
@@ -235,6 +283,12 @@ void heartbeat()
 void sendPacket(String str) {
   Serial2.println(str);
   logString(str);
+  
+  // Debug to console, if debugging is enabled
+  if (DEBUGGING == 1) {
+    Serial.println(str);
+  }
+  
 }
 
 
