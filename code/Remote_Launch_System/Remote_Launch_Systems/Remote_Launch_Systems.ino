@@ -2,6 +2,10 @@
 #include <SPI.h>
 #include <SD.h>
 #include <TinyGPS.h>
+#include <SoftI2C.h>
+#include <Wire.h>
+#include <SFE_LSM9DS0.h>
+
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -45,8 +49,27 @@ short int cutdown = 0; // Start up disabled
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 
+// IMU
+#define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
+#define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
+// Create an instance of the LSM9DS0 library called `dof` the
+// parameters for this constructor are:
+// [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
+LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
+#define PRINT_CALCULATED
+//#define PRINT_RAW
+#define PRINT_SPEED 500 // 500 ms between prints
+
+
 // GPS
 TinyGPS gps;
+bool newData;
+unsigned int read_time = 100;
+
+
+// RTC
+#define DS3232_I2C_ADDRESS 0x68
+
 
 // Debugging
 unsigned short int DEBUGGING = 1;
@@ -60,6 +83,16 @@ void setup() {
   // Radio Modem
   Serial2.begin(57600);
   sendPacket ("S");  
+  
+  // i2C
+  Wire.begin();
+ 
+  // Initialise IMU
+  uint16_t status = dof.begin();
+  Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
+  Serial.println(status, HEX);
+  Serial.println("Should be 0x49D4");
+
   
   // Initialisations
   heartbeat_count = 1;
@@ -97,11 +130,7 @@ void loop() {
 
  // GPS Tracking
  // Prefix: D01
-  bool newData = false;
-  unsigned long chars;
-  unsigned short sentences, failed;
-  unsigned int read_time = 1000;
-  
+ newData = false;
   // For one second we parse GPS data and report some key values
   for (unsigned long start = millis(); millis() - start < read_time;)
   {
@@ -114,7 +143,7 @@ void loop() {
     }
   }  
   
-
+  // If we have new data, we send it.
   if (newData)
   {
     float flat, flon;
@@ -140,7 +169,9 @@ void loop() {
 
  // Local Time 
  // Prefix: D02
-  
+ displayTime();
+ delay(500);
+ 
   
  // Voltages
  // Prefix: D04, D05
@@ -152,10 +183,18 @@ void loop() {
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String("D05:") + String(outstr));   
    
-   
+  
  // IMU Code
  // Prefix: D06
-   
+  printGyro();  // Print "G: gx, gy, gz"
+  printAccel(); // Print "A: ax, ay, az"
+  printMag();   // Print "M: mx, my, mz"
+  
+  // Print the heading and orientation for fun!
+  printHeading((float) dof.mx, (float) dof.my);
+  printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
+                   dof.calcAccel(dof.az));
+  Serial.println();   
    
    
  // Launch System status
@@ -169,7 +208,7 @@ void loop() {
   
   
    
-  delay(1000);
+  delay(50);
 }
 
 
@@ -560,4 +599,231 @@ void logString(String str) {
       sdCardState = -1; // Error occured
      }
   } 
+}
+
+
+
+
+
+void printGyro()
+{
+  // To read from the gyroscope, you must first call the
+  // readGyro() function. When this exits, it'll update the
+  // gx, gy, and gz variables with the most current data.
+  dof.readGyro();
+  
+  // Now we can use the gx, gy, and gz variables as we please.
+  // Either print them as raw ADC values, or calculated in DPS.
+  Serial.print("G: ");
+#ifdef PRINT_CALCULATED
+  // If you want to print calculated values, you can use the
+  // calcGyro helper function to convert a raw ADC value to
+  // DPS. Give the function the value that you want to convert.
+  Serial.print(dof.calcGyro(dof.gx), 2);
+  Serial.print(", ");
+  Serial.print(dof.calcGyro(dof.gy), 2);
+  Serial.print(", ");
+  Serial.println(dof.calcGyro(dof.gz), 2);
+#elif defined PRINT_RAW
+  Serial.print(dof.gx);
+  Serial.print(", ");
+  Serial.print(dof.gy);
+  Serial.print(", ");
+  Serial.println(dof.gz);
+#endif
+}
+
+void printAccel()
+{
+  // To read from the accelerometer, you must first call the
+  // readAccel() function. When this exits, it'll update the
+  // ax, ay, and az variables with the most current data.
+  dof.readAccel();
+  
+  // Now we can use the ax, ay, and az variables as we please.
+  // Either print them as raw ADC values, or calculated in g's.
+  Serial.print("A: ");
+#ifdef PRINT_CALCULATED
+  // If you want to print calculated values, you can use the
+  // calcAccel helper function to convert a raw ADC value to
+  // g's. Give the function the value that you want to convert.
+  Serial.print(dof.calcAccel(dof.ax), 2);
+  Serial.print(", ");
+  Serial.print(dof.calcAccel(dof.ay), 2);
+  Serial.print(", ");
+  Serial.println(dof.calcAccel(dof.az), 2);
+#elif defined PRINT_RAW 
+  Serial.print(dof.ax);
+  Serial.print(", ");
+  Serial.print(dof.ay);
+  Serial.print(", ");
+  Serial.println(dof.az);
+#endif
+
+}
+
+void printMag()
+{
+  // To read from the magnetometer, you must first call the
+  // readMag() function. When this exits, it'll update the
+  // mx, my, and mz variables with the most current data.
+  dof.readMag();
+  
+  // Now we can use the mx, my, and mz variables as we please.
+  // Either print them as raw ADC values, or calculated in Gauss.
+  Serial.print("M: ");
+#ifdef PRINT_CALCULATED
+  // If you want to print calculated values, you can use the
+  // calcMag helper function to convert a raw ADC value to
+  // Gauss. Give the function the value that you want to convert.
+  Serial.print(dof.calcMag(dof.mx), 2);
+  Serial.print(", ");
+  Serial.print(dof.calcMag(dof.my), 2);
+  Serial.print(", ");
+  Serial.println(dof.calcMag(dof.mz), 2);
+#elif defined PRINT_RAW
+  Serial.print(dof.mx);
+  Serial.print(", ");
+  Serial.print(dof.my);
+  Serial.print(", ");
+  Serial.println(dof.mz);
+#endif
+}
+
+// Here's a fun function to calculate your heading, using Earth's
+// magnetic field.
+// It only works if the sensor is flat (z-axis normal to Earth).
+// Additionally, you may need to add or subtract a declination
+// angle to get the heading normalized to your location.
+// See: http://www.ngdc.noaa.gov/geomag/declination.shtml
+void printHeading(float hx, float hy)
+{
+  float heading;
+  
+  if (hy > 0)
+  {
+    heading = 90 - (atan(hx / hy) * (180 / PI));
+  }
+  else if (hy < 0)
+  {
+    heading = - (atan(hx / hy) * (180 / PI));
+  }
+  else // hy = 0
+  {
+    if (hx < 0) heading = 180;
+    else heading = 0;
+  }
+  
+  Serial.print("Heading: ");
+  Serial.println(heading, 2);
+}
+
+// Another fun function that does calculations based on the
+// acclerometer data. This function will print your LSM9DS0's
+// orientation -- it's roll and pitch angles.
+void printOrientation(float x, float y, float z)
+{
+  float pitch, roll;
+  
+  pitch = atan2(x, sqrt(y * y) + (z * z));
+  roll = atan2(y, sqrt(x * x) + (z * z));
+  pitch *= 180.0 / PI;
+  roll *= 180.0 / PI;
+  
+  Serial.print("Pitch, Roll: ");
+  Serial.print(pitch, 2);
+  Serial.print(", ");
+  Serial.println(roll, 2);
+}
+
+
+
+
+void readDS3232time(byte *second, 
+byte *minute, 
+byte *hour, 
+byte *dayOfWeek, 
+byte *dayOfMonth, 
+byte *month, 
+byte *year)
+{
+  Wire.beginTransmission(DS3232_I2C_ADDRESS);
+  Wire.write(0); // set DS3232 register pointer to 00h
+  Wire.endTransmission();  
+  Wire.requestFrom(DS3232_I2C_ADDRESS, 7); // request 7 bytes of data from DS3232 starting from register 00h
+
+  // A few of these need masks because certain bits are control bits
+  *second     = bcdToDec(Wire.read() & 0x7f);
+  *minute     = bcdToDec(Wire.read());
+  *hour       = bcdToDec(Wire.read() & 0x3f);  // Need to change this if 12 hour am/pm
+  *dayOfWeek  = bcdToDec(Wire.read());
+  *dayOfMonth = bcdToDec(Wire.read());
+  *month      = bcdToDec(Wire.read());
+  *year       = bcdToDec(Wire.read());
+}
+
+
+void displayTime()
+{
+  byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
+  
+  // retrieve data from DS3232  
+  readDS3232time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
+  
+  // send it to the serial monitor
+  Serial.print(hour, DEC);// convert the byte variable to a decimal number when being displayed
+  Serial.print(":");
+  if (minute<10)
+  {
+      Serial.print("0");
+  }
+  Serial.print(minute, DEC);
+  Serial.print(":");
+  if (second<10)
+  {
+      Serial.print("0");
+  }
+  Serial.print(second, DEC);
+  Serial.print("  ");
+  Serial.print(dayOfMonth, DEC);
+  Serial.print("/");
+  Serial.print(month, DEC);
+  Serial.print("/");
+  Serial.print(year, DEC);
+  Serial.print("  Day of week:");
+  switch(dayOfWeek){
+  case 1:
+    Serial.println("Sunday");
+    break;
+  case 2:
+    Serial.println("Monday");
+    break;
+  case 3:
+    Serial.println("Tuesday");
+    break;
+  case 4:
+    Serial.println("Wednesday");
+    break;
+  case 5:
+    Serial.println("Thursday");
+    break;
+  case 6:
+    Serial.println("Friday");
+    break;
+  case 7:
+    Serial.println("Saturday");
+    break;
+  }
+}
+
+// Convert normal decimal numbers to binary coded decimal
+byte decToBcd(byte val)
+{
+  return ((val/10*16) + (val%10));
+}
+
+// Convert binary coded decimal to normal decimal numbers
+byte bcdToDec(byte val)
+{
+  return ( (val/16*10) + (val%16) );
 }
