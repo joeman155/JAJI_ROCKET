@@ -42,6 +42,7 @@ int  continuityState = 1;         // current state of the button
 unsigned long menutime = 5000;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
+const boolean menu_enabled = false;
 
 // States
 short int cutdown = 0; // Start up disabled
@@ -60,6 +61,20 @@ LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
 #define PRINT_CALCULATED
 //#define PRINT_RAW
 #define PRINT_SPEED 500 // 500 ms between prints
+
+
+float gx_avg = 0;
+float gy_avg = 0;
+float gz_avg = 0;
+
+float gx_bias = 0.66;
+float gy_bias = -0.31;
+float gz_bias = -6.39;
+
+float gx_val;
+float gy_val;
+float gz_val;
+unsigned long n = 0;
 
 
 // GPS
@@ -131,7 +146,9 @@ void setup() {
 void loop() {
 
  // Get Serial Input (menu) 
- pollSerial();
+ if (menu_enabled) {
+    pollSerial();
+ }
   
  // Heartbeat
  heartbeat();
@@ -140,11 +157,14 @@ void loop() {
 
  // Air Pressure, Temperature
  // Prefix: D00
- displayPressure();
+ // DISABLE PRESSURE FOR NOW
+//  displayPressure();
   
 
  // GPS Tracking
  // Prefix: D01
+ // DISABLED GPS FOR NOW WHILE WE DEVELOP IMU CODE
+ /*
  newData = false;
   // For one second we parse GPS data and report some key values
   for (unsigned long start = millis(); millis() - start < read_time;)
@@ -180,16 +200,20 @@ void loop() {
     // sendPacket(" PREC=");
     //sendPacket(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop()));
   }  
+  */
 
 
  // Local Time 
  // Prefix: D02
- displayTime();
- delay(500);
+ // DISABLE TIME FOR NOW
+//  displayTime();
  
-  
+
+
  // Voltages
  // Prefix: D04, D05
+ // DISABLED VOLTAGES WHILE WE DEVELOP OTHER CODE
+ /*
  ardupsu.read();
  dtostrf(ardupsu.value(),5, 2, outstr);   
  sendPacket (String("D04:") + String(outstr)); 
@@ -197,7 +221,7 @@ void loop() {
  ignpsu.read();
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String("D05:") + String(outstr));   
-   
+ */
   
  // IMU Code
  // Prefix: D06
@@ -205,18 +229,39 @@ void loop() {
   printAccel(); // Print "A: ax, ay, az"
   printMag();   // Print "M: mx, my, mz"
   
+  
+  
+  // Used to calculate bias
+  if (n < 32767) {
+    gx_avg = (n * gx_avg + dof.calcGyro(dof.gx))/(n + 1);
+    gy_avg = (n * gy_avg + dof.calcGyro(dof.gy))/(n + 1);
+    gz_avg = (n * gz_avg + dof.calcGyro(dof.gz))/(n + 1);
+    n++;
+  }
+  
+   Serial.println(String("CALC BIAS: ") + String(gx_avg) + String(",") + String(gy_avg) + "," + String(gz_avg));
+  gx_bias = gx_avg;
+  gy_bias = gy_avg;
+  gz_bias = gz_avg;
+  
+  
+  // DO NOT WANT ALL IMU DATA FOR NOW
+  /*
   // Print the heading and orientation for fun!
   printHeading((float) dof.mx, (float) dof.my);
   printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
                    dof.calcAccel(dof.az));
+ */
   Serial.println();   
    
    
  // Launch System status
  // Prefix: D07, D08
+ // DISABLED LAUNCH STATUS STUFF FOR NOW
+ /*
  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
-  
+ */
   
   
   
@@ -634,11 +679,20 @@ void printGyro()
   // If you want to print calculated values, you can use the
   // calcGyro helper function to convert a raw ADC value to
   // DPS. Give the function the value that you want to convert.
-  Serial.print(dof.calcGyro(dof.gx), 2);
+  //joe
+  gx_val = dof.calcGyro(dof.gx) - gx_bias;
+  dtostrf(gx_val, 4, 2, outstr);
+  Serial.print(outstr);
   Serial.print(", ");
-  Serial.print(dof.calcGyro(dof.gy), 2);
+  
+  gy_val = dof.calcGyro(dof.gy) - gy_bias;
+  dtostrf(gy_val, 4, 2, outstr);
+  Serial.print(outstr);
   Serial.print(", ");
-  Serial.println(dof.calcGyro(dof.gz), 2);
+  
+  gz_val = dof.calcGyro(dof.gz) - gz_bias;
+  dtostrf(gz_val, 4, 2, outstr);  
+  Serial.println(outstr);
 #elif defined PRINT_RAW
   Serial.print(dof.gx);
   Serial.print(", ");
@@ -806,7 +860,7 @@ void displayTime()
   Serial.print("/");
   Serial.print(year, DEC);
   Serial.print("  Day of week:");
-  switch(dayOfWeek){
+  switch(dayOfWeek-1){
   case 1:
     Serial.println("Sunday");
     break;
