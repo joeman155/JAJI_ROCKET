@@ -1,4 +1,5 @@
 #include <voltage.h>
+#include <Kalman.h>
 #include <SPI.h>
 #include <SD.h>
 #include <TinyGPS.h>
@@ -6,6 +7,7 @@
 #include <Wire.h>
 #include <SFE_LSM9DS0.h>
 #include <SFE_BMP180.h>
+
 
 
 // Pins
@@ -77,6 +79,18 @@ float gz_val;
 unsigned long n = 0;
 
 
+// KALMAN
+uint32_t timer;
+#define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
+Kalman kalmanX; // Create the Kalman instances
+Kalman kalmanY;
+double accX, accY, accZ;
+double gyroX, gyroY, gyroZ;
+int16_t tempRaw;
+double gyroXangle, gyroYangle; // Angle calculate using the gyro only
+double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
+
+
 // GPS
 TinyGPS gps;
 bool newData;
@@ -108,9 +122,29 @@ void setup() {
  
   // Initialise IMU
   uint16_t status = dof.begin();
-  Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
-  Serial.println(status, HEX);
-  Serial.println("Should be 0x49D4");
+  delay(100); // Wait for sensor to stabilize
+  dof.readAccel();
+//  Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
+//  Serial.println(status, HEX);
+//  Serial.println("Should be 0x49D4");
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
+  double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+#endif
+  kalmanX.setAngle(roll); // Set starting angle
+  kalmanY.setAngle(pitch);
+  gyroXangle = roll;
+  gyroYangle = pitch;
+  Serial.println(String("accZ: ") + accZ);
+  Serial.println(String("roll: ") + roll);
+  Serial.println(String("pitch: ") + pitch);
+  delay(3000);
 
   // Initialise BMP180
   if (pressure.begin())
@@ -225,12 +259,98 @@ void loop() {
   
  // IMU Code
  // Prefix: D06
-  printGyro();  // Print "G: gx, gy, gz"
-  printAccel(); // Print "A: ax, ay, az"
-  printMag();   // Print "M: mx, my, mz"
+  // printGyro();  // Print "G: gx, gy, gz"
+  // printAccel(); // Print "A: ax, ay, az"
+  //printMag();   // Print "M: mx, my, mz"
+  dof.readAccel();
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
   
+  dof.readGyro();
+  gyroX = dof.calcGyro(dof.gx);
+  gyroY = dof.calcGyro(dof.gy);
+  gyroZ = dof.calcGyro(dof.gz);  
   
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer = micros();  
   
+  Serial.println(String("DT: " ) + String(dt));
+  
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
+  double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+#endif
+
+  double gyroXrate = gyroX; // Convert to deg/s
+  double gyroYrate = gyroY; // Convert to deg/s
+  
+#ifdef RESTRICT_PITCH
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
+    kalmanX.setAngle(roll);
+    kalAngleX = roll;
+    gyroXangle = roll;
+  } else
+    kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleX) > 90)
+    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
+#else
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
+    kalmanY.setAngle(pitch);
+    kalAngleY = pitch;
+    gyroYangle = pitch;
+  } else
+    kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleY) > 90)
+    gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+#endif
+
+  gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
+  gyroYangle += gyroYrate * dt;
+  //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
+  //gyroYangle += kalmanY.getRate() * dt;
+
+
+  // Reset the gyro angle when it has drifted too much
+  if (gyroXangle < -180 || gyroXangle > 180)
+    gyroXangle = kalAngleX;
+  if (gyroYangle < -180 || gyroYangle > 180)
+    gyroYangle = kalAngleY;
+
+  /* Print Data */
+#if 0 // Set to 1 to activate
+  Serial.print(accX); Serial.print("\t");
+  Serial.print(accY); Serial.print("\t");
+  Serial.print(accZ); Serial.print("\t");
+  Serial.print(gyroX); Serial.print("\t");
+  Serial.print(gyroY); Serial.print("\t");
+  Serial.print(gyroZ); Serial.print("\t");
+  Serial.print("\t");
+#endif
+
+  Serial.print(roll); Serial.print("\t");
+  Serial.print(gyroXangle); Serial.print("\t");
+  Serial.print(kalAngleX); Serial.print("\t");
+
+  Serial.print("\t");
+
+  Serial.print(pitch); Serial.print("\t");
+  Serial.print(gyroYangle); Serial.print("\t");
+  Serial.print(kalAngleY); Serial.print("\t");
+
+  delay(500);
+
+  
+  /*
   // Used to calculate bias
   if (n < 32767) {
     gx_avg = (n * gx_avg + dof.calcGyro(dof.gx))/(n + 1);
@@ -243,7 +363,7 @@ void loop() {
   gx_bias = gx_avg;
   gy_bias = gy_avg;
   gz_bias = gz_avg;
-  
+  */
   
   // DO NOT WANT ALL IMU DATA FOR NOW
   /*
