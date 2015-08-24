@@ -126,6 +126,9 @@ list ($air_pressure, $ap_date)   = getMeasurement("RLS", "AIR PRESSURE");
 list ($internal_temp, $it_date)  = getMeasurement("RLS", "INT TEMP");
 list ($external_temp, $et_date)  = getMeasurement("RLS", "EXT TEMP");
 list ($estimated_altitude, $ea_date)  = getMeasurement("RLS", "ESTIMATED ALT");
+$cv_creation_date = date("Y-m-d H:i:s", strtotime($cv_date));
+
+$v_now = date("Y-m-d H:i:s");
 
 
 
@@ -141,6 +144,7 @@ if ($internal_temp < 273 + $threshold_temperature_low) {
         $alert_css = "style=\"color: red;\"";
 } else {
 	$alert_temperature = "None";
+	$v_alert_creation_date = $v_now;
 }
 
 
@@ -149,6 +153,7 @@ $alert_satellites = "None";
 if ($satellites < $threshold_satellites) {
 	$alert_satellites = "Number of satellites less that " . $threshold_satellites;
         $alert_css = "style=\"color: red;\"";
+	$v_alert_creation_date = $v_now;
 }
 
 # altitude
@@ -156,6 +161,7 @@ $alert_altitude = "None";
 if ($height > $threshold_altitude) {
 	$alert_altitude = "Exceeded " . $threshold_altitude . "m!!";
         $alert_css = "style=\"color: red;\"";
+	$v_alert_creation_date = $v_now;
 }
 
 # radio loss of contact
@@ -163,6 +169,7 @@ $alert_loss_heartbeat = "None";
 if (time() - strtotime($heartbeat_date_raw) > $threshold_heartbeat) {
 	$alert_loss_heartbeat = "No heartbeat for more than " . $threshold_heartbeat . " seconds!!";
         $alert_css = "style=\"color: red;\"";
+	$v_alert_creation_date = $v_now;
 }
 
 
@@ -171,6 +178,7 @@ $alert_distance = "None";
 if ($v_los_distance > $threshold_distance) {
 	$alert_distance = "Exceeded distance of " . $threshold_distance . "km!!";
         $alert_css = "style=\"color: red;\"";
+	$v_alert_creation_date = $v_now;
 }
 
 
@@ -271,7 +279,7 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 </table>
 </div>
 
-<h3 <?= $alert_css?>>Alerts - <abbr class="timeago" title="<?= $gps_creation_date?>"></abbr></h3>
+<h3 <?= $alert_css?>>Alerts - <abbr class="timeago" title="<?= $v_alert_creation_date?>"></abbr></h3>
 <div>
 <h2>HAB Alerts</h2>
 <table>
@@ -299,7 +307,7 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 
 </div>
 
-<h3>HAB Measurements - <abbr class="timeago" title="<?= $gps_creation_date?>"></abbr></h3>
+<h3>HAB Measurements - <abbr class="timeago" title="<?= $cv_creation_date?>"></abbr></h3>
 <div>
 <h2>Latest Measurements (<?= $cv_date?>)</h2>
 <table id="measurements">
@@ -485,3 +493,4 @@ function getMeasurement($p_source, $p_name) {
 
     return array($data, $data_date);
 }
+
