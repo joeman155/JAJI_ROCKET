@@ -42,7 +42,7 @@ int  continuityState = 1;         // current state of the button
 unsigned long menutime = 5000;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
-const boolean menu_enabled = false;
+const boolean menu_enabled = true;
 
 // States
 short int cutdown = 0; // Start up disabled
@@ -212,8 +212,6 @@ void loop() {
 
  // Voltages
  // Prefix: D04, D05
- // DISABLED VOLTAGES WHILE WE DEVELOP OTHER CODE
- /*
  ardupsu.read();
  dtostrf(ardupsu.value(),5, 2, outstr);   
  sendPacket (String("D04:") + String(outstr)); 
@@ -221,8 +219,8 @@ void loop() {
  ignpsu.read();
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String("D05:") + String(outstr));   
- */
-  
+
+/*  
  // IMU Code
  // Prefix: D06
   printGyro();  // Print "G: gx, gy, gz"
@@ -244,9 +242,6 @@ void loop() {
   gy_bias = gy_avg;
   gz_bias = gz_avg;
   
-  
-  // DO NOT WANT ALL IMU DATA FOR NOW
-  /*
   // Print the heading and orientation for fun!
   printHeading((float) dof.mx, (float) dof.my);
   printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
@@ -257,18 +252,12 @@ void loop() {
    
  // Launch System status
  // Prefix: D07, D08
- // DISABLED LAUNCH STATUS STUFF FOR NOW
- /*
  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
- */
-  
-  
-  
-  
+ 
   
    
-  delay(50);
+  delay(500);
 }
 
 
