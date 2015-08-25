@@ -33,6 +33,10 @@ char inChar=-1; // Where to store the character read
 char nextChar=-1; // Where we store the peeked character
 byte index = 0; // Index into array; where to store the character
 
+#define M_PI 3.14159265
+#define RADIANS_TO_DEGREES(radians) ((radians) * (180.0 / M_PI)) 
+#define DEGREES_TO_RADIANS(degrees) ((degrees) * (M_PI / 180.0)) 
+
 static char outstr[15];
 String str;
 
@@ -78,12 +82,18 @@ float gy_val;
 float gz_val;
 unsigned long n = 0;
 
+float x,y,z;       // location
+float vx,vy,vz;    // velocity
+float x0,y0,z0;    // initial location
+float vx0,vy0,vz0; // initial velocity
+
 
 // KALMAN
 uint32_t timer;
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
+float yaw, roll, pitch;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
 int16_t tempRaw;
@@ -141,10 +151,15 @@ void setup() {
   kalmanY.setAngle(pitch);
   gyroXangle = roll;
   gyroYangle = pitch;
+  yaw = 0;
   Serial.println(String("accZ: ") + accZ);
   Serial.println(String("roll: ") + roll);
   Serial.println(String("pitch: ") + pitch);
   delay(3000);
+  
+  // INITIALISE INITIAL CONDITIONS
+  x0 = y0 = z0 = 0;
+  vx0 = vy0 = vz0 = 0;
 
   // Initialise BMP180
   if (pressure.begin())
@@ -175,6 +190,8 @@ void setup() {
     sdCardState = 1;
   }
 
+
+timer = micros();
 }
 
 void loop() {
@@ -266,6 +283,7 @@ void loop() {
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
+
   
   dof.readGyro();
   gyroX = dof.calcGyro(dof.gx);
@@ -275,18 +293,20 @@ void loop() {
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();  
   
-  Serial.println(String("DT: " ) + String(dt));
+  // Serial.println(String("DT: " ) + String(dt));
   
+  double roll, pitch;
 #ifdef RESTRICT_PITCH // Eq. 25 and 26
-  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
-  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+  roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
 #else // Eq. 28 and 29
-  double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
-  double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+  roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
+  pitch = atan2(-accX, accZ) * RAD_TO_DEG;
 #endif
-
-  double gyroXrate = gyroX; // Convert to deg/s
-  double gyroYrate = gyroY; // Convert to deg/s
+  
+  double gyroXrate = gyroX; 
+  double gyroYrate = gyroY; 
+  double gyroZrate = gyroZ; 
   
 #ifdef RESTRICT_PITCH
   // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
@@ -327,8 +347,8 @@ void loop() {
     gyroYangle = kalAngleY;
 
   /* Print Data */
-#if 0 // Set to 1 to activate
-  Serial.print(accX); Serial.print("\t");
+#if 1             // Set to 1 to activate
+  Serial.print("RAW: "); Serial.print(accX); Serial.print("\t");
   Serial.print(accY); Serial.print("\t");
   Serial.print(accZ); Serial.print("\t");
   Serial.print(gyroX); Serial.print("\t");
@@ -337,17 +357,42 @@ void loop() {
   Serial.print("\t");
 #endif
 
-  Serial.print(roll); Serial.print("\t");
-  Serial.print(gyroXangle); Serial.print("\t");
+
+// Calculate Yaw
+yaw = yaw + (gyroZ * dt)+1.05;
+pitch = kalAngleY;
+
+// Adjust Roll (because we have the board upside down)
+roll = 180 - kalAngleX;
+
+
+ 
+Serial.print(String("Roll: ") + roll); Serial.print("\t");
+Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
+Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
+
+// Convert acceleration components to Global Co-Ordinate system...which is assumed to be the starting position
+// Which has z straight up, x and y in the plane and perpendicular
+rotateMatrix(accX, accY, accZ, yaw, pitch, roll);
+
+/*
+ float xbias = kalmanX.getBias();
+ float ybias = kalmanY.getBias();
+ Serial.print("XBias: "); Serial.println(xbias);
+ Serial.print("YBias: "); Serial.println(ybias);  
+
+  
+//  Serial.print(roll); Serial.print("\t");
+//  Serial.print(gyroXangle); Serial.print("\t");
   Serial.print(kalAngleX); Serial.print("\t");
 
   Serial.print("\t");
 
-  Serial.print(pitch); Serial.print("\t");
-  Serial.print(gyroYangle); Serial.print("\t");
+//  Serial.print(pitch); Serial.print("\t");
+//  Serial.print(gyroYangle); Serial.print("\t");
   Serial.print(kalAngleY); Serial.print("\t");
-
-  delay(500);
+ */
+  delay(100);
 
   
   /*
@@ -1103,4 +1148,41 @@ void displayPressure()
     else Serial.println("error retrieving temperature measurement\n");
   }
   else Serial.println("error starting temperature measurement\n");
+}
+
+
+
+// Convert vector xb,yb,zb back to Global Reference Frame
+// a,b,c are the angles (yaw, pitch and roll) - all in degrees.
+void rotateMatrix(float xb, float yb, float zb, float a, float b, float c)
+{
+  float M[3][3];     // Rotation Matrix
+  float xg, yg, zg;  // Vector in the global reference frame
+  
+  // Convert to Radians as cosine/sine expect angles in Radians
+  a = DEGREES_TO_RADIANS(a);
+  b = DEGREES_TO_RADIANS(b);
+  c = DEGREES_TO_RADIANS(c);
+  
+  // Initialise the Matrix based on the angle of the Body co-ordinate system.
+  M[0][0] = cos(a) * cos(b);
+  M[0][1] = cos(b) * sin(a);
+  M[0][2] = -sin(b);
+  
+  M[1][0] = cos(a) * sin(b) * sin(c) - cos(c) * sin(a);
+  M[1][1] = cos(a) * cos(c) + sin(a) * sin(b) * sin(c);
+  M[1][2] = cos(b) * sin(c);
+  
+  M[2][0] = sin(a) * sin(c) + cos(a) * cos(c) * sin(b);
+  M[2][1] = cos(c) * sin(a) * sin(b) - cos(a) * sin(c);
+  M[2][2] = cos(b) * cos(c);
+  
+  
+  // Compute the vector x,y,z in the Global Reference system
+  xg = M[0][0] * xb + M[0][1] * yb + M[0][2] * zb;
+  yg = M[1][0] * xb + M[1][1] * yb + M[1][2] * zb;
+  zg = M[2][0] * xb + M[2][1] * yb + M[2][2] * zb;
+  
+  Serial.print("GRF:   "); Serial.print(xg); Serial.print("\t"); Serial.print(yg); Serial.print("\t"); Serial.print(zg); Serial.println(""); 
+  
 }
