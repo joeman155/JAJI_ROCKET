@@ -346,6 +346,25 @@ void loop() {
   if (gyroYangle < -180 || gyroYangle > 180)
     gyroYangle = kalAngleY;
 
+
+
+
+// Calculate Yaw
+yaw = yaw + (gyroZ * dt)+1.05;
+pitch = -kalAngleY;
+
+
+// Adjust Roll (because we have the board upside down)
+roll = -(180 - kalAngleX);
+if (roll < -180 & roll > -360) {
+  roll  = roll + 360;
+}
+
+// Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
+// with components down. Acceration should be positive. (Though it reads negative)
+accZ = accZ * -1;
+
+
   /* Print Data */
 #if 1             // Set to 1 to activate
   Serial.print("RAW: "); Serial.print(accX); Serial.print("\t");
@@ -356,16 +375,6 @@ void loop() {
   Serial.print(gyroZ); Serial.print("\t");
   Serial.print("\t");
 #endif
-
-
-// Calculate Yaw
-yaw = yaw + (gyroZ * dt)+1.05;
-pitch = kalAngleY;
-
-// Adjust Roll (because we have the board upside down)
-roll = 180 - kalAngleX;
-
-
  
 Serial.print(String("Roll: ") + roll); Serial.print("\t");
 Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
@@ -1166,15 +1175,15 @@ void rotateMatrix(float xb, float yb, float zb, float a, float b, float c)
   
   // Initialise the Matrix based on the angle of the Body co-ordinate system.
   M[0][0] = cos(a) * cos(b);
-  M[0][1] = cos(b) * sin(a);
-  M[0][2] = -sin(b);
+  M[0][1] = cos(c) * sin(a) + cos(a) * sin(c) * sin(b);
+  M[0][2] = sin(c) * sin(a) - cos(c) * cos(a) * sin(b);
   
-  M[1][0] = cos(a) * sin(b) * sin(c) - cos(c) * sin(a);
-  M[1][1] = cos(a) * cos(c) + sin(a) * sin(b) * sin(c);
-  M[1][2] = cos(b) * sin(c);
+  M[1][0] = -cos(b) * sin(a);
+  M[1][1] = cos(c) * cos(a) - sin(c) * sin(b) * sin(a);
+  M[1][2] = cos(a) * sin(c) + cos(c) * sin(b) * sin(a);
   
-  M[2][0] = sin(a) * sin(c) + cos(a) * cos(c) * sin(b);
-  M[2][1] = cos(c) * sin(a) * sin(b) - cos(a) * sin(c);
+  M[2][0] = sin(b);
+  M[2][1] = -cos(b) * sin(c);
   M[2][2] = cos(b) * cos(c);
   
   
