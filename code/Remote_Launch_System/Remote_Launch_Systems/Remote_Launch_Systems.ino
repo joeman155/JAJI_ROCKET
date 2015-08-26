@@ -81,11 +81,11 @@ float gx_val;
 float gy_val;
 float gz_val;
 unsigned long n = 0;
+unsigned long m = 0;
+unsigned long o = 0;
 
 float x,y,z;       // location
 float vx,vy,vz;    // velocity
-float x0,y0,z0;    // initial location
-float vx0,vy0,vz0; // initial velocity
 
 
 // KALMAN
@@ -93,12 +93,13 @@ uint32_t timer;
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
+Kalman kalmanZ;
 float yaw, roll, pitch;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
 int16_t tempRaw;
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
-double kalAngleX, kalAngleY; // Calculated angle using a Kalman filter
+double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filter
 
 
 // GPS
@@ -147,19 +148,26 @@ void setup() {
   double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
   double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
 #endif
+  // Assuming the system is level, we use Magnetometer to get initial bearing.
+  dof.readMag();
+  double heading;
+  getHeading(dof.mx, dof.my, &heading);
+
+
   kalmanX.setAngle(roll); // Set starting angle
   kalmanY.setAngle(pitch);
+  kalmanZ.setAngle(heading);
   gyroXangle = roll;
   gyroYangle = pitch;
-  yaw = 0;
-  Serial.println(String("accZ: ") + accZ);
+  yaw = heading;
+  Serial.println(String("yaw: ") + yaw);    
   Serial.println(String("roll: ") + roll);
   Serial.println(String("pitch: ") + pitch);
   delay(3000);
   
   // INITIALISE INITIAL CONDITIONS
-  x0 = y0 = z0 = 0;
-  vx0 = vy0 = vz0 = 0;
+  x = y = z = 0;
+  vx = vy = vz = 0;
 
   // Initialise BMP180
   if (pressure.begin())
@@ -202,7 +210,7 @@ void loop() {
  }
   
  // Heartbeat
- heartbeat();
+ // heartbeat();
 
 
 
@@ -279,22 +287,49 @@ void loop() {
   // printGyro();  // Print "G: gx, gy, gz"
   // printAccel(); // Print "A: ax, ay, az"
   //printMag();   // Print "M: mx, my, mz"
+  
+  // Heading from Magnetometer.
+  double heading, heading_tmp;
+  heading = 0;
+
+  
   dof.readAccel();
+  dof.readMag();
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
-
+  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
+  heading += heading_tmp;  
+  dof.readAccel();
+  dof.readMag();
+  accX = dof.calcAccel(dof.ax) + accX;
+  accY = dof.calcAccel(dof.ay) + accY;
+  accZ = dof.calcAccel(dof.az) + accZ;  
+  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
+  heading += heading_tmp;  
+  dof.readAccel();
+  dof.readMag();
+  accX = (dof.calcAccel(dof.ax) + accX)/3;
+  accY = (dof.calcAccel(dof.ay) + accY)/3;
+  accZ = (dof.calcAccel(dof.az) + accZ)/3;  
+  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
+  heading += heading_tmp;  
+  
+  heading = heading / 3;
   
   dof.readGyro();
   gyroX = dof.calcGyro(dof.gx);
   gyroY = dof.calcGyro(dof.gy);
   gyroZ = dof.calcGyro(dof.gz);  
   
+ 
+  
   double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
   timer = micros();  
   
   // Serial.println(String("DT: " ) + String(dt));
   
+  // Derive Roll and Pitch
   double roll, pitch;
 #ifdef RESTRICT_PITCH // Eq. 25 and 26
   roll  = atan2(accY, accZ) * RAD_TO_DEG;
@@ -303,11 +338,17 @@ void loop() {
   roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
   pitch = atan2(-accX, accZ) * RAD_TO_DEG;
 #endif
+
+
+
+
   
   double gyroXrate = gyroX; 
   double gyroYrate = gyroY; 
   double gyroZrate = gyroZ; 
+  yaw = heading;
   
+  // Use Kalman filter to get new Pitch and Role
 #ifdef RESTRICT_PITCH
   // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
   if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
@@ -346,12 +387,17 @@ void loop() {
   if (gyroYangle < -180 || gyroYangle > 180)
     gyroYangle = kalAngleY;
 
-
-
-
-// Calculate Yaw
-yaw = yaw + (gyroZ * dt)+1.05;
-pitch = -kalAngleY;
+  // Use Kalman to derive Yaw
+  // yaw = yaw + (gyroZ * dt)+.07;   // Number of 0.07 was deduced from experiment...seems to keep Yaw about the same value (0) when we first turn on
+  // Serial.print("yaw :"); Serial.print(yaw); Serial.print("\t"); Serial.print("Gyrorate: "); Serial.println(gyroZrate);
+  kalAngleZ = kalmanZ.getAngle(yaw, -gyroZrate, dt); // Calculate the angle using a Kalman filter
+  yaw = kalAngleZ;
+  // Serial.print("NEW yaw :"); Serial.println(yaw); 
+  
+  
+  
+  // Reverse Angle of Pitch
+  pitch = -kalAngleY;
 
 
 // Adjust Roll (because we have the board upside down)
@@ -365,8 +411,18 @@ if (roll < -180 & roll > -360) {
 accZ = accZ * -1;
 
 
+
+ 
+
+
+// Convert acceleration components to Global Co-Ordinate system...which is assumed to be the starting position
+// Which has z straight up, x and y in the plane and perpendicular
+float accXg, accYg, accZg;
+rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
+
+
   /* Print Data */
-#if 1             // Set to 1 to activate
+#if 0             // Set to 1 to activate
   Serial.print("RAW: "); Serial.print(accX); Serial.print("\t");
   Serial.print(accY); Serial.print("\t");
   Serial.print(accZ); Serial.print("\t");
@@ -374,15 +430,58 @@ accZ = accZ * -1;
   Serial.print(gyroY); Serial.print("\t");
   Serial.print(gyroZ); Serial.print("\t");
   Serial.print("\t");
-#endif
- 
-Serial.print(String("Roll: ") + roll); Serial.print("\t");
-Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
-Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
 
-// Convert acceleration components to Global Co-Ordinate system...which is assumed to be the starting position
-// Which has z straight up, x and y in the plane and perpendicular
-rotateMatrix(accX, accY, accZ, yaw, pitch, roll);
+  Serial.print(String("Roll: ") + roll); Serial.print("\t");
+  Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
+  Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
+
+
+#endif
+
+  if (o > 180) {
+     Serial.print(heading); Serial.print("/");Serial.println(yaw);
+     o = 1;
+  } else {
+    o++;
+  }
+     
+
+// Remove gravity
+accZg = accZg - 1.05;
+
+if (abs(accXg) > 0.1 || abs(accYg) > 0.1 || abs(accZg) > 0.3) {
+  if (n > 2) {
+     // Serial.print("GRF:   "); Serial.print(accXg); Serial.print("\t"); Serial.print(accYg); Serial.print("\t"); Serial.print(accZg); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
+     n = 1;
+  } else {
+    n++;
+  }
+}
+
+// Compute velocity updates
+vx = vx + accXg * dt;
+vy = vy + accYg * dt;
+vz = vz + accZg * dt;
+
+
+
+
+
+// Computer position
+x = x + vx * dt;
+y = y + vy * dt;
+z = z + vz * dt;
+
+  if (m > 30) {
+     Serial.print("VX: "); Serial.print(vx); Serial.print("\t"); Serial.print("VY: "); Serial.print(vy); Serial.print("\t"); Serial.print("VZ: "); Serial.println(vz);
+     // Serial.print("X: "); Serial.print(x); Serial.print("\t"); Serial.print("Y: "); Serial.print(y); Serial.print("\t"); Serial.print("Z: "); Serial.println(z);
+     m = 1;
+  } else {
+    m++;
+  }
+
+
+accZg = accZg + 1.05;
 
 /*
  float xbias = kalmanX.getBias();
@@ -401,7 +500,6 @@ rotateMatrix(accX, accY, accZ, yaw, pitch, roll);
 //  Serial.print(gyroYangle); Serial.print("\t");
   Serial.print(kalAngleY); Serial.print("\t");
  */
-  delay(100);
 
   
   /*
@@ -426,7 +524,6 @@ rotateMatrix(accX, accY, accZ, yaw, pitch, roll);
   printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
                    dof.calcAccel(dof.az));
  */
-  Serial.println();   
    
    
  // Launch System status
@@ -442,7 +539,7 @@ rotateMatrix(accX, accY, accZ, yaw, pitch, roll);
   
   
    
-  delay(50);
+//  delay(1000);
 }
 
 
@@ -853,7 +950,6 @@ void printGyro()
   // If you want to print calculated values, you can use the
   // calcGyro helper function to convert a raw ADC value to
   // DPS. Give the function the value that you want to convert.
-  //joe
   gx_val = dof.calcGyro(dof.gx) - gx_bias;
   dtostrf(gx_val, 4, 2, outstr);
   Serial.print(outstr);
@@ -959,6 +1055,25 @@ void printHeading(float hx, float hy)
   
   Serial.print("Heading: ");
   Serial.println(heading, 2);
+}
+
+void getHeading(float hx, float hy, double *heading)
+{
+  
+  if (hy > 0)
+  {
+    *heading = 90 - (atan(hx / hy) * (180 / PI));
+  }
+  else if (hy < 0)
+  {
+    *heading = - (atan(hx / hy) * (180 / PI));
+  }
+  else // hy = 0
+  {
+    if (hx < 0) *heading = 180;
+    else *heading = 0;
+  }  
+  
 }
 
 // Another fun function that does calculations based on the
@@ -1163,10 +1278,12 @@ void displayPressure()
 
 // Convert vector xb,yb,zb back to Global Reference Frame
 // a,b,c are the angles (yaw, pitch and roll) - all in degrees.
-void rotateMatrix(float xb, float yb, float zb, float a, float b, float c)
+// The results are put into the xg, yg and zg
+void rotateMatrix(float xb, float yb, float zb, float a, float b, float c,
+                  float *xg, float *yg, float *zg)
 {
   float M[3][3];     // Rotation Matrix
-  float xg, yg, zg;  // Vector in the global reference frame
+  // float xg, yg, zg;  // Vector in the global reference frame
   
   // Convert to Radians as cosine/sine expect angles in Radians
   a = DEGREES_TO_RADIANS(a);
@@ -1188,10 +1305,9 @@ void rotateMatrix(float xb, float yb, float zb, float a, float b, float c)
   
   
   // Compute the vector x,y,z in the Global Reference system
-  xg = M[0][0] * xb + M[0][1] * yb + M[0][2] * zb;
-  yg = M[1][0] * xb + M[1][1] * yb + M[1][2] * zb;
-  zg = M[2][0] * xb + M[2][1] * yb + M[2][2] * zb;
+  *xg = M[0][0] * xb + M[0][1] * yb + M[0][2] * zb;
+  *yg = M[1][0] * xb + M[1][1] * yb + M[1][2] * zb;
+  *zg = M[2][0] * xb + M[2][1] * yb + M[2][2] * zb;
   
-  Serial.print("GRF:   "); Serial.print(xg); Serial.print("\t"); Serial.print(yg); Serial.print("\t"); Serial.print(zg); Serial.println(""); 
   
 }
