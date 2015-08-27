@@ -69,27 +69,34 @@ LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
 #define PRINT_SPEED 500 // 500 ms between prints
 
 
-float gx_avg = 0;
-float gy_avg = 0;
-float gz_avg = 0;
-
-float gx_bias = 0.66;
-float gy_bias = -0.31;
-float gz_bias = -6.39;
-
-float gx_val;
-float gy_val;
-float gz_val;
+// Used to restrict amount of output from IMU functions
 unsigned long n = 0;
 unsigned long m = 0;
 unsigned long o = 0;
+unsigned long p = 0;
 
+float accXg, accYg, accZg;
+float accXg_prev, accYg_prev, accZg_prev;
+float accXg_avg, accYg_avg, accZg_avg;
 float x,y,z;       // location
 float vx,vy,vz;    // velocity
+float vx_prev, vy_prev, vz_prev;  // Previous Velocity
+float vx_avg, vy_avg, vz_avg;  // Average Velocity
+double gravity = 9.81;         // Our readings are in g's. So we need to multiple by this.
+double accel_factor = 1/1.05;  // Our reads over-estimate...we need to multiply by this.
+
+// IMU - variables to assist with attemp to clean out
+float alpha = 0.863;
+float accXg_old, accXg_clean;
+float accYg_old, accYg_clean;
+float accZg_old, accZg_clean;
+float gx_avg = 0,gy_avg = 0,gz_avg = 0;
+unsigned long imu_delay = 150; // Number of iterations before we start considering acceleration.
+uint32_t imu_iteration; // # of iterations we are up to
 
 
 // KALMAN
-uint32_t timer;
+uint32_t timer, timer1;
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
 Kalman kalmanX; // Create the Kalman instances
 Kalman kalmanY;
@@ -119,7 +126,7 @@ SFE_BMP180 pressure;
 unsigned short int DEBUGGING = 1;
 void setup() {
   // Serial Port we program with
-  Serial.begin(57600);
+  Serial.begin(115200);
   
   // GPS
   Serial1.begin(4800);
@@ -163,11 +170,15 @@ void setup() {
   Serial.println(String("yaw: ") + yaw);    
   Serial.println(String("roll: ") + roll);
   Serial.println(String("pitch: ") + pitch);
+  
+  rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg_prev, &accYg_prev, &accZg_prev);
+  timer = micros();
   delay(3000);
   
   // INITIALISE INITIAL CONDITIONS
   x = y = z = 0;
   vx = vy = vz = 0;
+  vx_prev = vy_prev = vz_prev = 0;
 
   // Initialise BMP180
   if (pressure.begin())
@@ -197,9 +208,6 @@ void setup() {
   } else {
     sdCardState = 1;
   }
-
-
-timer = micros();
 }
 
 void loop() {
@@ -284,22 +292,23 @@ void loop() {
   
  // IMU Code
  // Prefix: D06
-  // printGyro();  // Print "G: gx, gy, gz"
-  // printAccel(); // Print "A: ax, ay, az"
-  //printMag();   // Print "M: mx, my, mz"
-  
-  // Heading from Magnetometer.
-  double heading, heading_tmp;
-  heading = 0;
 
   
+
+
+  // Acceration from accelerometer  
   dof.readAccel();
-  dof.readMag();
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
-  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
-  heading += heading_tmp;  
+
+
+  // Heading from Magnetometer.
+  double heading;  
+  dof.readMag();  
+  getHeading((float) dof.mx, (float) dof.my, &heading);  
+
+  /*
   dof.readAccel();
   dof.readMag();
   accX = dof.calcAccel(dof.ax) + accX;
@@ -316,16 +325,23 @@ void loop() {
   heading += heading_tmp;  
   
   heading = heading / 3;
-  
+  */
+
+  // READ GYRO  
   dof.readGyro();
   gyroX = dof.calcGyro(dof.gx);
   gyroY = dof.calcGyro(dof.gy);
   gyroZ = dof.calcGyro(dof.gz);  
-  
+
  
-  
-  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer1 = micros();
+  double dt = (double)(timer1 - timer) / 1000000; // Calculate delta time
   timer = micros();  
+if (timer < timer1) {
+  Serial.println("Rollover");
+  delay(10000);
+}
+
   
   // Serial.println(String("DT: " ) + String(dt));
   
@@ -394,7 +410,10 @@ void loop() {
   yaw = kalAngleZ;
   // Serial.print("NEW yaw :"); Serial.println(yaw); 
   
-  
+  imu_iteration++;
+
+// Only if done enough iterations to we do other work  
+if (imu_iteration > imu_delay) {
   
   // Reverse Angle of Pitch
   pitch = -kalAngleY;
@@ -413,19 +432,45 @@ accZ = accZ * -1;
 
 
  
+  // Correct bias in x and y accelerometers
+  // accX += 0.04;
+  // accY -= 0.05;
 
 
 // Convert acceleration components to Global Co-Ordinate system...which is assumed to be the starting position
 // Which has z straight up, x and y in the plane and perpendicular
-float accXg, accYg, accZg;
-rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
+  rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
 
+  // Convert to ms-2 and adjust using factor
+  accXg = accXg * gravity; // * accel_factor;
+  accYg = accYg * gravity; // * accel_factor;
+  accZg = accZg * gravity; // * accel_factor;
 
-  /* Print Data */
-#if 0             // Set to 1 to activate
-  Serial.print("RAW: "); Serial.print(accX); Serial.print("\t");
-  Serial.print(accY); Serial.print("\t");
-  Serial.print(accZ); Serial.print("\t");
+  // Used to calculate bias
+  if (p < 32767) {
+    gx_avg = (n * gx_avg + accXg)/(p + 1);
+    gy_avg = (n * gy_avg + accYg)/(p + 1);
+    gz_avg = (n * gz_avg + accZg)/(p + 1);
+    p++;
+  }
+
+  // Low Pass Filter for acceleration 
+  accXg_old = accXg_clean;
+  accXg_clean = alpha * accXg_old + (1 - alpha) * accXg;
+  
+  accYg_old = accYg_clean;
+  accYg_clean = alpha * accYg_old + (1 - alpha) * accYg;
+  
+  accZg_old = accZg_clean;
+  accZg_clean = alpha * accZg_old + (1 - alpha) * accZg;
+
+  
+  /* Print Useful Data */
+#if 1             // Set to 1 to activate
+  Serial.print("RAW: "); 
+  Serial.print(accXg_clean); Serial.print("\t");
+  Serial.print(accYg_clean); Serial.print("\t");
+  Serial.print(accZg_clean); Serial.print("\t");
   Serial.print(gyroX); Serial.print("\t");
   Serial.print(gyroY); Serial.print("\t");
   Serial.print(gyroZ); Serial.print("\t");
@@ -434,8 +479,6 @@ rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
   Serial.print(String("Roll: ") + roll); Serial.print("\t");
   Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
-
-
 #endif
 
   if (o > 180) {
@@ -446,34 +489,53 @@ rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
   }
      
 
-// Remove gravity
-accZg = accZg - 1.05;
+  // Remove gravity
+  accZg_clean = accZg_clean * accel_factor - gravity;
+  
+  // Get average Acceleration (between previous measurement and this measurement)
+  accXg_avg  = (accXg_clean + accXg_prev)/2;
+  accYg_avg  = (accYg_clean + accYg_prev)/2;
+  accZg_avg  = (accZg_clean + accZg_prev)/2;
+  accXg_prev = accXg_clean;
+  accYg_prev = accYg_clean;
+  accZg_prev = accZg_clean;  
 
-if (abs(accXg) > 0.1 || abs(accYg) > 0.1 || abs(accZg) > 0.3) {
+
+if (abs(accXg_clean) > 0.1 || abs(accYg_clean) > 0.1 || abs(accZg_clean) > 0.1) {
   if (n > 2) {
-     // Serial.print("GRF:   "); Serial.print(accXg); Serial.print("\t"); Serial.print(accYg); Serial.print("\t"); Serial.print(accZg); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
+     // Serial.print("GRF:   "); Serial.print(accXg_clean); Serial.print("\t"); Serial.print(accYg_clean); Serial.print("\t"); Serial.print(accZg_clean); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
      n = 1;
   } else {
     n++;
   }
 }
 
-// Compute velocity updates
-vx = vx + accXg * dt;
-vy = vy + accYg * dt;
-vz = vz + accZg * dt;
+ //  Serial.print("GRF:   "); Serial.print(accXg_avg); Serial.print("\t"); Serial.print(accYg_avg); Serial.print("\t"); Serial.print(accZg_avg); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
+  // Compute velocity updates
+  vx = vx + accXg_avg * dt;
+  vy = vy + accYg_avg * dt;
+  vz = vz + accZg_avg * dt;
 
+  // Compute average velocity over time frame
+  vx_avg = (vx + vx_prev)/2;
+  vy_avg = (vy + vy_prev)/2;
+  vz_avg = (vz + vz_prev)/2;
+  vx_prev = vx;
+  vy_prev = vy;
+  vz_prev = vz;
 
+  // Computer position
+  x = x + vx_avg * dt;
+  y = y + vy_avg * dt;
+  z = z + vz_avg * dt;
 
+//dtostrf(dt,12, 10, outstr); 
+//Serial.print("dt = "); Serial.println(outstr);
 
-
-// Computer position
-x = x + vx * dt;
-y = y + vy * dt;
-z = z + vz * dt;
-
-  if (m > 30) {
-     Serial.print("VX: "); Serial.print(vx); Serial.print("\t"); Serial.print("VY: "); Serial.print(vy); Serial.print("\t"); Serial.print("VZ: "); Serial.println(vz);
+  if (m > 1) {
+     // Serial.print("VX: "); Serial.print(vx); Serial.print("\t"); Serial.print("VY: "); Serial.print(vy); Serial.print("\t"); Serial.print("VZ: "); Serial.println(vz);
+     // Serial.print("gx_avg: "); Serial.print(gx_avg); Serial.print("\t"); Serial.print("gy_avg: "); Serial.print(gy_avg); Serial.print("\t"); Serial.print("gz_avg: "); Serial.println(gz_avg);
+     
      // Serial.print("X: "); Serial.print(x); Serial.print("\t"); Serial.print("Y: "); Serial.print(y); Serial.print("\t"); Serial.print("Z: "); Serial.println(z);
      m = 1;
   } else {
@@ -481,7 +543,9 @@ z = z + vz * dt;
   }
 
 
-accZg = accZg + 1.05;
+  accZg_clean = (accZg_clean + gravity)/accel_factor;
+
+}
 
 /*
  float xbias = kalmanX.getBias();
@@ -502,28 +566,6 @@ accZg = accZg + 1.05;
  */
 
   
-  /*
-  // Used to calculate bias
-  if (n < 32767) {
-    gx_avg = (n * gx_avg + dof.calcGyro(dof.gx))/(n + 1);
-    gy_avg = (n * gy_avg + dof.calcGyro(dof.gy))/(n + 1);
-    gz_avg = (n * gz_avg + dof.calcGyro(dof.gz))/(n + 1);
-    n++;
-  }
-  
-   Serial.println(String("CALC BIAS: ") + String(gx_avg) + String(",") + String(gy_avg) + "," + String(gz_avg));
-  gx_bias = gx_avg;
-  gy_bias = gy_avg;
-  gz_bias = gz_avg;
-  */
-  
-  // DO NOT WANT ALL IMU DATA FOR NOW
-  /*
-  // Print the heading and orientation for fun!
-  printHeading((float) dof.mx, (float) dof.my);
-  printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
-                   dof.calcAccel(dof.az));
- */
    
    
  // Launch System status
@@ -537,7 +579,7 @@ accZg = accZg + 1.05;
   
   
   
-  
+// delay(100);  
    
 //  delay(1000);
 }
@@ -934,100 +976,6 @@ void logString(String str) {
 
 
 
-
-
-void printGyro()
-{
-  // To read from the gyroscope, you must first call the
-  // readGyro() function. When this exits, it'll update the
-  // gx, gy, and gz variables with the most current data.
-  dof.readGyro();
-  
-  // Now we can use the gx, gy, and gz variables as we please.
-  // Either print them as raw ADC values, or calculated in DPS.
-  Serial.print("G: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcGyro helper function to convert a raw ADC value to
-  // DPS. Give the function the value that you want to convert.
-  gx_val = dof.calcGyro(dof.gx) - gx_bias;
-  dtostrf(gx_val, 4, 2, outstr);
-  Serial.print(outstr);
-  Serial.print(", ");
-  
-  gy_val = dof.calcGyro(dof.gy) - gy_bias;
-  dtostrf(gy_val, 4, 2, outstr);
-  Serial.print(outstr);
-  Serial.print(", ");
-  
-  gz_val = dof.calcGyro(dof.gz) - gz_bias;
-  dtostrf(gz_val, 4, 2, outstr);  
-  Serial.println(outstr);
-#elif defined PRINT_RAW
-  Serial.print(dof.gx);
-  Serial.print(", ");
-  Serial.print(dof.gy);
-  Serial.print(", ");
-  Serial.println(dof.gz);
-#endif
-}
-
-void printAccel()
-{
-  // To read from the accelerometer, you must first call the
-  // readAccel() function. When this exits, it'll update the
-  // ax, ay, and az variables with the most current data.
-  dof.readAccel();
-  
-  // Now we can use the ax, ay, and az variables as we please.
-  // Either print them as raw ADC values, or calculated in g's.
-  Serial.print("A: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcAccel helper function to convert a raw ADC value to
-  // g's. Give the function the value that you want to convert.
-  Serial.print(dof.calcAccel(dof.ax), 2);
-  Serial.print(", ");
-  Serial.print(dof.calcAccel(dof.ay), 2);
-  Serial.print(", ");
-  Serial.println(dof.calcAccel(dof.az), 2);
-#elif defined PRINT_RAW 
-  Serial.print(dof.ax);
-  Serial.print(", ");
-  Serial.print(dof.ay);
-  Serial.print(", ");
-  Serial.println(dof.az);
-#endif
-
-}
-
-void printMag()
-{
-  // To read from the magnetometer, you must first call the
-  // readMag() function. When this exits, it'll update the
-  // mx, my, and mz variables with the most current data.
-  dof.readMag();
-  
-  // Now we can use the mx, my, and mz variables as we please.
-  // Either print them as raw ADC values, or calculated in Gauss.
-  Serial.print("M: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcMag helper function to convert a raw ADC value to
-  // Gauss. Give the function the value that you want to convert.
-  Serial.print(dof.calcMag(dof.mx), 2);
-  Serial.print(", ");
-  Serial.print(dof.calcMag(dof.my), 2);
-  Serial.print(", ");
-  Serial.println(dof.calcMag(dof.mz), 2);
-#elif defined PRINT_RAW
-  Serial.print(dof.mx);
-  Serial.print(", ");
-  Serial.print(dof.my);
-  Serial.print(", ");
-  Serial.println(dof.mz);
-#endif
-}
 
 // Here's a fun function to calculate your heading, using Earth's
 // magnetic field.
