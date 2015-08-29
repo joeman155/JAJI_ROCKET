@@ -137,15 +137,10 @@ void setup() {
   Wire.begin();
  
   // Initialise IMU
-//  pinMode(INT1XM, INPUT);
-//  pinMode(INT2XM, INPUT);
-//  pinMode(DRDYG, INPUT);
   uint16_t status = dof.begin();
+  
   delay(100); // Wait for sensor to stabilize
   dof.readAccel();
-//  Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
-//  Serial.println(status, HEX);
-//  Serial.println("Should be 0x49D4");
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
@@ -161,18 +156,15 @@ void setup() {
   double heading;
   getHeading(dof.mx, dof.my, &heading);
 
-
+  // Get initial angels
   kalmanX.setAngle(roll); // Set starting angle
   kalmanY.setAngle(pitch);
   kalmanZ.setAngle(heading);
-  gyroXangle = roll;
-  gyroYangle = pitch;
   yaw = heading;
   Serial.println(String("yaw: ") + yaw);    
   Serial.println(String("roll: ") + roll);
   Serial.println(String("pitch: ") + pitch);
   
-  rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg_prev, &accYg_prev, &accZg_prev);
   timer = micros();
   delay(3000);
   
@@ -289,121 +281,7 @@ void loop() {
   
  // IMU Code
  // Prefix: D06
-
-  // Read Accelerometer
-  dof.readAccel();
-  accX = dof.calcAccel(dof.ax);
-  accY = dof.calcAccel(dof.ay);
-  accZ = dof.calcAccel(dof.az);  
-
-
-  // Heading from Magnetometer.
-  double heading;  
-  dof.readMag();  
-  getHeading((float) dof.mx, (float) dof.my, &heading);  
-
-  // Read Gyro 
-  dof.readGyro();
-  gyroX = dof.calcGyro(dof.gx);
-  gyroY = dof.calcGyro(dof.gy);
-  gyroZ = dof.calcGyro(dof.gz);  
-
-
-  // Time Steps
-  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
-  timer = micros();  
-  
-   
-  // Derive Roll and Pitch
-  double roll, pitch;
-#ifdef RESTRICT_PITCH // Eq. 25 and 26
-  roll  = atan2(accY, accZ) * RAD_TO_DEG;
-  pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
-#else // Eq. 28 and 29
-  roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
-  pitch = atan2(-accX, accZ) * RAD_TO_DEG;
-#endif
-
-  
-  double gyroXrate = gyroX; 
-  double gyroYrate = gyroY; 
-  double gyroZrate = gyroZ; 
-  yaw = heading;
-  
-  // Use Kalman filter to get new Pitch and Role
-#ifdef RESTRICT_PITCH
-  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
-  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
-    kalmanX.setAngle(roll);
-    kalAngleX = roll;
-    gyroXangle = roll;
-  } else
-    kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
-
-  if (abs(kalAngleX) > 90)
-    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
-  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
-#else
-  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
-  if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
-    kalmanY.setAngle(pitch);
-    kalAngleY = pitch;
-    gyroYangle = pitch;
-  } else
-    kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
-
-  if (abs(kalAngleY) > 90)
-    gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
-  kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
-#endif
-
-  gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
-  gyroYangle += gyroYrate * dt;
-  
-  
-  // Reset the gyro angle when it has drifted too much
-  if (gyroXangle < -180 || gyroXangle > 180)
-    gyroXangle = kalAngleX;
-  if (gyroYangle < -180 || gyroYangle > 180)
-    gyroYangle = kalAngleY;
-
-  // Use Kalman to derive Yaw
-  // yaw = yaw + (gyroZ * dt)+.07;   // Number of 0.07 was deduced from experiment...seems to keep Yaw about the same value (0) when we first turn on
-  // Serial.print("yaw :"); Serial.print(yaw); Serial.print("\t"); Serial.print("Gyrorate: "); Serial.println(gyroZrate);
-  kalAngleZ = kalmanZ.getAngle(yaw, -gyroZrate, dt); // Calculate the angle using a Kalman filter
-  yaw = kalAngleZ;
- 
-  // Reverse Angle of Pitch
-  pitch = -kalAngleY;
-
-  // Adjust Roll (because we have the board upside down)
-  roll = -(180 - kalAngleX);
-  if (roll < -180 & roll > -360) {
-     roll  = roll + 360;
-  }
-
- // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
- // with components down. Acceration should be positive. (Though it reads negative)
- accZ = accZ * -1;
-
-
-
-  
-  /* Print Useful Data */
-#if  1            // Set to 1 to activate
-  Serial.print("RAW: "); 
-  Serial.print(accX); Serial.print("\t");
-  Serial.print(accY); Serial.print("\t");
-  Serial.print(accZ); Serial.print("\t");
-  Serial.print(gyroX); Serial.print("\t");
-  Serial.print(gyroY); Serial.print("\t");
-  Serial.print(gyroZ); Serial.print("\t");
-  Serial.print("\t");
-
-  Serial.print(String("Roll: ") + roll); Serial.print("\t");
-  Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
-  Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
-#endif
+ extractIMUInfo();
 
 
    
@@ -1094,4 +972,111 @@ void rotateMatrix(double xb, double yb, double zb, double a, double b, double c,
   *zg = M[2][0] * xb + M[2][1] * yb + M[2][2] * zb;
   
   
+}
+
+
+void extractIMUInfo()
+{
+  
+    // Read Accelerometer
+  dof.readAccel();
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
+
+
+  // Heading from Magnetometer.
+  double heading;  
+  dof.readMag();  
+  getHeading((float) dof.mx, (float) dof.my, &heading);  
+
+
+  // Read Gyro 
+  dof.readGyro();
+  gyroX = dof.calcGyro(dof.gx);
+  gyroY = dof.calcGyro(dof.gy);
+  gyroZ = dof.calcGyro(dof.gz);  
+
+
+  // Time Steps
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer = micros();  
+  
+   
+  // Derive Roll and Pitch
+  double roll, pitch;
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  roll  = atan2(accY, accZ) * RAD_TO_DEG;
+  pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
+  pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+#endif
+
+  
+  double gyroXrate = gyroX; 
+  double gyroYrate = gyroY; 
+  double gyroZrate = gyroZ; 
+  yaw = heading;
+  
+  // Use Kalman filter to get new Pitch and Role
+#ifdef RESTRICT_PITCH
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
+    kalmanX.setAngle(roll);
+    kalAngleX = roll;
+  } else
+    kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleX) > 90)
+    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
+#else
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
+    kalmanY.setAngle(pitch);
+    kalAngleY = pitch;
+  } else
+    kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleY) > 90)
+    gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+#endif
+
+
+  // Use Kalman to derive Yaw
+  kalAngleZ = kalmanZ.getAngle(yaw, -gyroZrate, dt); // Calculate the angle using a Kalman filter
+  yaw = kalAngleZ;
+ 
+  // Reverse Angle of Pitch
+  pitch = -kalAngleY;
+
+  // Adjust Roll (because we have the board upside down)
+  roll = -(180 - kalAngleX);
+  if (roll < -180 & roll > -360) {
+     roll  = roll + 360;
+  }
+
+ // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
+ // with components down. Acceration should be positive. (Though it reads negative)
+ accZ = accZ * -1;
+
+  
+  /* Print Useful Data */
+#if  1            // Set to 1 to activate
+  Serial.print("RAW: "); 
+  Serial.print(accX); Serial.print("\t");
+  Serial.print(accY); Serial.print("\t");
+  Serial.print(accZ); Serial.print("\t");
+  Serial.print(gyroX); Serial.print("\t");
+  Serial.print(gyroY); Serial.print("\t");
+  Serial.print(gyroZ); Serial.print("\t");
+  Serial.print("\t");
+
+  Serial.print(String("Roll: ") + roll); Serial.print("\t");
+  Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
+  Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
+#endif
+
 }
