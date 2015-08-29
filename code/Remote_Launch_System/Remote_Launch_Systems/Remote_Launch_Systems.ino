@@ -60,6 +60,10 @@ VOLTAGE ardupsu;
 // IMU
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
+const byte INT1XM = 2; // INT1XM tells us when accel data is ready
+const byte INT2XM = 3; // INT2XM tells us when mag data is ready
+const byte DRDYG = 4;  // DRDYG tells us when gyro data is ready
+
 // Create an instance of the LSM9DS0 library called `dof` the
 // parameters for this constructor are:
 // [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
@@ -75,23 +79,17 @@ unsigned long m = 0;
 unsigned long o = 0;
 unsigned long p = 0;
 
-float accXg, accYg, accZg;
-float accXg_prev, accYg_prev, accZg_prev;
-float accXg_avg, accYg_avg, accZg_avg;
-float x,y,z;       // location
-float vx,vy,vz;    // velocity
-float vx_prev, vy_prev, vz_prev;  // Previous Velocity
-float vx_avg, vy_avg, vz_avg;  // Average Velocity
-double gravity = 9.81;         // Our readings are in g's. So we need to multiple by this.
-double accel_factor = 1/1.05;  // Our reads over-estimate...we need to multiply by this.
+double accXg, accYg, accZg;
+double accXg_prev, accYg_prev, accZg_prev;
+double accXg_avg, accYg_avg, accZg_avg;
 
 // IMU - variables to assist with attemp to clean out
-float alpha = 0.863;
-float accXg_old, accXg_clean;
-float accYg_old, accYg_clean;
-float accZg_old, accZg_clean;
-float gx_avg = 0,gy_avg = 0,gz_avg = 0;
-unsigned long imu_delay = 150; // Number of iterations before we start considering acceleration.
+double alpha = (1 - 0.01);
+double accXg_old, accXg_clean;
+double accYg_old, accYg_clean;
+double accZg_old, accZg_clean;
+double gx_avg = 0,gy_avg = 0,gz_avg = 0;
+unsigned long imu_delay = 10; // Number of iterations before we start considering acceleration.
 uint32_t imu_iteration; // # of iterations we are up to
 
 
@@ -139,6 +137,9 @@ void setup() {
   Wire.begin();
  
   // Initialise IMU
+//  pinMode(INT1XM, INPUT);
+//  pinMode(INT2XM, INPUT);
+//  pinMode(DRDYG, INPUT);
   uint16_t status = dof.begin();
   delay(100); // Wait for sensor to stabilize
   dof.readAccel();
@@ -175,10 +176,6 @@ void setup() {
   timer = micros();
   delay(3000);
   
-  // INITIALISE INITIAL CONDITIONS
-  x = y = z = 0;
-  vx = vy = vz = 0;
-  vx_prev = vy_prev = vz_prev = 0;
 
   // Initialise BMP180
   if (pressure.begin())
@@ -293,10 +290,7 @@ void loop() {
  // IMU Code
  // Prefix: D06
 
-  
-
-
-  // Acceration from accelerometer  
+  // Read Accelerometer
   dof.readAccel();
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
@@ -308,43 +302,18 @@ void loop() {
   dof.readMag();  
   getHeading((float) dof.mx, (float) dof.my, &heading);  
 
-  /*
-  dof.readAccel();
-  dof.readMag();
-  accX = dof.calcAccel(dof.ax) + accX;
-  accY = dof.calcAccel(dof.ay) + accY;
-  accZ = dof.calcAccel(dof.az) + accZ;  
-  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
-  heading += heading_tmp;  
-  dof.readAccel();
-  dof.readMag();
-  accX = (dof.calcAccel(dof.ax) + accX)/3;
-  accY = (dof.calcAccel(dof.ay) + accY)/3;
-  accZ = (dof.calcAccel(dof.az) + accZ)/3;  
-  getHeading((float) dof.mx, (float) dof.my, &heading_tmp);  
-  heading += heading_tmp;  
-  
-  heading = heading / 3;
-  */
-
-  // READ GYRO  
+  // Read Gyro 
   dof.readGyro();
   gyroX = dof.calcGyro(dof.gx);
   gyroY = dof.calcGyro(dof.gy);
   gyroZ = dof.calcGyro(dof.gz);  
 
- 
-  timer1 = micros();
-  double dt = (double)(timer1 - timer) / 1000000; // Calculate delta time
-  timer = micros();  
-if (timer < timer1) {
-  Serial.println("Rollover");
-  delay(10000);
-}
 
+  // Time Steps
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer = micros();  
   
-  // Serial.println(String("DT: " ) + String(dt));
-  
+   
   // Derive Roll and Pitch
   double roll, pitch;
 #ifdef RESTRICT_PITCH // Eq. 25 and 26
@@ -354,9 +323,6 @@ if (timer < timer1) {
   roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
   pitch = atan2(-accX, accZ) * RAD_TO_DEG;
 #endif
-
-
-
 
   
   double gyroXrate = gyroX; 
@@ -393,10 +359,8 @@ if (timer < timer1) {
 
   gyroXangle += gyroXrate * dt; // Calculate gyro angle without any filter
   gyroYangle += gyroYrate * dt;
-  //gyroXangle += kalmanX.getRate() * dt; // Calculate gyro angle using the unbiased rate
-  //gyroYangle += kalmanY.getRate() * dt;
-
-
+  
+  
   // Reset the gyro angle when it has drifted too much
   if (gyroXangle < -180 || gyroXangle > 180)
     gyroXangle = kalAngleX;
@@ -408,69 +372,29 @@ if (timer < timer1) {
   // Serial.print("yaw :"); Serial.print(yaw); Serial.print("\t"); Serial.print("Gyrorate: "); Serial.println(gyroZrate);
   kalAngleZ = kalmanZ.getAngle(yaw, -gyroZrate, dt); // Calculate the angle using a Kalman filter
   yaw = kalAngleZ;
-  // Serial.print("NEW yaw :"); Serial.println(yaw); 
-  
-  imu_iteration++;
-
-// Only if done enough iterations to we do other work  
-if (imu_iteration > imu_delay) {
-  
+ 
   // Reverse Angle of Pitch
   pitch = -kalAngleY;
 
-
-// Adjust Roll (because we have the board upside down)
-roll = -(180 - kalAngleX);
-if (roll < -180 & roll > -360) {
-  roll  = roll + 360;
-}
-
-// Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
-// with components down. Acceration should be positive. (Though it reads negative)
-accZ = accZ * -1;
-
-
-
- 
-  // Correct bias in x and y accelerometers
-  // accX += 0.04;
-  // accY -= 0.05;
-
-
-// Convert acceleration components to Global Co-Ordinate system...which is assumed to be the starting position
-// Which has z straight up, x and y in the plane and perpendicular
-  rotateMatrix(accX, accY, accZ, yaw, pitch, roll, &accXg, &accYg, &accZg);
-
-  // Convert to ms-2 and adjust using factor
-  accXg = accXg * gravity; // * accel_factor;
-  accYg = accYg * gravity; // * accel_factor;
-  accZg = accZg * gravity; // * accel_factor;
-
-  // Used to calculate bias
-  if (p < 32767) {
-    gx_avg = (n * gx_avg + accXg)/(p + 1);
-    gy_avg = (n * gy_avg + accYg)/(p + 1);
-    gz_avg = (n * gz_avg + accZg)/(p + 1);
-    p++;
+  // Adjust Roll (because we have the board upside down)
+  roll = -(180 - kalAngleX);
+  if (roll < -180 & roll > -360) {
+     roll  = roll + 360;
   }
 
-  // Low Pass Filter for acceleration 
-  accXg_old = accXg_clean;
-  accXg_clean = alpha * accXg_old + (1 - alpha) * accXg;
-  
-  accYg_old = accYg_clean;
-  accYg_clean = alpha * accYg_old + (1 - alpha) * accYg;
-  
-  accZg_old = accZg_clean;
-  accZg_clean = alpha * accZg_old + (1 - alpha) * accZg;
+ // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
+ // with components down. Acceration should be positive. (Though it reads negative)
+ accZ = accZ * -1;
+
+
 
   
   /* Print Useful Data */
-#if 1             // Set to 1 to activate
+#if  1            // Set to 1 to activate
   Serial.print("RAW: "); 
-  Serial.print(accXg_clean); Serial.print("\t");
-  Serial.print(accYg_clean); Serial.print("\t");
-  Serial.print(accZg_clean); Serial.print("\t");
+  Serial.print(accX); Serial.print("\t");
+  Serial.print(accY); Serial.print("\t");
+  Serial.print(accZ); Serial.print("\t");
   Serial.print(gyroX); Serial.print("\t");
   Serial.print(gyroY); Serial.print("\t");
   Serial.print(gyroZ); Serial.print("\t");
@@ -481,91 +405,7 @@ accZ = accZ * -1;
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
 #endif
 
-  if (o > 180) {
-     Serial.print(heading); Serial.print("/");Serial.println(yaw);
-     o = 1;
-  } else {
-    o++;
-  }
-     
 
-  // Remove gravity
-  accZg_clean = accZg_clean * accel_factor - gravity;
-  
-  // Get average Acceleration (between previous measurement and this measurement)
-  accXg_avg  = (accXg_clean + accXg_prev)/2;
-  accYg_avg  = (accYg_clean + accYg_prev)/2;
-  accZg_avg  = (accZg_clean + accZg_prev)/2;
-  accXg_prev = accXg_clean;
-  accYg_prev = accYg_clean;
-  accZg_prev = accZg_clean;  
-
-
-if (abs(accXg_clean) > 0.1 || abs(accYg_clean) > 0.1 || abs(accZg_clean) > 0.1) {
-  if (n > 2) {
-     // Serial.print("GRF:   "); Serial.print(accXg_clean); Serial.print("\t"); Serial.print(accYg_clean); Serial.print("\t"); Serial.print(accZg_clean); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
-     n = 1;
-  } else {
-    n++;
-  }
-}
-
- //  Serial.print("GRF:   "); Serial.print(accXg_avg); Serial.print("\t"); Serial.print(accYg_avg); Serial.print("\t"); Serial.print(accZg_avg); Serial.print("\t"); Serial.println("Heading/Yaw: "); 
-  // Compute velocity updates
-  vx = vx + accXg_avg * dt;
-  vy = vy + accYg_avg * dt;
-  vz = vz + accZg_avg * dt;
-
-  // Compute average velocity over time frame
-  vx_avg = (vx + vx_prev)/2;
-  vy_avg = (vy + vy_prev)/2;
-  vz_avg = (vz + vz_prev)/2;
-  vx_prev = vx;
-  vy_prev = vy;
-  vz_prev = vz;
-
-  // Computer position
-  x = x + vx_avg * dt;
-  y = y + vy_avg * dt;
-  z = z + vz_avg * dt;
-
-//dtostrf(dt,12, 10, outstr); 
-//Serial.print("dt = "); Serial.println(outstr);
-
-  if (m > 1) {
-     // Serial.print("VX: "); Serial.print(vx); Serial.print("\t"); Serial.print("VY: "); Serial.print(vy); Serial.print("\t"); Serial.print("VZ: "); Serial.println(vz);
-     // Serial.print("gx_avg: "); Serial.print(gx_avg); Serial.print("\t"); Serial.print("gy_avg: "); Serial.print(gy_avg); Serial.print("\t"); Serial.print("gz_avg: "); Serial.println(gz_avg);
-     
-     // Serial.print("X: "); Serial.print(x); Serial.print("\t"); Serial.print("Y: "); Serial.print(y); Serial.print("\t"); Serial.print("Z: "); Serial.println(z);
-     m = 1;
-  } else {
-    m++;
-  }
-
-
-  accZg_clean = (accZg_clean + gravity)/accel_factor;
-
-}
-
-/*
- float xbias = kalmanX.getBias();
- float ybias = kalmanY.getBias();
- Serial.print("XBias: "); Serial.println(xbias);
- Serial.print("YBias: "); Serial.println(ybias);  
-
-  
-//  Serial.print(roll); Serial.print("\t");
-//  Serial.print(gyroXangle); Serial.print("\t");
-  Serial.print(kalAngleX); Serial.print("\t");
-
-  Serial.print("\t");
-
-//  Serial.print(pitch); Serial.print("\t");
-//  Serial.print(gyroYangle); Serial.print("\t");
-  Serial.print(kalAngleY); Serial.print("\t");
- */
-
-  
    
    
  // Launch System status
@@ -577,11 +417,7 @@ if (abs(accXg_clean) > 0.1 || abs(accYg_clean) > 0.1 || abs(accZg_clean) > 0.1) 
  */
   
   
-  
-  
-// delay(100);  
-   
-//  delay(1000);
+ //  delay(1000);
 }
 
 
@@ -1227,8 +1063,8 @@ void displayPressure()
 // Convert vector xb,yb,zb back to Global Reference Frame
 // a,b,c are the angles (yaw, pitch and roll) - all in degrees.
 // The results are put into the xg, yg and zg
-void rotateMatrix(float xb, float yb, float zb, float a, float b, float c,
-                  float *xg, float *yg, float *zg)
+void rotateMatrix(double xb, double yb, double zb, double a, double b, double c,
+                  double *xg, double *yg, double *zg)
 {
   float M[3][3];     // Rotation Matrix
   // float xg, yg, zg;  // Vector in the global reference frame
