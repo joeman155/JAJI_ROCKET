@@ -9,6 +9,8 @@
 #include <SFE_BMP180.h>
 
 
+// delay between measurements
+#define LOOP_DELAY 100
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -72,37 +74,15 @@ LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
 //#define PRINT_RAW
 #define PRINT_SPEED 500 // 500 ms between prints
 
-
-// Used to restrict amount of output from IMU functions
-unsigned long n = 0;
-unsigned long m = 0;
-unsigned long o = 0;
-unsigned long p = 0;
-
-double accXg, accYg, accZg;
-double accXg_prev, accYg_prev, accZg_prev;
-double accXg_avg, accYg_avg, accZg_avg;
-
-// IMU - variables to assist with attemp to clean out
-double alpha = (1 - 0.01);
-double accXg_old, accXg_clean;
-double accYg_old, accYg_clean;
-double accZg_old, accZg_clean;
-double gx_avg = 0,gy_avg = 0,gz_avg = 0;
-unsigned long imu_delay = 10; // Number of iterations before we start considering acceleration.
-uint32_t imu_iteration; // # of iterations we are up to
-
-
 // KALMAN
-uint32_t timer, timer1;
+uint32_t timer;
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
-Kalman kalmanX; // Create the Kalman instances
-Kalman kalmanY;
-Kalman kalmanZ;
+Kalman kalmanX; // Yaw
+Kalman kalmanY; // Pitch
+Kalman kalmanZ; // Role
 float yaw, roll, pitch;
 double accX, accY, accZ;
 double gyroX, gyroY, gyroZ;
-int16_t tempRaw;
 double gyroXangle, gyroYangle; // Angle calculate using the gyro only
 double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filter
 
@@ -144,22 +124,24 @@ void setup() {
   accX = dof.calcAccel(dof.ax);
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
+  
 #ifdef RESTRICT_PITCH // Eq. 25 and 26
-  double roll  = atan2(accY, accZ) * RAD_TO_DEG;
-  double pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+  roll  = atan2(accY, accX) * RAD_TO_DEG;
+  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
 #else // Eq. 28 and 29
-  double roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
-  double pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
+  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
 #endif
+
   // Assuming the system is level, we use Magnetometer to get initial bearing.
   dof.readMag();
   double heading;
   getHeading(dof.mx, dof.my, &heading);
 
   // Get initial angels
-  kalmanX.setAngle(roll); // Set starting angle
+  kalmanX.setAngle(heading); // Set starting angle
   kalmanY.setAngle(pitch);
-  kalmanZ.setAngle(heading);
+  kalmanZ.setAngle(roll);
   yaw = heading;
   Serial.println(String("yaw: ") + yaw);    
   Serial.println(String("roll: ") + roll);
@@ -269,7 +251,6 @@ void loop() {
  // Voltages
  // Prefix: D04, D05
  // DISABLED VOLTAGES WHILE WE DEVELOP OTHER CODE
- /*
  ardupsu.read();
  dtostrf(ardupsu.value(),5, 2, outstr);   
  sendPacket (String("D04:") + String(outstr)); 
@@ -277,7 +258,6 @@ void loop() {
  ignpsu.read();
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String("D05:") + String(outstr));   
- */
   
  // IMU Code
  // Prefix: D06
@@ -289,13 +269,11 @@ void loop() {
  // Launch System status
  // Prefix: D07, D08
  // DISABLED LAUNCH STATUS STUFF FOR NOW
- /*
  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
- */
   
   
- //  delay(1000);
+ delay(LOOP_DELAY);
 }
 
 
@@ -1006,11 +984,11 @@ void extractIMUInfo()
   // Derive Roll and Pitch
   double roll, pitch;
 #ifdef RESTRICT_PITCH // Eq. 25 and 26
-  roll  = atan2(accY, accZ) * RAD_TO_DEG;
-  pitch = atan(-accX / sqrt(accY * accY + accZ * accZ)) * RAD_TO_DEG;
+  roll  = atan2(accY, accX) * RAD_TO_DEG;
+  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
 #else // Eq. 28 and 29
-  roll  = atan(accY / sqrt(accX * accX + accZ * accZ)) * RAD_TO_DEG;
-  pitch = atan2(-accX, accZ) * RAD_TO_DEG;
+  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
+  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
 #endif
 
   
@@ -1022,11 +1000,11 @@ void extractIMUInfo()
   // Use Kalman filter to get new Pitch and Role
 #ifdef RESTRICT_PITCH
   // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
-  if ((roll < -90 && kalAngleX > 90) || (roll > 90 && kalAngleX < -90)) {
-    kalmanX.setAngle(roll);
-    kalAngleX = roll;
+  if ((roll < -90 && kalAngleZ > 90) || (roll > 90 && kalAngleZ < -90)) {
+    kalmanZ.setAngle(roll);
+    kalAngleZ = roll;
   } else
-    kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+    kalAngleZ = kalmanZ.getAngle(roll, gyroZrate, dt); // Calculate the angle using a Kalman filter
 
   if (abs(kalAngleX) > 90)
     gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
@@ -1040,23 +1018,20 @@ void extractIMUInfo()
     kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
 
   if (abs(kalAngleY) > 90)
-    gyroXrate = -gyroXrate; // Invert rate, so it fits the restriced accelerometer reading
-  kalAngleX = kalmanX.getAngle(roll, gyroXrate, dt); // Calculate the angle using a Kalman filter
+    gyroZrate = -gyroZrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleZ = kalmanZ.getAngle(roll, gyroZrate, dt); // Calculate the angle using a Kalman filter
 #endif
 
 
   // Use Kalman to derive Yaw
-  kalAngleZ = kalmanZ.getAngle(yaw, -gyroZrate, dt); // Calculate the angle using a Kalman filter
-  yaw = kalAngleZ;
+  kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
+  yaw = kalAngleX;
  
   // Reverse Angle of Pitch
   pitch = -kalAngleY;
 
-  // Adjust Roll (because we have the board upside down)
-  roll = -(180 - kalAngleX);
-  if (roll < -180 & roll > -360) {
-     roll  = roll + 360;
-  }
+  // Roll == kalAngleZ
+  roll = kalAngleZ;
 
  // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
  // with components down. Acceration should be positive. (Though it reads negative)
