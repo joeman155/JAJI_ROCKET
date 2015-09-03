@@ -322,8 +322,8 @@ sub decode_rx()
     $v_internal_temp = $1;
     $v_external_temp = $2;
     $v_air_pressure = $3;
-    $cpu_voltage = sprintf("%.2f", $4);
-    $ign_voltage = sprintf("%.2f", $5);
+    $v_cpu_voltage = sprintf("%.2f", $4);
+    $v_ign_voltage = sprintf("%.2f", $5);
     $v_alt = get_altitude($v_air_pressure);
     my %measurements = (
 		"Internal Temperature"	=> $v_internal_temp,
@@ -784,7 +784,7 @@ sub get_altitude()
 {
  local ($pressure) = @_;
 
-
+ my $match = 0;
  $prev_key = 101.34;
  
  # Convert pressure (in Pa) to kPa
@@ -795,9 +795,15 @@ sub get_altitude()
       $altitude = $data{$key} -  ($data{$key} - $data{$prev_key}) * ($key - $pressure)/($key - $prev_key);
       last;
    }
-
+   $match = 0;
    $prev_key = $key;
  }
+
+ # Unable to find a match...off the charts
+ if ($match == 0) {
+   return 0;
+ }
+
 
  return int($altitude/3.2808399);
 }

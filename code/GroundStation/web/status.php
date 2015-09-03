@@ -308,7 +308,7 @@ foreach ($measurements_group_d00['measurements'] as $key => $val) {
 ?>
 <tr>
   <th><?= $key?></th>
-  <td><?= $value?></td>
+  <td><?= $val?></td>
 </tr>
 <?
 }
@@ -460,9 +460,11 @@ function getMeasurements($p_group_name) {
    global $dbh;
 
    # Get latest id of group
-   $sql = "select max(id) as id
+   $sql = "select id, creation_date
            from measurement_group_t
-           where group_name = ?";
+           where id = (select max(id)
+                       from measurement_group_t
+                       where group_name = ?)";
 
    $sth = $dbh->prepare($sql);
    $sth->execute(array($p_group_name));
@@ -471,6 +473,9 @@ function getMeasurements($p_group_name) {
    $v_group_id = $row['id'];
    $creation_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
+   # Initialise array to hold all measurements
+   $measurement = array();
+
    # Now get all the measurements
    $sql = "select name, value
            from   measurement_t
@@ -478,11 +483,10 @@ function getMeasurements($p_group_name) {
 
    $sth = $dbh->prepare($sql);
    $sth->execute(array($v_group_id));
-   $row = $sth->fetch();
 
-   $measurement = array();
-   foreach ($row as $key => $value) {
-     $measurement[$key] = $value;
+   # Cycle trhough all rows
+   while ($row = $sth->fetch(PDO::FETCH_ASSOC)) {
+     $measurement[$row['name']] = $row['value'];
    }
 
    # Now put all the measurements together in a neat hash and return to calling
