@@ -262,6 +262,7 @@ void loop() {
  // IMU Code
  // Prefix: D06
  extractIMUInfo();
+ sendPacket(String("D06:") + String(roll) + String(","));  /// NOT YET COMPLETE.
 
 
    
