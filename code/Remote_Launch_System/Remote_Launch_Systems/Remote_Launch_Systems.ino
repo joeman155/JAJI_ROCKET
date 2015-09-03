@@ -107,6 +107,7 @@ void setup() {
   Wire.begin();
  
   // Initialise IMU
+  /*
   uint16_t status = dof.begin();
   Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
   Serial.println(status, HEX);
@@ -123,6 +124,7 @@ void setup() {
     Serial.println("BMP180 init fail\n\n");
     while(1); // Pause forever.
   }
+  */
   
   // Initialisations
   heartbeat_count = 1;
@@ -155,10 +157,21 @@ void loop() {
 
 
 
- // Air Pressure, Temperature
+ // Air Pressure, Temperature, voltages
  // Prefix: D00
- // DISABLE PRESSURE FOR NOW
 //  displayPressure();
+ // Format of string is D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
+ // Prefix: D04, D05
+ sendPacket (String("D00:") + String("293"), false);   // DUMMY INTERNAL TEMP
+ sendPacket (String(",") + String("303"), false);      // DUMMY EXTERNAL TEMP
+ sendPacket (String(",") + String("100000"), false);    // DUMMY AIR PRESSURE
+ 
+ ardupsu.read();
+ ignpsu.read();
+ dtostrf(ardupsu.value(),4, 2, outstr);   
+ sendPacket (String(",") + String(outstr), false); 
+ dtostrf(ignpsu.value(),5, 2, outstr);  
+ sendPacket (String(",") + String(outstr), true);   
   
 
  // GPS Tracking
@@ -210,15 +223,7 @@ void loop() {
  
 
 
- // Voltages
- // Prefix: D04, D05
- ardupsu.read();
- dtostrf(ardupsu.value(),5, 2, outstr);   
- sendPacket (String("D04:") + String(outstr)); 
 
- ignpsu.read();
- dtostrf(ignpsu.value(),5, 2, outstr);  
- sendPacket (String("D05:") + String(outstr));   
 
 /*  
  // IMU Code
@@ -247,7 +252,6 @@ void loop() {
   printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
                    dof.calcAccel(dof.az));
  */
-  Serial.println();   
    
    
  // Launch System status
@@ -257,7 +261,7 @@ void loop() {
  
   
    
-  delay(500);
+  delay(4000);
 }
 
 
@@ -379,6 +383,26 @@ void sendPacket(String str) {
   
 }
 
+
+void sendPacket(String str, boolean eol) {
+  if (eol) {
+    Serial2.println(str);
+    logString(str);
+  } else {
+    Serial2.print(str);
+    logString(str, eol);
+  }    
+  
+  // Debug to console, if debugging is enabled
+  if (DEBUGGING == 1) {
+    if (eol) {
+       Serial.println(str);
+    } else {
+       Serial.print(str);
+    }
+  }
+  
+}
 
 
 void pollSerial() 
@@ -650,6 +674,27 @@ void logString(String str) {
   } 
 }
 
+
+
+// Log string to log file
+void logString(String str, boolean eol) {
+  // ONLY proceed if no sdcard errors
+  if (sdCardState == 1) {
+     myFile = SD.open("log.txt", FILE_WRITE);
+
+     // if the file opened okay, write to it:
+     if (myFile) {
+       if (eol) {
+          myFile.println(str);
+       } else {
+          myFile.print(str);
+       }
+       myFile.close();
+     } else {
+      sdCardState = -1; // Error occured
+     }
+  } 
+}
 
 
 
