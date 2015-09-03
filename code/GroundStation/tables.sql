@@ -3,13 +3,17 @@ CREATE TABLE messages_t (id integer primary key autoincrement,
                          message text, 
                          creation_date datetime);
 
+CREATE TABLE measurement_group_t (
+		id integer primary key autoincrement,
+		group varchar2(5),
+		source varchar2(10),
+		creation_date datetime);
 
 CREATE TABLE measurement_t (id integer primary key autoincrement,
                          instance_id varchar2(100),
-			 source varchar2(10),
+			 group_id integer,
                          name   varchar2(20),
-                         value float,
-                         creation_date datetime);
+                         value float);
 
 
 CREATE TABLE gps_t (id integer primary key autoincrement,

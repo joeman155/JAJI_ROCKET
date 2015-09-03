@@ -317,16 +317,23 @@ sub decode_rx()
   } elsif ($p_line =~ /^G$/)
   {
     $v_result = "RLS powered up";
-  } elsif ($p_line =~ m/^D00:(.+),(.+),(.+)$/)
+  } elsif ($p_line =~ m/^D00:(.+),(.+),(.+),(.+),(.+)$/)
   {
     $v_internal_temp = $1;
     $v_external_temp = $2;
     $v_air_pressure = $3;
+    $cpu_voltage = sprintf("%.2f", $4);
+    $ign_voltage = sprintf("%.2f", $5);
     $v_alt = get_altitude($v_air_pressure);
-    insert_measurement($RLS_SOURCE, "INT TEMP", $v_internal_temp); 
-    insert_measurement($RLS_SOURCE, "EXT TEMP", $v_external_temp); 
-    insert_measurement($RLS_SOURCE, "AIR PRESSURE", $v_air_pressure); 
-    insert_measurement($RLS_SOURCE, "ESTIMATED ALT", $v_alt); 
+    my %measurements = (
+		"Internal Temperature"	=> $v_internal_temp,
+		"External Temperature"	=> $v_external_temp,
+		"Air Pressure"		=> $v_air_pressure,
+		"Est Altitude"		=> $v_alt,
+		"CPU Voltage"		=> $v_cpu_voltage,
+		"IGN Voltage"		=> $v_ign_voltage
+			);
+    insert_measurements("D00", $RLS_SOURCE, \%measurements); 
   } elsif ($p_line =~ m/^D01:La:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
   {
     $v_lat         = $1/100000;
@@ -352,22 +359,13 @@ sub decode_rx()
   {
     $v_time = $1;
     $v_result = "Uptime of " . $v_time . "\n";
-    insert_measurement($RLS_SOURCE, "UPTIME", $v_time);
+    my %measurements = (
+         "Uptime"	=> $v_time
+			);
+    insert_measurements("D02", $RLS_SOURCE, \%measurements);
   } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
-  } elsif ($p_line =~ m/^D04:(.+)$/)
-  {
-    $voltage = $1;
-    $voltage = sprintf("%.2f", $voltage);
-    insert_measurement($RLS_SOURCE, "CPU VOLTAGE", $voltage);
-    $v_result = "CPU Voltage of " . $voltage . "\n";
-  } elsif ($p_line =~ m/^D05:(.+)$/)
-  {
-    $voltage = $1;
-    $voltage = sprintf("%.2f", $voltage);
-    insert_measurement($RLS_SOURCE, "IGN VOLTAGE", $voltage);
-    $v_result = "Igniter Voltage of " . $voltage . "\n";
   } elsif ($p_line =~ /^D06:(.*$)/)
   {
     
@@ -569,21 +567,49 @@ sub log_message($)
 }
 
 
+# Insert Measurements
+# - A group of measurements
+sub insert_measurements()
+{
+ local ($group, $source, $measurements_hash) = @_;
+
+ %measurements = %$measurements_hash;
+
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Insert a Group measurement record
+ $query = "INSERT INTO measurement_group_t (group, source, creation_date)
+           VALUES (?,?, datetime('now', 'localtime'))";
+
+ $sth = $dbh->prepare($query);
+ $sth->execute($group, $source);
+
+ $v_group_id = $dbh->sqlite_last_insert_rowid();
+
+ # Insert Measurements
+ @measurement_names = keys %measurements;
+ for my $measurement (@measurement_names) {
+   insert_measurement($v_group_id, $measurement, $measurements{$measurement});
+ }
+
+ $dbh->disconnect();
+}
+
 
 # Insert Measurement
 sub insert_measurement()
 {
- local($measurement_source, $measurement_name, $measurement_value) = @_;
+ local($group_id, $measurement_name, $measurement_value) = @_;
 
  # Initialise DB connection
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO measurement_t (source, name, value, creation_date)
-                   values (?,?,?,datetime('now', 'localtime'))";
+ $query = "INSERT INTO measurement_t (group_id, name, value)
+                   values (?,?,?)";
 
  $sth = $dbh->prepare($query);
- $sth->execute($measurement_source, $measurement_name, $measurement_value);
+ $sth->execute($group_id, $measurement_name, $measurement_value);
  
  $dbh->disconnect();
 }

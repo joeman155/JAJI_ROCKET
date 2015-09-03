@@ -24,7 +24,6 @@ catch (PDOException $e)
 $sql = "select * from radio_stats_t where id = (select max(id) from radio_stats_t where place = 0)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
-
 $row = $sth->fetch();
 $radio_stats_ground = $row['stats'];
 $radio_stats_ground_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
@@ -34,7 +33,6 @@ $radio_stats_ground_date =  date("Y-m-d H:i:s", strtotime($row['creation_date'])
 $sql = "select * from radio_stats_t where id = (select max(id) from radio_stats_t where place = 1)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
-
 $row = $sth->fetch();
 $radio_stats_hab = $row['stats'];
 $radio_stats_hab_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
@@ -44,27 +42,26 @@ $radio_stats_hab_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
 $sql = "select * from heartbeat_t where id = (select max(id) from heartbeat_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
-
 $row = $sth->fetch();
 $heartbeat = $row['heartbeat'];
 $heartbeat_date_raw = $row['creation_date'];
 $heartbeat_date =  date("Y-m-d H:i:s", strtotime($heartbeat_date_raw));
 
-# Get latest beaglebone voltage
+
+# Get latest groundstation voltage
 $sql = "select * from gs_psu_voltage_t where id = (select max(id) from gs_psu_voltage_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
-
 $row = $sth->fetch();
 $gs_psu_voltage = $row['voltage'];
 $gs_psu_voltage_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
+
 
 # HAB GPS
 $sql = "select * from gps_t where id = (select max(id) from gps_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
 $row = $sth->fetch();
-
 $latitude  = $row['latitude'];
 $longitude = $row['longitude'];
 $height    = $row['height'];
@@ -103,6 +100,13 @@ if ($tdiff <> 0) {
 $v_vertical_velocity = round($v_vertical_velocity, 0);
 
 
+# Get Measurements Group D00 (pressure, temps, voltages)
+$measurements_group_d00 = getMeasurements("D00");
+$internal_temp = $measurements_group_d00['measurements']['Internal Temperature'];
+
+$v_now = date("Y-m-d H:i:s");
+
+
 
 # Calculate distance between LOCAL and HAB GPS 
 if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long != "") {
@@ -119,21 +123,9 @@ if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long !
 }
 
 
-# Pressure, internal temp, external temp
-list ($cpu_voltage, $cv_date)    = getMeasurement("RLS", "CPU VOLTAGE");
-list ($ign_voltage, $iv_date)    = getMeasurement("RLS", "IGN VOLTAGE");
-list ($air_pressure, $ap_date)   = getMeasurement("RLS", "AIR PRESSURE");
-list ($internal_temp, $it_date)  = getMeasurement("RLS", "INT TEMP");
-list ($external_temp, $et_date)  = getMeasurement("RLS", "EXT TEMP");
-list ($estimated_altitude, $ea_date)  = getMeasurement("RLS", "ESTIMATED ALT");
-$cv_creation_date = date("Y-m-d H:i:s", strtotime($cv_date));
-
-$v_now = date("Y-m-d H:i:s");
-
-
 
 # ALERTS
-# REset alert css
+# Reset alert css
 $alert_css = "";
 # temperature
 if ($internal_temp < 273 + $threshold_temperature_low) {
@@ -307,34 +299,20 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 
 </div>
 
-<h3>HAB Measurements - <abbr class="timeago" title="<?= $cv_creation_date?>"></abbr></h3>
+<h3>HAB Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
 <div>
-<h2>Latest Measurements (<?= $cv_date?>)</h2>
+<h2>Latest Measurements (<?= $measurements_group_d00['date_time']?>)</h2>
 <table id="measurements">
+<?
+foreach ($measurements_group_d00['measurements'] as $key => $val) {
+?>
 <tr>
-  <th>CPU Voltage</th>
-  <td><?= $cpu_voltage?></td>
+  <th><?= $key?></th>
+  <td><?= $value?></td>
 </tr>
-<tr>
-  <th>IGN Voltage</th>
-  <td><?= $ign_voltage?></td>
-</tr>
-<tr>
-  <th>Air Pressure (Pa)</th>
-  <td><?= $air_pressure?></td>
-</tr>
-<tr>
-  <th>Internal Temp (K)</th>
-  <td><?= $internal_temp?></td>
-</tr>
-<tr>
-  <th>External Temp (K)</th>
-  <td><?= $external_temp?></td>
-</tr>
-<tr>
-  <th>Estimated Altitude (m)</th>
-  <td><?= $estimated_altitude?></td>
-</tr>
+<?
+}
+?>
 </table>
 </div>
 
@@ -476,6 +454,47 @@ function time2seconds($time='00:00:00')
 }
 
 
+// Get measurements (for a particular group)
+// Returns array of results as a hash
+function getMeasurements($p_group) {
+   global $dbh;
+
+   # Get latest id of group
+   $sql = "select max(id) as id
+           from measurement_group_t
+           where group = ?";
+
+   $sth = $dbh->prepare($sql);
+   $sth->execute(array($p_group));
+   $row = $sth->fetch();
+
+   $v_group_id = $row['id'];
+   $creation_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
+
+   # Now get all the measurements
+   $sql = "select name, value
+           from   measurement_t
+           where  group_id = ?";
+
+   $sth = $dbh->prepare($sql);
+   $sth->execute(array($v_group_id));
+   $row = $sth->fetch();
+
+   $measurement = array();
+   foreach ($row as $key => $value) {
+     $measurement[$key] = $value;
+   }
+
+   # Now put all the measurements together in a neat hash and return to calling
+   # routine.
+   $measurements = array();
+   $measurements['date_time'] = $creation_date;
+   $measurements['measurements'] = $measurement;
+
+   return $measurements;
+}
+
+
 function getMeasurement($p_source, $p_name) {
     global $dbh;
     
@@ -493,4 +512,4 @@ function getMeasurement($p_source, $p_name) {
 
     return array($data, $data_date);
 }
-
+   
