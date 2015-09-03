@@ -795,7 +795,7 @@ sub get_altitude()
       $altitude = $data{$key} -  ($data{$key} - $data{$prev_key}) * ($key - $pressure)/($key - $prev_key);
       last;
    }
-   $match = 0;
+   $match = 1;
    $prev_key = $key;
  }
 
