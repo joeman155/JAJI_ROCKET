@@ -571,18 +571,18 @@ sub log_message($)
 # - A group of measurements
 sub insert_measurements()
 {
- local ($group, $source, $measurements_hash) = @_;
+ local ($group_name, $source, $measurements_hash) = @_;
 
  %measurements = %$measurements_hash;
 
  my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
 
  # Insert a Group measurement record
- $query = "INSERT INTO measurement_group_t (group, source, creation_date)
+ $query = "INSERT INTO measurement_group_t (group_name, source, creation_date)
            VALUES (?,?, datetime('now', 'localtime'))";
 
  $sth = $dbh->prepare($query);
- $sth->execute($group, $source);
+ $sth->execute($group_name, $source);
 
  $v_group_id = $dbh->sqlite_last_insert_rowid();
 

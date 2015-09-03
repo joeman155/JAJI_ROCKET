@@ -456,16 +456,16 @@ function time2seconds($time='00:00:00')
 
 // Get measurements (for a particular group)
 // Returns array of results as a hash
-function getMeasurements($p_group) {
+function getMeasurements($p_group_name) {
    global $dbh;
 
    # Get latest id of group
    $sql = "select max(id) as id
            from measurement_group_t
-           where group = ?";
+           where group_name = ?";
 
    $sth = $dbh->prepare($sql);
-   $sth->execute(array($p_group));
+   $sth->execute(array($p_group_name));
    $row = $sth->fetch();
 
    $v_group_id = $row['id'];
