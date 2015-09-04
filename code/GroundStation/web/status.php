@@ -102,7 +102,7 @@ $v_vertical_velocity = round($v_vertical_velocity, 0);
 
 # Get Measurements Group D00 (pressure, temps, voltages)
 $measurements_group_d00 = getMeasurements("D00");
-$internal_temp = $measurements_group_d00['measurements']['Internal Temperature'];
+$internal_temp = isset($measurements_group_d00['measurements']['Internal Temperature']) ? $measurements_group_d00['measurements']['Internal Temperature'] : NULL;
 
 $v_now = date("Y-m-d H:i:s");
 
@@ -303,7 +303,7 @@ if (count($alerts['alerts']) > 0 ) {
 <?
 } else {
 ?>
-  <h3>Alerts - No Current Alerts</h3>
+  <h3>Alerts - None present </h3>
   <div>
     None
   </div>
