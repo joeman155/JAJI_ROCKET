@@ -125,52 +125,59 @@ if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long !
 
 
 # ALERTS
-# Reset alert css
-$alert_css = "";
-# temperature
+$alerts = array();
+$alerts['alerts'] = array();
+$alert_css = "style=\"color: red;\"";
+
+# Temperature
 if ($internal_temp < 273 + $threshold_temperature_low) {
 	$alert_temperature = "Temperature Alert - Below " . $threshold_temperature_low;
-        $alert_css = "style=\"color: red;\"";
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_temperature, 'title' => "RLS Temperature"));
 } else if ($internal_temp > (273 + $threshold_temperature_high)) {
 	$alert_temperature = "Temperature Alert - Above " . $threshold_temperature_high;
-        $alert_css = "style=\"color: red;\"";
-} else {
-	$alert_temperature = "None";
-	$v_alert_creation_date = $v_now;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_temperature, 'title' => "RLS Temperature"));
 }
 
+# Voltages
+# TODO
 
 # Satellites
-$alert_satellites = "None";
 if ($satellites < $threshold_satellites) {
 	$alert_satellites = "Number of satellites less that " . $threshold_satellites;
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_satellites, 'title' => "Satellites"));
 }
 
-# altitude
-$alert_altitude = "None";
+# Altitude
 if ($height > $threshold_altitude) {
 	$alert_altitude = "Exceeded " . $threshold_altitude . "m!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_altitude, 'title'  => "Altitude"));
 }
 
 # radio loss of contact
-$alert_loss_heartbeat = "None";
 if (time() - strtotime($heartbeat_date_raw) > $threshold_heartbeat) {
 	$alert_loss_heartbeat = "No heartbeat for more than " . $threshold_heartbeat . " seconds!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_loss_heartbeat, 
+                                            'title' => "No heartbeat for more than " . $threshold_heartbeat . " seconds?"));
 }
 
 
 # Distance exceeds 30km
-$alert_distance = "None";
 if ($v_los_distance > $threshold_distance) {
 	$alert_distance = "Exceeded distance of " . $threshold_distance . "km!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;  
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'] = array('text'  => $alert_distance,
+        			             'title' => "Distance exceeds " . $threshold_distance . "km?"));
 }
 
 
@@ -271,33 +278,38 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 </table>
 </div>
 
-<h3 <?= $alert_css?>>Alerts - <abbr class="timeago" title="<?= $v_alert_creation_date?>"></abbr></h3>
+<? 
+if (count($alerts['alerts']) > 0 ) {
+  $v_alert_creation_date = $alerts['creation_date'];
+  $v_alert_css           = $alerts['css'];
+?>
+<h3 <?= $v_alert_css?>>Alerts - <abbr class="timeago" title="<?= $v_alert_creation_date?>"></abbr></h3>
 <div>
-<h2>HAB Alerts</h2>
+<h2>RLS Alerts</h2>
 <table>
-<tr>
-  <th>HAB Temperature</th>
-  <td><?= $alert_temperature?></td>
-</tr>
-<tr>
-  <th>Satellites</th>
-  <td><?= $alert_satellites?></td>
-</tr>
-<tr>
-  <th>Altitude - <?= $threshold_altitude?>m</th>
-  <td><?= $alert_altitude?></td>
-</tr>
-<tr>
-  <th>No heartbeat for more than <?= $threshold_heartbeat?> seconds</th>
-  <td><?= $alert_loss_heartbeat?></td>
-</tr>
-<tr>
-  <th>Distance exceeds <?= $threshold_distance?>km</th>
-  <td><?= $alert_distance?></td>
-</tr>
-</table>
 
+<?
+foreach ($alerts['alerts'] as $key => $val) {
+?>
+<tr>
+  <th><?= $val['title']?></th>
+  <td><?= $val['text']?></td>
+</tr>
+<?
+}
+?>
+</table>
 </div>
+<?
+} else {
+?>
+<h3>Alerts - No Current Alerts</h3>
+<div>
+None
+</div>
+<?
+}
+?>
 
 <h3>HAB Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
 <div>
