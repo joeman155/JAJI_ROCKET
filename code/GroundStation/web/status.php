@@ -289,24 +289,24 @@ if (count($alerts['alerts']) > 0 ) {
 <table>
 
 <?
-foreach ($alerts['alerts'] as $key => $val) {
+  foreach ($alerts['alerts'] as $key => $val) {
 ?>
-<tr>
-  <th><?= $val['title']?></th>
-  <td><?= $val['text']?></td>
-</tr>
+    <tr>
+      <th><?= $val['title']?></th>
+      <td><?= $val['text']?></td>
+    </tr>
 <?
-}
+  }
 ?>
-</table>
-</div>
+  </table>
+  </div>
 <?
 } else {
 ?>
-<h3>Alerts - No Current Alerts</h3>
-<div>
-None
-</div>
+  <h3>Alerts - No Current Alerts</h3>
+  <div>
+    None
+  </div>
 <?
 }
 ?>
