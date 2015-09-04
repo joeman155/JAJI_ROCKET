@@ -103,6 +103,8 @@ $v_vertical_velocity = round($v_vertical_velocity, 0);
 # Get Measurements Group D00 (pressure, temps, voltages)
 $measurements_group_d00 = getMeasurements("D00");
 $internal_temp = isset($measurements_group_d00['measurements']['Internal Temperature']) ? $measurements_group_d00['measurements']['Internal Temperature'] : NULL;
+$ign_voltage = isset($measurements_group_d00['measurements']['IGN Voltage']) ? $measurements_group_d00['measurements']['IGN Voltage'] : NULL;
+$cpu_voltage = isset($measurements_group_d00['measurements']['CPU Voltage']) ? $measurements_group_d00['measurements']['CPU Voltage'] : NULL;
 
 $v_now = date("Y-m-d H:i:s");
 
@@ -142,8 +144,24 @@ if ($internal_temp < 273 + $threshold_temperature_low) {
         array_push($alerts['alerts'], array('text'  => $alert_temperature, 'title' => "RLS Temperature"));
 }
 
-# Voltages
-# TODO
+# CPU Voltages
+if ($cpu_voltage < $threshold_cpu_voltage) {
+	$alert_voltage = "Voltage below safe minimum of " . $threshold_cpu_voltage;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_voltage, 'title' => "CPU Voltage"));
+}
+
+# IGN Voltages
+if ($ign_voltage < $threshold_ign_voltage) {
+	$alert_voltage = "Voltage below safe minimum of " . $threshold_ign_voltage;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_voltage, 'title' => "IGN Voltage"));
+}
+
+
+
 
 # Satellites
 if ($satellites < $threshold_satellites) {
