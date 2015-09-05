@@ -29,7 +29,7 @@ $radio_stats_ground = $row['stats'];
 $radio_stats_ground_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# Get latest HAB Radio Stats
+# Get latest RLS Radio Stats
 $sql = "select * from radio_stats_t where id = (select max(id) from radio_stats_t where place = 1)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -38,7 +38,7 @@ $radio_stats_hab = $row['stats'];
 $radio_stats_hab_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# Get latest HAB heartbeat
+# Get latest RLS heartbeat
 $sql = "select * from heartbeat_t where id = (select max(id) from heartbeat_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -57,7 +57,7 @@ $gs_psu_voltage = $row['voltage'];
 $gs_psu_voltage_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# HAB GPS
+# RLS GPS
 $sql = "select * from gps_t where id = (select max(id) from gps_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -110,7 +110,7 @@ $v_now = date("Y-m-d H:i:s");
 
 
 
-# Calculate distance between LOCAL and HAB GPS 
+# Calculate distance between LOCAL and RLS GPS 
 if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long != "") {
   $v_horizontal_distance = calculateDistance($v_local_lat, $v_local_long, $latitude, $longitude, "K");
   $v_direction = calculateDirection($v_local_lat, $v_local_long, $latitude, $longitude);
@@ -233,7 +233,7 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 <div id="accordion">
 <h3>GPS Information - <abbr class="timeago" title="<?= $gps_creation_date?>"></abbr></h3>
 <div>
-<h2>HAB GPS Information (<?= $gps_creation_date?>)</h2>
+<h2>RLS GPS Information (<?= $gps_creation_date?>)</h2>
 <table id="gps" class="horizontal">
 <tr>
   <th>Lat</th>
@@ -329,7 +329,7 @@ if (count($alerts['alerts']) > 0 ) {
 }
 ?>
 
-<h3>HAB Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
+<h3>RLS Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
 <div>
 <h2>Latest Measurements (<?= $measurements_group_d00['date_time']?>)</h2>
 <table id="measurements">
@@ -368,7 +368,7 @@ foreach ($measurements_group_d00['measurements'] as $key => $val) {
   <td><?= $radio_stats_ground?></td>
 </tr>
 </table>
-<h2>HAB Radio Stats (<?= $radio_stats_hab_date?>)</h2>
+<h2>RLS Radio Stats (<?= $radio_stats_hab_date?>)</h2>
 <table id="radio_stats_hab">
 <tr>
   <th>Stats</th>
