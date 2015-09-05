@@ -334,6 +334,7 @@ sub decode_rx()
 		"IGN Voltage"		=> $v_ign_voltage
 			);
     insert_measurements("D00", $RLS_SOURCE, \%measurements); 
+    $v_result = "Measurements: " . $p_line;
   } elsif ($p_line =~ m/^D01:La:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
   {
     $v_lat         = $1/100000;
@@ -354,7 +355,6 @@ sub decode_rx()
 
     # Generate the kml file each time we have more gps data
     create_kml($gps_file);
-
   } elsif ($p_line =~ m/^D02:(.+)$/)
   {
     $v_time = $1;

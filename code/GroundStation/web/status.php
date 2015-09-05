@@ -29,7 +29,7 @@ $radio_stats_ground = $row['stats'];
 $radio_stats_ground_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# Get latest HAB Radio Stats
+# Get latest RLS Radio Stats
 $sql = "select * from radio_stats_t where id = (select max(id) from radio_stats_t where place = 1)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -38,7 +38,7 @@ $radio_stats_hab = $row['stats'];
 $radio_stats_hab_date =  date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# Get latest HAB heartbeat
+# Get latest RLS heartbeat
 $sql = "select * from heartbeat_t where id = (select max(id) from heartbeat_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -57,7 +57,7 @@ $gs_psu_voltage = $row['voltage'];
 $gs_psu_voltage_date = date("Y-m-d H:i:s", strtotime($row['creation_date']));
 
 
-# HAB GPS
+# RLS GPS
 $sql = "select * from gps_t where id = (select max(id) from gps_t)";
 $sth = $dbh->prepare($sql);
 $sth->execute();
@@ -102,13 +102,15 @@ $v_vertical_velocity = round($v_vertical_velocity, 0);
 
 # Get Measurements Group D00 (pressure, temps, voltages)
 $measurements_group_d00 = getMeasurements("D00");
-$internal_temp = $measurements_group_d00['measurements']['Internal Temperature'];
+$internal_temp = isset($measurements_group_d00['measurements']['Internal Temperature']) ? $measurements_group_d00['measurements']['Internal Temperature'] : NULL;
+$ign_voltage = isset($measurements_group_d00['measurements']['IGN Voltage']) ? $measurements_group_d00['measurements']['IGN Voltage'] : NULL;
+$cpu_voltage = isset($measurements_group_d00['measurements']['CPU Voltage']) ? $measurements_group_d00['measurements']['CPU Voltage'] : NULL;
 
 $v_now = date("Y-m-d H:i:s");
 
 
 
-# Calculate distance between LOCAL and HAB GPS 
+# Calculate distance between LOCAL and RLS GPS 
 if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long != "") {
   $v_horizontal_distance = calculateDistance($v_local_lat, $v_local_long, $latitude, $longitude, "K");
   $v_direction = calculateDirection($v_local_lat, $v_local_long, $latitude, $longitude);
@@ -125,52 +127,75 @@ if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long !
 
 
 # ALERTS
-# Reset alert css
-$alert_css = "";
-# temperature
+$alerts = array();
+$alerts['alerts'] = array();
+$alert_css = "style=\"color: red;\"";
+
+# Temperature
 if ($internal_temp < 273 + $threshold_temperature_low) {
 	$alert_temperature = "Temperature Alert - Below " . $threshold_temperature_low;
-        $alert_css = "style=\"color: red;\"";
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_temperature, 'title' => "RLS Temperature"));
 } else if ($internal_temp > (273 + $threshold_temperature_high)) {
 	$alert_temperature = "Temperature Alert - Above " . $threshold_temperature_high;
-        $alert_css = "style=\"color: red;\"";
-} else {
-	$alert_temperature = "None";
-	$v_alert_creation_date = $v_now;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_temperature, 'title' => "RLS Temperature"));
 }
+
+# CPU Voltages
+if ($cpu_voltage < $threshold_cpu_voltage) {
+	$alert_voltage = "Voltage below safe minimum of " . $threshold_cpu_voltage;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_voltage, 'title' => "CPU Voltage"));
+}
+
+# IGN Voltages
+if ($ign_voltage < $threshold_ign_voltage) {
+	$alert_voltage = "Voltage below safe minimum of " . $threshold_ign_voltage;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_voltage, 'title' => "IGN Voltage"));
+}
+
+
 
 
 # Satellites
-$alert_satellites = "None";
 if ($satellites < $threshold_satellites) {
 	$alert_satellites = "Number of satellites less that " . $threshold_satellites;
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+	$alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_satellites, 'title' => "Satellites"));
 }
 
-# altitude
-$alert_altitude = "None";
+# Altitude
 if ($height > $threshold_altitude) {
 	$alert_altitude = "Exceeded " . $threshold_altitude . "m!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_altitude, 'title'  => "Altitude"));
 }
 
 # radio loss of contact
-$alert_loss_heartbeat = "None";
 if (time() - strtotime($heartbeat_date_raw) > $threshold_heartbeat) {
 	$alert_loss_heartbeat = "No heartbeat for more than " . $threshold_heartbeat . " seconds!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_loss_heartbeat, 
+                                            'title' => "No heartbeat for more than " . $threshold_heartbeat . " seconds?"));
 }
 
 
 # Distance exceeds 30km
-$alert_distance = "None";
 if ($v_los_distance > $threshold_distance) {
 	$alert_distance = "Exceeded distance of " . $threshold_distance . "km!!";
-        $alert_css = "style=\"color: red;\"";
-	$v_alert_creation_date = $v_now;
+        $alerts['css']  = $alert_css;  
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'] = array('text'  => $alert_distance,
+        			             'title' => "Distance exceeds " . $threshold_distance . "km?"));
 }
 
 
@@ -208,7 +233,7 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 <div id="accordion">
 <h3>GPS Information - <abbr class="timeago" title="<?= $gps_creation_date?>"></abbr></h3>
 <div>
-<h2>HAB GPS Information (<?= $gps_creation_date?>)</h2>
+<h2>RLS GPS Information (<?= $gps_creation_date?>)</h2>
 <table id="gps" class="horizontal">
 <tr>
   <th>Lat</th>
@@ -271,35 +296,40 @@ Heartbeat: <?= $heartbeat?> - <abbr class="timeago" title="<?= $heartbeat_date?>
 </table>
 </div>
 
-<h3 <?= $alert_css?>>Alerts - <abbr class="timeago" title="<?= $v_alert_creation_date?>"></abbr></h3>
+<? 
+if (count($alerts['alerts']) > 0 ) {
+  $v_alert_creation_date = $alerts['creation_date'];
+  $v_alert_css           = $alerts['css'];
+?>
+<h3 <?= $v_alert_css?>>Alerts - <abbr class="timeago" title="<?= $v_alert_creation_date?>"></abbr></h3>
 <div>
-<h2>HAB Alerts</h2>
+<h2>RLS Alerts</h2>
 <table>
-<tr>
-  <th>HAB Temperature</th>
-  <td><?= $alert_temperature?></td>
-</tr>
-<tr>
-  <th>Satellites</th>
-  <td><?= $alert_satellites?></td>
-</tr>
-<tr>
-  <th>Altitude - <?= $threshold_altitude?>m</th>
-  <td><?= $alert_altitude?></td>
-</tr>
-<tr>
-  <th>No heartbeat for more than <?= $threshold_heartbeat?> seconds</th>
-  <td><?= $alert_loss_heartbeat?></td>
-</tr>
-<tr>
-  <th>Distance exceeds <?= $threshold_distance?>km</th>
-  <td><?= $alert_distance?></td>
-</tr>
-</table>
 
-</div>
+<?
+  foreach ($alerts['alerts'] as $key => $val) {
+?>
+    <tr>
+      <th><?= $val['title']?></th>
+      <td><?= $val['text']?></td>
+    </tr>
+<?
+  }
+?>
+  </table>
+  </div>
+<?
+} else {
+?>
+  <h3>Alerts - None present </h3>
+  <div>
+    None
+  </div>
+<?
+}
+?>
 
-<h3>HAB Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
+<h3>RLS Measurements - <abbr class="timeago" title="<?= $measurements_group_d00['date_time']?>"></abbr></h3>
 <div>
 <h2>Latest Measurements (<?= $measurements_group_d00['date_time']?>)</h2>
 <table id="measurements">
@@ -338,7 +368,7 @@ foreach ($measurements_group_d00['measurements'] as $key => $val) {
   <td><?= $radio_stats_ground?></td>
 </tr>
 </table>
-<h2>HAB Radio Stats (<?= $radio_stats_hab_date?>)</h2>
+<h2>RLS Radio Stats (<?= $radio_stats_hab_date?>)</h2>
 <table id="radio_stats_hab">
 <tr>
   <th>Stats</th>
