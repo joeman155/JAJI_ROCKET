@@ -6,11 +6,11 @@ int state = 0;
 const int analogInPin = A0;  // Analog input pin that the measures the voltage
 int sensorValue = 0;        // value read from the pot
 double voltage;
-
+byte i2cdata[2];
 
 void setup() {
 pinMode(13, OUTPUT);
-Serial.begin(9600); // start serial for output
+Serial.begin(115200); // start serial for output
 // initialize i2c as slave
 Wire.begin(SLAVE_ADDRESS);
 
@@ -22,12 +22,13 @@ Serial.println("Ready!");
 }
 
 void loop() {
-delay(100);
-sensorValue = analogRead(analogInPin);
-voltage = (3.3 * sensorValue / 1024) * ((1.5 + 1)/1);
+  delay(100);
+  sensorValue = analogRead(analogInPin);
+  voltage = (3.3 * sensorValue / 1024) * ((3.6 + 1)/1);
 
-  Serial.print("sensor Voltage = " );
-  Serial.println(voltage);
+  // DEBUGGING
+  //  Serial.print("sensor Voltage = " );
+  //  Serial.println(voltage);
 }
 
 // callback for received data
@@ -55,6 +56,18 @@ state = 0;
 // callback for sending data
 void sendData(){
   sensorValue = analogRead(analogInPin);
- //voltage = (3.3 * sensorValue / 1024) * ((1.5 + 1)/1);
-Wire.write(sensorValue);
+  
+  // DEBUGGING
+  //voltage = (3.3 * sensorValue / 1024) * ((1.5 + 1)/1);
+  // Wire.write(sensorValue>>8);  // Second value [buf[1]]
+  // Wire.write(sensorValue & 0xff);            // First value [buf[0]]
+
+  i2cdata[0] = sensorValue>>8;
+  i2cdata[1] = sensorValue & 0xff;
+  Wire.write(i2cdata, 2);
+
+  // DEBUGGING
+  // Serial.print("data sending: ");
+  // Serial.print(sensorValue>>8); Serial.print("\t");
+  //Serial.println(sensorValue & 0xff); 
 }
