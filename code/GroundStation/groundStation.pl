@@ -80,11 +80,9 @@ my $file_num = 1;
 
 
 # SENSOR CONFIGURATIONS
-my $voltage_multiplier = 5.7 * 3.3 /1024;   # For measuring voltage on Rocket Launch System
-
-# ((r2 + r1)/r2) * (1.8/1800)
-my $gs_psu1_voltage_pin_file = "/sys/devices/ocp.3/helper.15/AIN1";
-my $gs_psu1_voltage_multiplier = ((1.5 + 10.1)/1.5) * (1.8/1800);
+# ((r2 + r1)/r2) * (3.3/1024)
+my $gs_psu1_voltage_exec = $home_dir . "Voltage_Reader_Master";
+my $gs_psu1_voltage_multiplier = ((3.6 + 1)/1) * (3.3/1024);
 my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
                           # count of # of iterations with this.
 
@@ -173,13 +171,13 @@ while (1 == 1)
 
 # COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
 #       # Get GS PSU1 voltage supply reading and put into table
-#       if ($gs_psu1_voltage_ctr > 100) {
-#          $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_pin_file, $gs_psu1_voltage_multiplier);
-#          insert_voltage(1, $v_voltage);
-#          $gs_psu1_voltage_ctr = 0;
-#       } else  {
-#          $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
-#       }
+       if ($gs_psu1_voltage_ctr > 10) {
+          $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
+          insert_voltage(1, $v_voltage);
+          $gs_psu1_voltage_ctr = 0;
+       } else  {
+          $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
+       }
     }
 
 
@@ -654,10 +652,16 @@ sub insert_gps()
 
 sub get_gs_psu_voltage($$)
 {
- local($p_pin_file, $p_multiplier) = @_;
+ local($gs_exec, $p_multiplier) = @_;
 
- $v_pin_reading = `cat $p_pin_file`;
- $v_voltage = $p_multiplier * $v_pin_reading;
+ my $A0_value = `$gs_exec 2 | grep A0`;
+
+ $A0_value =~ /^A0:(.*)$/;
+ $val = $1;
+ $voltage = $v_cpu_voltage = sprintf("%.2f", $val * $gs_psu1_voltage_multiplier);
+
+ # DEBUGGING
+ print "Voltage: $voltage \n";
 
  return $v_voltage;
 }
