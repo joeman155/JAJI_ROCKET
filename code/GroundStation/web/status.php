@@ -161,6 +161,13 @@ if ($ign_voltage < $threshold_ign_voltage) {
 }
 
 
+# GS Voltage
+if ($gs_psu_voltage < $threshold_gs_voltage) {
+        $alert_voltage = "Voltage below safe minimum of " . $threshold_gs_voltage;
+        $alerts['css'] =  $alert_css;
+        $alerts['creation_date'] = $v_now;
+        array_push($alerts['alerts'], array('text'  => $alert_voltage, 'title' => "GS Voltage"));
+}
 
 
 # Satellites

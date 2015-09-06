@@ -17,6 +17,7 @@ $threshold_temperature_high = 50;
 $threshold_satellites = 4;
 $threshold_cpu_voltage = 7;
 $threshold_ign_voltage = 11;
+$threshold_gs_voltage = 11;
 
 $v_max_row_count = 35;  
 $v_num_spaced_out_points = 20; 
