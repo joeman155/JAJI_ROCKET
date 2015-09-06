@@ -173,7 +173,7 @@ while (1 == 1)
 #       # Get GS PSU1 voltage supply reading and put into table
        if ($gs_psu1_voltage_ctr > 10) {
           $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
-          insert_voltage(1, $v_voltage);
+          insert_gs_psu_voltage(1, $v_voltage);
           $gs_psu1_voltage_ctr = 0;
        } else  {
           $gs_psu1_voltage_ctr = $gs_psu1_voltage_ctr + 1;
@@ -661,9 +661,9 @@ sub get_gs_psu_voltage($$)
  $voltage = $v_cpu_voltage = sprintf("%.2f", $val * $gs_psu1_voltage_multiplier);
 
  # DEBUGGING
- print "Voltage: $voltage \n";
+ # print "Voltage: $voltage \n";
 
- return $v_voltage;
+ return $voltage;
 }
 
 
