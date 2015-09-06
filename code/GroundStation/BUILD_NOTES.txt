@@ -41,6 +41,8 @@ Run the following commands to load software:-
 
 apt-get update
 
+apt-get install i2c-tools
+
 apt-get install apache2 php5 sqlite3
 
 apt-get install hostapd
