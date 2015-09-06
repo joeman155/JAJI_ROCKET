@@ -22,11 +22,16 @@ chmod 777 /data/gs/run
 chmod 777 /data/gs/uploads
 chmod 777 /data/gs/run/download_file_status
 
+
+# Compile files
+gcc -o Voltage_Reader_Master  Voltage_Reader/Master/Voltage_Reader_Master.c
+
 echo Copying across files
 cp -pr web/* /data/web/
 cp air_data.txt /data/gs/
 cp groundStation.pl /data/gs/
 cp gs.sh /data/gs/
+cp Voltage_Reader_Master /data/gs/
 
 
 echo Initialising the database...

@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
       exit(1);
     }
  
-    printf("Sending %d\n", val);
+    // printf("Sending %d\n", val);
  
     cmd[0] = val;
     if (write(file, cmd, 1) == 1) {
@@ -58,11 +58,18 @@ int main(int argc, char** argv) {
       // 1ms seems to be enough but it depends on what workload it has
       usleep(10000);
  
-      char buf[1];
-      if (read(file, buf, 1) == 1) {
-    int temp = (int) buf[0];
+      char buf[2];
+      int size = read(file, buf, 2);
+      if (size == 2) {
+
+    // int temp = (int) buf[0] << 8  + (int) buf[1];
+    int temp = ((int) buf[0] << 8) + ((int) buf[1] & 0xff);
  
-    printf("Received %d\n", temp);
+    printf("A0:%d\n", temp);
+
+      } else {
+       printf("Problem. returned status is %d\n", size);
+
       }
     }
  
