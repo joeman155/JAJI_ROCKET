@@ -167,7 +167,7 @@ while (1 == 1)
     until ("" ne $serial_rx) {
        $serial_rx = $port->lookfor;       # poll until data ready
        die "Aborted without match\n" unless (defined $serial_rx);
-       select(undef,undef,undef,0.3);
+       select(undef,undef,undef,0.1);
 
 # COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
 #       # Get GS PSU1 voltage supply reading and put into table
@@ -273,7 +273,7 @@ while (1 == 1)
             # NOTE: We only want to get status IF the power is not on...
             # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
-               if ($radio_stats_count > 14) {
+               if ($radio_stats_count > 50) {
                    get_radio_stats();
                    $radio_stats_count = 0;
                } else {
@@ -702,16 +702,16 @@ sub enter_at_mode()
 {
    select(undef,undef,undef,1);
    $port->write("+++");
-   select(undef,undef,undef,0.5);
+   select(undef,undef,undef,0.3);
 
-   return get_modem_response(0.5);
+   return get_modem_response(0.3);
 }
 
 
 
 sub exit_at_mode()
 {
- return run_at_command("ATO", 0.5);
+ return run_at_command("ATO", 0.3);
 }
 
 
@@ -1070,7 +1070,7 @@ sub sendModemRequest($$$)
  until ("" ne $gotit) {
     $gotit = $port->lookfor;       # poll until data ready
     die "Aborted without match\n" unless (defined $gotit);
-    select(undef,undef,undef,0.8);
+    select(undef,undef,undef,0.1);
  }
  if ($gotit =~ qr/(${p_response_string})(.*)/) {
     $data_component = $2;
