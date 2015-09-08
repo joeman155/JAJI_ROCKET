@@ -260,8 +260,8 @@ void loop() {
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
  
   
-   
-  delay(4000);
+ // Really don't think this delay is doing us any good. The more data the better.
+ delay(2000);
 }
 
 
@@ -337,7 +337,7 @@ int processRxSerial(char *rxString)
    }       
    else if (strcmp(rxString, "R07") == 0) 
    {
-       cutdown = 1;
+      cutdown = 1;
       sendPacket(String("A07"));        
    }    
    else if (strcmp(rxString, "R09") == 0) 
@@ -438,6 +438,12 @@ void pollSerial()
           inData[index-2] = '\0';                // Do not wish to include crlf in the text string
           EndFlag = processRxSerial(inData);     // Exit the whole "menu", IF processing asks us to do it  
           
+          // If EndFlag == 0...then this means we still want to be in the menu.
+          // So we prompt the groundstation with the menu again.
+          if (EndFlag == 0) {
+             sendPacket("M");
+          }
+          
           // Resetting everything back ready for next string
           index = 0;          
           inData[0] = '\0';
@@ -484,13 +490,13 @@ int checkContinuity(){
   if (! isLaunchSystemPowered()) return 2;
   
   relayOn(continuityTestPin);   // turn the LED on (HIGH is the voltage level)
-  delay(400);                              // wait briefly... incase of contact bounce
+  delay(200);                              // wait briefly... incase of contact bounce
     
   continuityState = digitalRead(continuitySensePin);
 
-  delay(400);                              // wait briefly... incase of contact bounce
+  delay(200);                              // wait briefly... incase of contact bounce
   relayOff(continuityTestPin);   // turn the LED on (HIGH is the voltage level) 
-  delay(200);                              // wait briefly... incase of contact bounce  
+  delay(100);                              // wait briefly... incase of contact bounce  
   
   // A high on pin...means no continuity...
   // a low on pin means there IS continuity
