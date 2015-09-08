@@ -151,6 +151,8 @@ void loop() {
  if (menu_enabled) {
     pollSerial();
  }
+ 
+ delay(200);
   
  // Heartbeat
  heartbeat();
@@ -261,7 +263,7 @@ void loop() {
  
   
  // Really don't think this delay is doing us any good. The more data the better.
- delay(2000);
+ // delay(2000);
 }
 
 
