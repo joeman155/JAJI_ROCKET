@@ -273,7 +273,7 @@ while (1 == 1)
             # NOTE: We only want to get status IF the power is not on...
             # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
-               if ($radio_stats_count > 50) {
+               if ($radio_stats_count > 60) {
                    get_radio_stats();
                    $radio_stats_count = 0;
                } else {
