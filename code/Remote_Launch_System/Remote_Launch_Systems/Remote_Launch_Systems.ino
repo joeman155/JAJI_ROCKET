@@ -17,6 +17,7 @@ const int  launchPin = 3;           // This is the pin number...not direct acces
 const int  igniterPsuPin = A3;
 const int  arduinoPsuPin = A2;
 const int  igniterBurnDelay = 2000;
+const int  launch_countdown_delay = 5000;  // The 5 second countdown.
 int state;
 
 // SD Card and file declarations
@@ -150,9 +151,12 @@ void loop() {
  // Get Serial Input (menu) 
  if (menu_enabled) {
     pollSerial();
+    
+    // Just allow enough time for responses, etc to make their way through.
+    delay(200);    
  }
  
- delay(200);
+
   
  // Heartbeat
  heartbeat();
@@ -295,6 +299,7 @@ int processRxSerial(char *rxString)
    if (strcmp(rxString, "R00") == 0) 
    {
       sendPacket(String("A00"));
+      delay(100); // Delay exiting.... so to give ground station enough time to process.
       theend = 1;     
    }     
    else if (strncmp(rxString, "R01", 3) == 0) 
@@ -348,8 +353,14 @@ int processRxSerial(char *rxString)
    } 
    else if (strcmp(rxString, "R04") == 0) 
    {
-      state = initiateLaunch();
+      state = initiatePreLaunch();
       sendPacket(String("A04:") + String(state));
+      
+      // If all preLaunch steps worked, then do the launch!
+      if (state == 1) {
+         delay(launch_countdown_delay);
+         initiateLaunch(); 
+      }
    }    
    else if (strcmp(rxString, "R05") == 0) 
    {
@@ -409,6 +420,10 @@ void sendPacket(String str, boolean eol) {
 
 void pollSerial() 
 {  
+ // Make sure all prior data sent is REALLY sent and wait a little for it to be processed by groundstation.  
+ Serial2.flush();
+ delay(200);
+ 
  sendPacket("M"); // Menu  (to tell the other end we are ready to receive commands)
   
  unsigned long startTime = millis();
@@ -416,7 +431,7 @@ void pollSerial()
  EndFlag = 0;
  index = 0;
  
- Serial2.flush();
+
  
  while(!EndFlag) {
     if (millis() - startTime > menutime) {   
@@ -529,7 +544,7 @@ void initLaunchSystem() {
 //
 // NOTE: Regardless of the  outcome, the system is dis-armed
 //
-int initiateLaunch() {
+int initiatePreLaunch() {
   int result;
   
   // Check if Power is on
@@ -544,7 +559,14 @@ int initiateLaunch() {
      result = disArmLaunchSystem();    
      return 4;
   }
-    
+  // Got to here, so must be okay.
+  return 1;
+}
+
+// Initiate the launch!    
+int initiateLaunch() {  
+  int result;
+  
   relayOn(launchPin);
   delay(igniterBurnDelay);
   relayOff(launchPin);
