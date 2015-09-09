@@ -116,7 +116,7 @@ function getRlsStatus(p_request_code, p_exclude_pending)
 // Note: We are only dealing with 'on/off' logic here...
 //       p_old_status will be 1 (on) or 0 (off)
 //
-function checkStatus(buttonName, p_request_code, p_old_status)
+function checkStatus(buttonName, p_request_code, p_old_status, p_function)
 {
  var timesRun = 0;
  var refreshId = setInterval(function() {
@@ -130,6 +130,9 @@ function checkStatus(buttonName, p_request_code, p_old_status)
        toggle(buttonName, v_new_status);
        reload_paused = 0;                    // Re-enable page reloads
        hideMsg();                            // Hide the Message Box
+       if (typeof p_function != 'undefined') {
+         p_function();
+       }
     }
 
     if (timesRun > 20) {
@@ -257,9 +260,8 @@ function submitLaunch()
                  $("#msgText").html(s);
                  showMsg();
                  v_current_status = getRlsStatus('L', 1);
-                 checkStatus('launch', 'L', v_current_status);
+                 checkStatus('launch', 'L', v_current_status, showCountdown);
 //joe
-                 showCountdown();
          }
      });
 }
@@ -305,10 +307,10 @@ function startTimer() {
     var timeDec = function (){
         timeLeft--;
         document.getElementById('countdown').innerHTML = timeLeft;
-        if(timeLeft === 0){
+        if(timeLeft === 1){
             document.getElementById('countdown').innerHTML = 'Blastoff';
         }
-        if(timeLeft ===-1) {
+        if(timeLeft ===0) {
             clearInterval(cinterval);
             timeLeft = 5;
             hideCountdown();
