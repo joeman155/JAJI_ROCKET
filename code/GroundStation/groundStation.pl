@@ -966,11 +966,17 @@ sub process_requests()
 
        set_launch_console_attribute("L", 9, "Resetting Launch Status");
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
+
+       # Send 'exit' menu, so we get back as quickly as possible to enter launch command
+       sendModemRequest("R00", "A00", 0);
     } elsif ($v_request_code =~ /^T/) {
        print "** Invalidating previous Continuity Test...\n" if $DEBUG;
 
        set_launch_console_attribute("C", 3, "Invalidate Continuity Test");
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
+
+       # Send 'exit' menu, so we get back as quickly as possible to enter launch command
+       sendModemRequest("R00", "A00", 0);
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
 
@@ -1067,10 +1073,27 @@ sub sendModemRequest($$$)
  print "** " . $str if $DEBUG;
 
  my $gotit = "";
- until ("" ne $gotit) {
+ $ismatch = 0;
+ $port->purge_rx;
+ my $start_time = time;
+ my $timeout = 0;
+ until (("" ne $gotit && $ismatch != 0) || $timeout == 1) {
     $gotit = $port->lookfor;       # poll until data ready
-    die "Aborted without match\n" unless (defined $gotit);
+
+    # Make sure what we got resembles what we are after.
+    if ($gotit =~ qr/(${p_response_string})(.*)/) {
+       $ismatch = 1;
+    } else {
+       # print "DAMN. NOT A MATCH - " . $gotit . "\n";
+    }
+ 
+    # Allow a MAX of 2 seconds to get what we expect.
+    if (time > $start_time + 2) {
+       $timeout = 1;
+       # print "TIMED OUT!!!!!!!!!!!!!!!!!11\n";
+    }
     select(undef,undef,undef,0.1);
+    die "Aborted without match\n" unless (defined $gotit);
  }
  if ($gotit =~ qr/(${p_response_string})(.*)/) {
     $data_component = $2;
@@ -1085,13 +1108,19 @@ sub sendModemRequest($$$)
     } else {
        $v_result = 1;
     }
-    $str = "RLS received request (" . $p_response_string . ") and actioning. Responded with $data_component\n";
+    $str = "RLS received request (" . $p_response_string . ") and actioning. Responded with " . $gotit . "\n";
     print "** " . $str if $DEBUG;
     print "**    Data: " . $data . "\n" if $DEBUG && $data;
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
  } elsif ($gotit =~ /W/) {
     $str = "(while sending $p_request_string) - Timeout waiting for response from ground station.\n";
+    updateRequestDetails ($p_request_id, $str);
+    log_message($str);
+    print "** " . $str if $DEBUG;
+    $v_result = 0;
+ } elsif ($timeout == 1) {
+    $str = "(while sending $p_request_string) - Timeout waiting for response from ground station. Waited ages.\n";
     updateRequestDetails ($p_request_id, $str);
     log_message($str);
     print "** " . $str if $DEBUG;
