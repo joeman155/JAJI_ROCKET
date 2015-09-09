@@ -151,12 +151,24 @@
 	  }, 2000);
 	});
 
-
-
+        // Initialise the Messages dialog
         $(function() {
           $( "#msg" ).dialog({
             resizable: false,
             height:140,
+            autoOpen: false,
+            closeOnEscape: false,
+            modal: true,
+            hide: {effect: "fade", duration: 500}
+          });
+        });
+
+        // Initialise the Countdown dialog
+        $(function() {
+          $( "#countdown_dialog" ).dialog({
+            resizable: false,
+            width:400,
+            height:200,
             autoOpen: false,
             closeOnEscape: false,
             modal: true,
@@ -177,6 +189,10 @@
     
     <div id="msg" title="Messages">
       <p id="msgText"/>
+    </div>
+
+    <div id="countdown_dialog" title="Countdown">
+      <p id="countdown">5</p>
     </div>
 </div>
 

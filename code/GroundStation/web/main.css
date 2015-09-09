@@ -190,3 +190,11 @@ ul.multiple_columns li{
     width:  45%;
     margin: 20px 10px 20px 10px;
 }
+
+#countdown {
+font-size: 100px;
+}
+
+#countdown_dialog {
+text-align: center;
+}

@@ -49,6 +49,7 @@ $rls_ct_is_pending         = is_pending_request("C");
            return; // The page reload is running
         }
 
+
         $("#powertoggle").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
         reload_paused = 1;
         $.ajax({

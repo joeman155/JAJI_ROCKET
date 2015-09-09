@@ -68,6 +68,18 @@ function showMsg()
   $("#msg").dialog("open");
 }
 
+// Show the Countdown Box
+function showCountdown()
+{
+  $("#countdown_dialog").dialog("open");
+  startTimer();
+}
+
+// Hide the countdown Box
+function hideCountdown()
+{
+  $("#countdown_dialog").dialog("close");
+}
 
 // Get Status of particular attribute
 // Parameters are:-
@@ -246,6 +258,8 @@ function submitLaunch()
                  showMsg();
                  v_current_status = getRlsStatus('L', 1);
                  checkStatus('launch', 'L', v_current_status);
+//joe
+                 showCountdown();
          }
      });
 }
@@ -279,4 +293,27 @@ function toggle(buttonName, newState)
 
  $("#" + buttonName).css("background", "");
 
+}
+
+
+// Countdown Timer
+function startTimer() {
+    var timeLeft = 5,
+        cinterval;
+        document.getElementById('countdown').innerHTML = '5';
+
+    var timeDec = function (){
+        timeLeft--;
+        document.getElementById('countdown').innerHTML = timeLeft;
+        if(timeLeft === 0){
+            document.getElementById('countdown').innerHTML = 'Blastoff';
+        }
+        if(timeLeft ===-1) {
+            clearInterval(cinterval);
+            timeLeft = 5;
+            hideCountdown();
+        }
+    };
+
+    cinterval = setInterval(timeDec, 1000);
 }
