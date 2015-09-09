@@ -966,11 +966,17 @@ sub process_requests()
 
        set_launch_console_attribute("L", 9, "Resetting Launch Status");
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
+
+       # Send 'exit' menu, so we get back as quickly as possible to enter launch command
+       sendModemRequest("R00", "A00", 0);
     } elsif ($v_request_code =~ /^T/) {
        print "** Invalidating previous Continuity Test...\n" if $DEBUG;
 
        set_launch_console_attribute("C", 3, "Invalidate Continuity Test");
        setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
+
+       # Send 'exit' menu, so we get back as quickly as possible to enter launch command
+       sendModemRequest("R00", "A00", 0);
     } elsif ($v_request_code =~ /^L/) {
        print "** Launch request...\n" if $DEBUG;
 
@@ -1067,6 +1073,7 @@ sub sendModemRequest($$$)
  print "** " . $str if $DEBUG;
 
  my $gotit = "";
+ $port->purge_rx;
  until ("" ne $gotit) {
     $gotit = $port->lookfor;       # poll until data ready
     die "Aborted without match\n" unless (defined $gotit);
