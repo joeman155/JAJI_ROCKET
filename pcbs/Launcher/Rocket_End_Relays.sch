@@ -18800,7 +18800,7 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <part name="C3" library="rcl" deviceset="CPOL-US" device="E2-4" value="100uF 16V"/>
 <part name="C4" library="rcl" deviceset="CPOL-US" device="E2-4" value="330uF 16V"/>
 <part name="L1" library="resistor" deviceset="L-US" device="TJ4-U1" value="100uH 3Amp"/>
-<part name="R13" library="rcl" deviceset="R-US_" device="0204/5" value="4.7k"/>
+<part name="R13" library="resistor" deviceset="R-US_" device="0204/2V" value="4.7k"/>
 <part name="R14" library="resistor" deviceset="R-US_" device="0207/7" value="1.5k"/>
 <part name="D5" library="diode" deviceset="1N5908" device="" value="1N5822"/>
 <part name="SUPPLY2" library="supply2" deviceset="VCC" device=""/>
