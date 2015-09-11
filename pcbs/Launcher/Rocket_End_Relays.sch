@@ -50,6 +50,8 @@
 <layer number="54" name="bGND_GNDA" color="1" fill="9" visible="no" active="no"/>
 <layer number="56" name="wert" color="7" fill="1" visible="no" active="no"/>
 <layer number="57" name="tCAD" color="7" fill="1" visible="no" active="no"/>
+<layer number="59" name="tCarbon" color="7" fill="1" visible="no" active="no"/>
+<layer number="60" name="bCarbon" color="7" fill="1" visible="no" active="no"/>
 <layer number="90" name="Modules" color="5" fill="1" visible="yes" active="yes"/>
 <layer number="91" name="Nets" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="92" name="Busses" color="1" fill="1" visible="yes" active="yes"/>
@@ -74,7 +76,9 @@
 <layer number="111" name="LPC17xx" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="112" name="tSilk" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="113" name="IDFDebug" color="7" fill="1" visible="yes" active="yes"/>
+<layer number="114" name="Badge_Outline" color="11" fill="1" visible="no" active="no"/>
 <layer number="116" name="Patch_BOT" color="9" fill="4" visible="yes" active="yes"/>
+<layer number="118" name="Rect_Pads" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="121" name="_tsilk" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="122" name="_bsilk" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="123" name="tTestmark" color="7" fill="1" visible="yes" active="yes"/>
@@ -83,6 +87,7 @@
 <layer number="126" name="_bNames" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="127" name="_tValues" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="128" name="_bValues" color="7" fill="1" visible="yes" active="yes"/>
+<layer number="129" name="Mask" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="131" name="tAdjust" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="132" name="bAdjust" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="144" name="Drill_legend" color="7" fill="1" visible="yes" active="yes"/>
@@ -130,6 +135,7 @@
 <layer number="250" name="Descript" color="3" fill="1" visible="no" active="no"/>
 <layer number="251" name="SMDround" color="12" fill="11" visible="no" active="no"/>
 <layer number="254" name="cooling" color="7" fill="1" visible="yes" active="yes"/>
+<layer number="255" name="routoute" color="7" fill="1" visible="yes" active="yes"/>
 </layers>
 <schematic xreflabel="%F%N/%S.%C%R" xrefpart="/%S.%C%R">
 <libraries>
@@ -16290,13 +16296,123 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 </deviceset>
 </devicesets>
 </library>
-<library name="JoeMega_Ether_Edited">
+<library name="con-phoenix-350">
+<description>&lt;b&gt;Phoenix Connectors&lt;/b&gt; Grid 3.50 mm&lt;p&gt;
+&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
+<packages>
+<package name="1751248">
+<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
+Nennstrom: 10 A&lt;br&gt;
+Bemessungsspannung: 160 V&lt;br&gt;
+Raster: 3,5 mm&lt;br&gt;
+Polzahl: 2&lt;br&gt;
+Montageart: Löten&lt;br&gt;
+Anschlussart: Schraubanschluss&lt;br&gt;
+Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
+Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
+<wire x1="-3.75" y1="3.65" x2="3.75" y2="3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="3.65" x2="-3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.0993" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-1.6163" x2="3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.0993" x2="3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-1.6163" x2="3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="1.9123" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="1.9123" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="1.4367" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="1.4367" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="3.75" y2="-1.6163" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="3.65" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-2.0993" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="-2.956" y1="-0.811" x2="-1.039" y2="1.106" width="0.1016" layer="51"/>
+<wire x1="3.75" y1="-2.911" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.65" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-3.35" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.35" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-3.35" x2="-3.75" y2="-3.65" width="0.1016" layer="21"/>
+<wire x1="-3.75" y1="-2.911" x2="-3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="3.75" y1="-2.911" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
+<wire x1="-0.544" y1="0.611" x2="-0.55" y2="0.605" width="0.1016" layer="21"/>
+<wire x1="-0.55" y1="0.605" x2="-2.461" y2="-1.306" width="0.1016" layer="51"/>
+<wire x1="0.544" y1="-0.811" x2="2.461" y2="1.106" width="0.1016" layer="51"/>
+<wire x1="2.956" y1="0.611" x2="2.95" y2="0.605" width="0.1016" layer="21"/>
+<wire x1="2.95" y1="0.605" x2="1.039" y2="-1.306" width="0.1016" layer="51"/>
+<circle x="-1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
+<circle x="1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
+<pad name="1" x="-1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
+<pad name="2" x="1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
+<text x="-2.2" y="2.2225" size="1.27" layer="21" font="vector">1</text>
+<text x="1.2925" y="2.2225" size="1.27" layer="21" font="vector">2</text>
+<text x="-4.105" y="-2.8575" size="1.27" layer="25" rot="R90">&gt;NAME</text>
+<text x="-2.0525" y="4.1275" size="1.27" layer="27">&gt;VALUE</text>
+<polygon width="0.1016" layer="21">
+<vertex x="-3.1525" y="-2.8575"/>
+<vertex x="-3.47" y="-2.2225"/>
+<vertex x="-2.835" y="-2.2225"/>
+</polygon>
+</package>
+</packages>
+<symbols>
+<symbol name="SCHRAUBKLEMME">
+<wire x1="0" y1="-1.27" x2="0" y2="1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="0" y2="-1.27" width="0.254" layer="94"/>
+<wire x1="12.7" y1="-1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<wire x1="0" y1="1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
+<circle x="11.43" y="0" radius="0.6839" width="0.254" layer="94"/>
+<text x="1.27" y="-0.889" size="1.778" layer="95">&gt;NAME</text>
+<text x="13.97" y="-0.889" size="1.778" layer="96">&gt;VALUE</text>
+<pin name="K" x="-2.54" y="0" visible="off" length="short" direction="pas"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="1751248" prefix="X">
+<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
+Nennstrom: 10 A&lt;br&gt;
+Bemessungsspannung: 160 V&lt;br&gt;
+Raster: 3,5 mm&lt;br&gt;
+Polzahl: 2&lt;br&gt;
+Montageart: Löten&lt;br&gt;
+Anschlussart: Schraubanschluss&lt;br&gt;
+Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
+Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
+<gates>
+<gate name="-1" symbol="SCHRAUBKLEMME" x="2.54" y="0" addlevel="always"/>
+<gate name="-2" symbol="SCHRAUBKLEMME" x="2.54" y="-7.62" addlevel="always"/>
+</gates>
+<devices>
+<device name="" package="1751248">
+<connects>
+<connect gate="-1" pin="K" pad="1"/>
+<connect gate="-2" pin="K" pad="2"/>
+</connects>
+<technologies>
+<technology name="">
+<attribute name="MF" value="" constant="no"/>
+<attribute name="MPN" value="" constant="no"/>
+<attribute name="OC_FARNELL" value="unknown" constant="no"/>
+<attribute name="OC_NEWARK" value="unknown" constant="no"/>
+</technology>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
+<library name="Joe_SparkFun-Boards">
+<description>&lt;h3&gt;SparkFun Electronics' preferred foot prints&lt;/h3&gt;
+In this library you'll find boards and modules: Arduino footprints, breadboards, non-RF modules, etc.&lt;br&gt;&lt;br&gt;
+We've spent an enormous amount of time creating and checking these footprints and parts, but it is the end user's responsibility to ensure correctness and suitablity for a given componet or application. If you enjoy using this library, please buy one of our products at www.sparkfun.com.
+&lt;br&gt;&lt;br&gt;
+&lt;b&gt;Licensing:&lt;/b&gt; Creative Commons ShareAlike 4.0 International - https://creativecommons.org/licenses/by-sa/4.0/ 
+&lt;br&gt;&lt;br&gt;
+You are welcome to use this library for commercial purposes. For attribution, we ask that when you begin to sell your device using our footprint, you email us with a link to the product being sold. We want bragging rights that we helped (in a very small part) to create your 8th world wonder. We would like the opportunity to feature your device on our homepage.</description>
 <packages>
 <package name="ARDUINO_MEGA-PRO-5V">
-<description>Edited version of Arduino MegaEther shield to Suit Rocket Project</description>
-<wire x1="1.27" y1="53.34" x2="85.09" y2="53.34" width="0.2032" layer="51"/>
-<wire x1="87.63" y1="0" x2="1.27" y2="0" width="0.2032" layer="51"/>
-<wire x1="0" y1="1.27" x2="0" y2="52.07" width="0.2032" layer="51"/>
+<wire x1="0" y1="53.34" x2="90.17" y2="53.34" width="0.2032" layer="51"/>
+<wire x1="90.17" y1="53.34" x2="90.17" y2="0" width="0.2032" layer="51"/>
+<wire x1="90.17" y1="0" x2="0" y2="0" width="0.2032" layer="51"/>
+<wire x1="0" y1="0" x2="0" y2="53.34" width="0.2032" layer="51"/>
 <wire x1="76.835" y1="3.81" x2="78.105" y2="3.81" width="0.2032" layer="21"/>
 <wire x1="78.105" y1="3.81" x2="78.74" y2="3.175" width="0.2032" layer="21"/>
 <wire x1="78.74" y1="1.905" x2="78.105" y2="1.27" width="0.2032" layer="21"/>
@@ -16547,6 +16663,17 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <wire x1="29.591" y1="52.07" x2="28.956" y2="51.435" width="0.2032" layer="21"/>
 <wire x1="28.956" y1="50.165" x2="29.591" y2="49.53" width="0.2032" layer="21"/>
 <wire x1="30.861" y1="49.53" x2="29.591" y2="49.53" width="0.2032" layer="21"/>
+<wire x1="85.725" y1="8.89" x2="86.36" y2="9.525" width="0.1524" layer="21"/>
+<wire x1="86.36" y1="10.795" x2="85.725" y2="11.43" width="0.1524" layer="21"/>
+<wire x1="85.725" y1="11.43" x2="86.36" y2="12.065" width="0.1524" layer="21"/>
+<wire x1="81.915" y1="8.89" x2="81.28" y2="9.525" width="0.1524" layer="21"/>
+<wire x1="81.28" y1="9.525" x2="81.28" y2="10.795" width="0.1524" layer="21"/>
+<wire x1="81.28" y1="10.795" x2="81.915" y2="11.43" width="0.1524" layer="21"/>
+<wire x1="81.915" y1="11.43" x2="81.28" y2="12.065" width="0.1524" layer="21"/>
+<wire x1="81.28" y1="12.065" x2="81.28" y2="13.335" width="0.1524" layer="21"/>
+<wire x1="81.915" y1="11.43" x2="85.725" y2="11.43" width="0.1524" layer="21"/>
+<wire x1="86.36" y1="12.065" x2="86.36" y2="13.335" width="0.1524" layer="21"/>
+<wire x1="86.36" y1="9.525" x2="86.36" y2="10.795" width="0.1524" layer="21"/>
 <wire x1="85.725" y1="8.89" x2="86.36" y2="8.255" width="0.2032" layer="21"/>
 <wire x1="86.36" y1="6.985" x2="85.725" y2="6.35" width="0.2032" layer="21"/>
 <wire x1="81.28" y1="8.255" x2="81.28" y2="6.985" width="0.2032" layer="21"/>
@@ -16564,8 +16691,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <wire x1="81.915" y1="52.07" x2="85.725" y2="52.07" width="0.2032" layer="21"/>
 <wire x1="85.725" y1="49.53" x2="81.915" y2="49.53" width="0.2032" layer="21"/>
 <wire x1="48.006" y1="43.053" x2="16.637" y2="43.053" width="0.3048" layer="21"/>
-<wire x1="48.514" y1="39.751" x2="74.041" y2="39.751" width="0.3048" layer="21"/>
-<wire x1="74.8284" y1="39.5478" x2="74.8284" y2="11.43" width="0.3048" layer="21"/>
 <wire x1="76.8604" y1="41.5798" x2="76.8604" y2="48.641" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="52.1462" x2="82.55" y2="52.7812" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="52.7812" x2="85.09" y2="52.7812" width="0.3048" layer="21"/>
@@ -16576,7 +16701,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <wire x1="74.803" y1="10.5664" x2="38.481" y2="10.5664" width="0.3048" layer="21"/>
 <wire x1="74.803" y1="10.5664" x2="76.5048" y2="8.8646" width="0.3048" layer="21"/>
 <wire x1="76.5048" y1="8.8646" x2="89.3826" y2="8.8646" width="0.3048" layer="21"/>
-<wire x1="74.8284" y1="39.5478" x2="76.8604" y2="41.5798" width="0.3048" layer="21"/>
 <wire x1="86.36" y1="6.35" x2="89.3572" y2="6.35" width="0.3048" layer="21"/>
 <wire x1="49.403" y1="45.72" x2="49.403" y2="46.99" width="0.2032" layer="21"/>
 <wire x1="48.895" y1="46.482" x2="49.403" y2="46.99" width="0.2032" layer="21"/>
@@ -16663,6 +16787,14 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <pad name="9" x="27.686" y="50.8" drill="1.016" diameter="1.8796" rot="R90"/>
 <pad name="8" x="30.226" y="50.8" drill="1.016" diameter="1.8796" rot="R90"/>
 <pad name="AREF" x="12.446" y="50.8" drill="1.016" diameter="1.8796" rot="R90"/>
+<pad name="53" x="85.09" y="10.16" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="52" x="82.55" y="10.16" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="51" x="85.09" y="12.7" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="50" x="82.55" y="12.7" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="49" x="85.09" y="15.24" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="48" x="82.55" y="15.24" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="47" x="85.09" y="17.78" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
+<pad name="46" x="82.55" y="17.78" drill="1.016" diameter="1.8796" shape="octagon" rot="R90"/>
 <pad name="GND@2" x="82.55" y="7.62" drill="1.016" diameter="1.8796" rot="R90"/>
 <pad name="GND@3" x="85.09" y="7.62" drill="1.016" diameter="1.8796" rot="R90"/>
 <pad name="5V@1" x="82.55" y="50.8" drill="1.016" diameter="1.8796" rot="R90"/>
@@ -16695,6 +16827,10 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <text x="70.231" y="46.863" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">19</text>
 <text x="72.771" y="46.863" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">20</text>
 <text x="75.311" y="46.863" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">21</text>
+<text x="78.2574" y="11.938" size="1.4224" layer="21" font="vector" ratio="15">50</text>
+<text x="78.2574" y="9.398" size="1.4224" layer="21" font="vector" ratio="15">52</text>
+<text x="86.995" y="11.9634" size="1.4224" layer="21" font="vector" ratio="15">51</text>
+<text x="86.995" y="9.4234" size="1.4224" layer="21" font="vector" ratio="15">53</text>
 <text x="40.132" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A0</text>
 <text x="42.418" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A1</text>
 <text x="45.212" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A2</text>
@@ -16712,8 +16848,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <text x="78.232" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A14</text>
 <text x="80.645" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A15</text>
 <text x="39.624" y="8.128" size="1.524" layer="21" font="vector" ratio="15">ANALOG IN</text>
-<text x="49.022" y="40.259" size="1.524" layer="21" font="vector" ratio="15">COMMUNICATION</text>
-<text x="77.089" y="11.684" size="1.524" layer="21" font="vector" ratio="15" rot="R90">DIGITAL</text>
 <text x="86.995" y="6.8834" size="1.016" layer="21" font="vector" ratio="15">GND</text>
 <text x="49.911" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">TX0</text>
 <text x="52.451" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">RX0</text>
@@ -16776,6 +16910,10 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <rectangle x1="14.732" y1="50.546" x2="15.24" y2="51.054" layer="51"/>
 <rectangle x1="12.192" y1="50.546" x2="12.7" y2="51.054" layer="51"/>
 <rectangle x1="29.972" y1="50.546" x2="30.48" y2="51.054" layer="51"/>
+<rectangle x1="84.836" y1="9.906" x2="85.344" y2="10.414" layer="51" rot="R90"/>
+<rectangle x1="82.296" y1="9.906" x2="82.804" y2="10.414" layer="51" rot="R90"/>
+<rectangle x1="82.296" y1="12.446" x2="82.804" y2="12.954" layer="51" rot="R90"/>
+<rectangle x1="84.836" y1="12.446" x2="85.344" y2="12.954" layer="51" rot="R90"/>
 <rectangle x1="84.836" y1="7.366" x2="85.344" y2="7.874" layer="51"/>
 <rectangle x1="82.296" y1="7.366" x2="82.804" y2="7.874" layer="51"/>
 <rectangle x1="84.836" y1="50.546" x2="85.344" y2="51.054" layer="51"/>
@@ -16790,13 +16928,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <hole x="2.54" y="2.54" drill="3.2"/>
 <hole x="78.74" y="50.8" drill="3.2"/>
 <hole x="85.09" y="2.54" drill="3.2"/>
-<wire x1="85.09" y1="53.34" x2="90.17" y2="53.34" width="0.127" layer="21"/>
-<wire x1="87.63" y1="0" x2="90.17" y2="0" width="0.127" layer="21"/>
-<wire x1="90.17" y1="53.34" x2="90.17" y2="0" width="0.127" layer="21"/>
-<wire x1="1.27" y1="53.34" x2="0" y2="53.34" width="0.127" layer="21"/>
-<wire x1="0" y1="53.34" x2="0" y2="52.07" width="0.127" layer="21"/>
-<wire x1="1.27" y1="0" x2="0" y2="0" width="0.127" layer="21"/>
-<wire x1="0" y1="0" x2="0" y2="1.27" width="0.127" layer="21"/>
 </package>
 <package name="ARDUINO_MEGA">
 <description>Full Arduino MEGA footprint</description>
@@ -18321,6 +18452,9 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <pin name="16(TX2)" x="20.32" y="43.18" length="middle" rot="R180"/>
 <pin name="17(RX2)" x="20.32" y="40.64" length="middle" rot="R180"/>
 <pin name="18(TX1)" x="20.32" y="38.1" length="middle" rot="R180"/>
+<pin name="46" x="20.32" y="-33.02" length="middle" rot="R180"/>
+<pin name="47" x="20.32" y="-35.56" length="middle" rot="R180"/>
+<pin name="48" x="20.32" y="-38.1" length="middle" rot="R180"/>
 <pin name="11" x="-20.32" y="-35.56" length="middle"/>
 <pin name="12" x="-20.32" y="-38.1" length="middle"/>
 <pin name="13" x="20.32" y="50.8" length="middle" rot="R180"/>
@@ -18330,6 +18464,11 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <pin name="GND@1" x="-20.32" y="-43.18" length="middle"/>
 <pin name="GND@2" x="-20.32" y="-45.72" length="middle"/>
 <pin name="GND@3" x="-20.32" y="-48.26" length="middle"/>
+<pin name="53" x="20.32" y="-50.8" length="middle" rot="R180"/>
+<pin name="52" x="20.32" y="-48.26" length="middle" rot="R180"/>
+<pin name="51" x="20.32" y="-45.72" length="middle" rot="R180"/>
+<pin name="50" x="20.32" y="-43.18" length="middle" rot="R180"/>
+<pin name="49" x="20.32" y="-40.64" length="middle" rot="R180"/>
 <pin name="5V@2" x="-20.32" y="43.18" length="middle"/>
 <pin name="3.3V" x="-20.32" y="40.64" length="middle"/>
 <pin name="AREF" x="-20.32" y="38.1" length="middle"/>
@@ -18367,7 +18506,15 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <connect gate="G$1" pin="3" pad="3"/>
 <connect gate="G$1" pin="3.3V" pad="3.3V"/>
 <connect gate="G$1" pin="4" pad="4"/>
+<connect gate="G$1" pin="46" pad="46"/>
+<connect gate="G$1" pin="47" pad="47"/>
+<connect gate="G$1" pin="48" pad="48"/>
+<connect gate="G$1" pin="49" pad="49"/>
 <connect gate="G$1" pin="5" pad="5"/>
+<connect gate="G$1" pin="50" pad="50"/>
+<connect gate="G$1" pin="51" pad="51"/>
+<connect gate="G$1" pin="52" pad="52"/>
+<connect gate="G$1" pin="53" pad="53"/>
 <connect gate="G$1" pin="5V@0" pad="5V@0"/>
 <connect gate="G$1" pin="5V@1" pad="5V@1"/>
 <connect gate="G$1" pin="5V@2" pad="5V@2"/>
@@ -18424,7 +18571,15 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <connect gate="G$1" pin="3" pad="3"/>
 <connect gate="G$1" pin="3.3V" pad="3.3V"/>
 <connect gate="G$1" pin="4" pad="4"/>
+<connect gate="G$1" pin="46" pad="46"/>
+<connect gate="G$1" pin="47" pad="47"/>
+<connect gate="G$1" pin="48" pad="48"/>
+<connect gate="G$1" pin="49" pad="49"/>
 <connect gate="G$1" pin="5" pad="5"/>
+<connect gate="G$1" pin="50" pad="50"/>
+<connect gate="G$1" pin="51" pad="51"/>
+<connect gate="G$1" pin="52" pad="52"/>
+<connect gate="G$1" pin="53" pad="53"/>
 <connect gate="G$1" pin="5V@0" pad="5V@0"/>
 <connect gate="G$1" pin="5V@1" pad="5V@1"/>
 <connect gate="G$1" pin="5V@2" pad="5V@2"/>
@@ -18481,7 +18636,80 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 <connect gate="G$1" pin="3" pad="3"/>
 <connect gate="G$1" pin="3.3V" pad="3.3V"/>
 <connect gate="G$1" pin="4" pad="4"/>
+<connect gate="G$1" pin="46" pad="46"/>
+<connect gate="G$1" pin="47" pad="47"/>
+<connect gate="G$1" pin="48" pad="48"/>
+<connect gate="G$1" pin="49" pad="49"/>
 <connect gate="G$1" pin="5" pad="5"/>
+<connect gate="G$1" pin="50" pad="50"/>
+<connect gate="G$1" pin="51" pad="51"/>
+<connect gate="G$1" pin="52" pad="52"/>
+<connect gate="G$1" pin="53" pad="53"/>
+<connect gate="G$1" pin="5V@0" pad="5V@0"/>
+<connect gate="G$1" pin="5V@1" pad="5V@1"/>
+<connect gate="G$1" pin="5V@2" pad="5V@2"/>
+<connect gate="G$1" pin="6" pad="6"/>
+<connect gate="G$1" pin="7" pad="7"/>
+<connect gate="G$1" pin="8" pad="8"/>
+<connect gate="G$1" pin="9" pad="9"/>
+<connect gate="G$1" pin="A0(RX0)" pad="A0"/>
+<connect gate="G$1" pin="A1(TX0)" pad="A1"/>
+<connect gate="G$1" pin="A10" pad="A10"/>
+<connect gate="G$1" pin="A11" pad="A11"/>
+<connect gate="G$1" pin="A12" pad="A12"/>
+<connect gate="G$1" pin="A13" pad="A13"/>
+<connect gate="G$1" pin="A14" pad="A14"/>
+<connect gate="G$1" pin="A15" pad="A15"/>
+<connect gate="G$1" pin="A2" pad="A2"/>
+<connect gate="G$1" pin="A3" pad="A3"/>
+<connect gate="G$1" pin="A4" pad="A4"/>
+<connect gate="G$1" pin="A5" pad="A5"/>
+<connect gate="G$1" pin="A6" pad="A6"/>
+<connect gate="G$1" pin="A7" pad="A7"/>
+<connect gate="G$1" pin="A8" pad="A8"/>
+<connect gate="G$1" pin="A9" pad="A9"/>
+<connect gate="G$1" pin="AREF" pad="AREF"/>
+<connect gate="G$1" pin="GND@0" pad="GND@0"/>
+<connect gate="G$1" pin="GND@1" pad="GND@1"/>
+<connect gate="G$1" pin="GND@2" pad="GND@2"/>
+<connect gate="G$1" pin="GND@3" pad="GND@3"/>
+<connect gate="G$1" pin="GND@4" pad="GND@4"/>
+<connect gate="G$1" pin="RESET" pad="RESET"/>
+<connect gate="G$1" pin="VIN" pad="VIN"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+<device name="ARDUINO_MEGA-PRO-5V-RELAY" package="ARDUINO_MEGA-PRO-5V">
+<connects>
+<connect gate="G$1" pin="0(RX0)" pad="0"/>
+<connect gate="G$1" pin="1(TX0)" pad="1"/>
+<connect gate="G$1" pin="10" pad="10"/>
+<connect gate="G$1" pin="11" pad="11"/>
+<connect gate="G$1" pin="12" pad="12"/>
+<connect gate="G$1" pin="13" pad="13"/>
+<connect gate="G$1" pin="14(TX3)" pad="14"/>
+<connect gate="G$1" pin="15(RX3)" pad="15"/>
+<connect gate="G$1" pin="16(TX2)" pad="16"/>
+<connect gate="G$1" pin="17(RX2)" pad="17"/>
+<connect gate="G$1" pin="18(TX1)" pad="18"/>
+<connect gate="G$1" pin="19(RX1)" pad="19"/>
+<connect gate="G$1" pin="2" pad="2"/>
+<connect gate="G$1" pin="20(SDA)" pad="20"/>
+<connect gate="G$1" pin="21(SCL)" pad="21"/>
+<connect gate="G$1" pin="3" pad="3"/>
+<connect gate="G$1" pin="3.3V" pad="3.3V"/>
+<connect gate="G$1" pin="4" pad="4"/>
+<connect gate="G$1" pin="46" pad="46"/>
+<connect gate="G$1" pin="47" pad="47"/>
+<connect gate="G$1" pin="48" pad="48"/>
+<connect gate="G$1" pin="49" pad="49"/>
+<connect gate="G$1" pin="5" pad="5"/>
+<connect gate="G$1" pin="50" pad="50"/>
+<connect gate="G$1" pin="51" pad="51"/>
+<connect gate="G$1" pin="52" pad="52"/>
+<connect gate="G$1" pin="53" pad="53"/>
 <connect gate="G$1" pin="5V@0" pad="5V@0"/>
 <connect gate="G$1" pin="5V@1" pad="5V@1"/>
 <connect gate="G$1" pin="5V@2" pad="5V@2"/>
@@ -18522,109 +18750,6 @@ Standard 8-pin 0.1" header. Use with straight break away headers (SKU : PRT-0011
 </deviceset>
 </devicesets>
 </library>
-<library name="con-phoenix-350">
-<description>&lt;b&gt;Phoenix Connectors&lt;/b&gt; Grid 3.50 mm&lt;p&gt;
-&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
-<packages>
-<package name="1751248">
-<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
-Nennstrom: 10 A&lt;br&gt;
-Bemessungsspannung: 160 V&lt;br&gt;
-Raster: 3,5 mm&lt;br&gt;
-Polzahl: 2&lt;br&gt;
-Montageart: Löten&lt;br&gt;
-Anschlussart: Schraubanschluss&lt;br&gt;
-Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
-Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
-<wire x1="-3.75" y1="3.65" x2="3.75" y2="3.65" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="3.65" x2="-3.75" y2="1.9123" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-2.0993" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-1.6163" x2="3.75" y2="1.4367" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-2.0993" x2="3.75" y2="-2.911" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-1.6163" x2="3.75" y2="-2.0993" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="1.9123" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="1.9123" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="1.4367" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="1.4367" x2="-3.75" y2="1.4367" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-1.6163" x2="3.75" y2="-1.6163" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="3.65" x2="3.75" y2="1.9123" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-1.6163" x2="-3.75" y2="-2.0993" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-2.0993" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
-<wire x1="-2.956" y1="-0.811" x2="-1.039" y2="1.106" width="0.1016" layer="51"/>
-<wire x1="3.75" y1="-2.911" x2="-3.75" y2="-2.911" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-3.65" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-3.35" x2="3.75" y2="-3.65" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-3.35" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-3.35" x2="-3.75" y2="-3.65" width="0.1016" layer="21"/>
-<wire x1="-3.75" y1="-2.911" x2="-3.75" y2="-3.35" width="0.1016" layer="21"/>
-<wire x1="3.75" y1="-2.911" x2="3.75" y2="-3.35" width="0.1016" layer="21"/>
-<wire x1="-0.544" y1="0.611" x2="-0.55" y2="0.605" width="0.1016" layer="21"/>
-<wire x1="-0.55" y1="0.605" x2="-2.461" y2="-1.306" width="0.1016" layer="51"/>
-<wire x1="0.544" y1="-0.811" x2="2.461" y2="1.106" width="0.1016" layer="51"/>
-<wire x1="2.956" y1="0.611" x2="2.95" y2="0.605" width="0.1016" layer="21"/>
-<wire x1="2.95" y1="0.605" x2="1.039" y2="-1.306" width="0.1016" layer="51"/>
-<circle x="-1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
-<circle x="1.75" y="-0.1" radius="1.45" width="0.1016" layer="21"/>
-<pad name="1" x="-1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
-<pad name="2" x="1.75" y="-0.1" drill="1.1" diameter="1.7" rot="R90"/>
-<text x="-2.2" y="2.2225" size="1.27" layer="21" font="vector">1</text>
-<text x="1.2925" y="2.2225" size="1.27" layer="21" font="vector">2</text>
-<text x="-4.105" y="-2.8575" size="1.27" layer="25" rot="R90">&gt;NAME</text>
-<text x="-2.0525" y="4.1275" size="1.27" layer="27">&gt;VALUE</text>
-<polygon width="0.1016" layer="21">
-<vertex x="-3.1525" y="-2.8575"/>
-<vertex x="-3.47" y="-2.2225"/>
-<vertex x="-2.835" y="-2.2225"/>
-</polygon>
-</package>
-</packages>
-<symbols>
-<symbol name="SCHRAUBKLEMME">
-<wire x1="0" y1="-1.27" x2="0" y2="1.27" width="0.254" layer="94"/>
-<wire x1="12.7" y1="-1.27" x2="0" y2="-1.27" width="0.254" layer="94"/>
-<wire x1="12.7" y1="-1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
-<wire x1="0" y1="1.27" x2="12.7" y2="1.27" width="0.254" layer="94"/>
-<circle x="11.43" y="0" radius="0.6839" width="0.254" layer="94"/>
-<text x="1.27" y="-0.889" size="1.778" layer="95">&gt;NAME</text>
-<text x="13.97" y="-0.889" size="1.778" layer="96">&gt;VALUE</text>
-<pin name="K" x="-2.54" y="0" visible="off" length="short" direction="pas"/>
-</symbol>
-</symbols>
-<devicesets>
-<deviceset name="1751248" prefix="X">
-<description>&lt;b&gt;MKDS 1/ 2-3,5&lt;/b&gt; Printklemme&lt;p&gt;
-Nennstrom: 10 A&lt;br&gt;
-Bemessungsspannung: 160 V&lt;br&gt;
-Raster: 3,5 mm&lt;br&gt;
-Polzahl: 2&lt;br&gt;
-Montageart: Löten&lt;br&gt;
-Anschlussart: Schraubanschluss&lt;br&gt;
-Anschlussrichtung vom Leiter zur Platine: 0°&lt;br&gt;
-Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
-<gates>
-<gate name="-1" symbol="SCHRAUBKLEMME" x="2.54" y="0" addlevel="always"/>
-<gate name="-2" symbol="SCHRAUBKLEMME" x="2.54" y="-7.62" addlevel="always"/>
-</gates>
-<devices>
-<device name="" package="1751248">
-<connects>
-<connect gate="-1" pin="K" pad="1"/>
-<connect gate="-2" pin="K" pad="2"/>
-</connects>
-<technologies>
-<technology name="">
-<attribute name="MF" value="" constant="no"/>
-<attribute name="MPN" value="" constant="no"/>
-<attribute name="OC_FARNELL" value="unknown" constant="no"/>
-<attribute name="OC_NEWARK" value="unknown" constant="no"/>
-</technology>
-</technologies>
-</device>
-</devices>
-</deviceset>
-</devicesets>
-</library>
 </libraries>
 <attributes>
 </attributes>
@@ -18635,7 +18760,7 @@ Source: http://eshop.phoenixcontact.com .. 1751248.pdf</description>
 </class>
 </classes>
 <parts>
-<part name="U1" library="JoeMega_Ether_Edited" deviceset="ARDUINO-MEGA" device="PRO-5V"/>
+<part name="U1" library="Joe_SparkFun-Boards" deviceset="ARDUINO-MEGA" device="PRO-5V"/>
 <part name="X2" library="con-molex" deviceset="22-23-2041" device=""/>
 <part name="R1" library="rcl" deviceset="R-US_" device="0204/7" value="15k"/>
 <part name="R2" library="rcl" deviceset="R-US_" device="0204/7" value="4.7k"/>
