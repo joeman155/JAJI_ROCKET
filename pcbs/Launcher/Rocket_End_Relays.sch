@@ -16409,10 +16409,10 @@ We've spent an enormous amount of time creating and checking these footprints an
 You are welcome to use this library for commercial purposes. For attribution, we ask that when you begin to sell your device using our footprint, you email us with a link to the product being sold. We want bragging rights that we helped (in a very small part) to create your 8th world wonder. We would like the opportunity to feature your device on our homepage.</description>
 <packages>
 <package name="ARDUINO_MEGA-PRO-5V">
-<wire x1="0" y1="53.34" x2="90.17" y2="53.34" width="0.2032" layer="51"/>
-<wire x1="90.17" y1="53.34" x2="90.17" y2="0" width="0.2032" layer="51"/>
-<wire x1="90.17" y1="0" x2="0" y2="0" width="0.2032" layer="51"/>
-<wire x1="0" y1="0" x2="0" y2="53.34" width="0.2032" layer="51"/>
+<wire x1="0" y1="53.34" x2="90.17" y2="53.34" width="0.2032" layer="20"/>
+<wire x1="90.17" y1="53.34" x2="90.17" y2="0" width="0.2032" layer="20"/>
+<wire x1="90.17" y1="0" x2="0" y2="0" width="0.2032" layer="20"/>
+<wire x1="0" y1="0" x2="0" y2="53.34" width="0.2032" layer="20"/>
 <wire x1="76.835" y1="3.81" x2="78.105" y2="3.81" width="0.2032" layer="21"/>
 <wire x1="78.105" y1="3.81" x2="78.74" y2="3.175" width="0.2032" layer="21"/>
 <wire x1="78.74" y1="1.905" x2="78.105" y2="1.27" width="0.2032" layer="21"/>
@@ -16690,17 +16690,12 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <wire x1="86.36" y1="51.435" x2="86.36" y2="50.165" width="0.2032" layer="21"/>
 <wire x1="81.915" y1="52.07" x2="85.725" y2="52.07" width="0.2032" layer="21"/>
 <wire x1="85.725" y1="49.53" x2="81.915" y2="49.53" width="0.2032" layer="21"/>
-<wire x1="48.006" y1="43.053" x2="16.637" y2="43.053" width="0.3048" layer="21"/>
-<wire x1="76.8604" y1="41.5798" x2="76.8604" y2="48.641" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="52.1462" x2="82.55" y2="52.7812" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="52.7812" x2="85.09" y2="52.7812" width="0.3048" layer="21"/>
 <wire x1="85.09" y1="52.7812" x2="85.09" y2="52.1208" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="6.2738" x2="82.55" y2="5.5372" width="0.3048" layer="21"/>
 <wire x1="82.55" y1="5.5372" x2="85.09" y2="5.5372" width="0.3048" layer="21"/>
 <wire x1="85.09" y1="5.5372" x2="85.09" y2="6.2992" width="0.3048" layer="21"/>
-<wire x1="74.803" y1="10.5664" x2="38.481" y2="10.5664" width="0.3048" layer="21"/>
-<wire x1="74.803" y1="10.5664" x2="76.5048" y2="8.8646" width="0.3048" layer="21"/>
-<wire x1="76.5048" y1="8.8646" x2="89.3826" y2="8.8646" width="0.3048" layer="21"/>
 <wire x1="86.36" y1="6.35" x2="89.3572" y2="6.35" width="0.3048" layer="21"/>
 <wire x1="49.403" y1="45.72" x2="49.403" y2="46.99" width="0.2032" layer="21"/>
 <wire x1="48.895" y1="46.482" x2="49.403" y2="46.99" width="0.2032" layer="21"/>
@@ -16708,7 +16703,6 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <wire x1="51.943" y1="46.99" x2="51.943" y2="45.72" width="0.2032" layer="21"/>
 <wire x1="52.451" y1="46.228" x2="51.943" y2="45.72" width="0.2032" layer="21"/>
 <wire x1="51.943" y1="45.72" x2="51.435" y2="46.228" width="0.2032" layer="21"/>
-<wire x1="35.179" y1="10.5664" x2="20.701" y2="10.5664" width="0.3048" layer="21"/>
 <wire x1="33.02" y1="3.175" x2="33.655" y2="3.81" width="0.2032" layer="21"/>
 <wire x1="33.655" y1="3.81" x2="34.925" y2="3.81" width="0.2032" layer="21"/>
 <wire x1="34.925" y1="3.81" x2="35.56" y2="3.175" width="0.2032" layer="21"/>
@@ -16847,11 +16841,9 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <text x="75.692" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A13</text>
 <text x="78.232" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A14</text>
 <text x="80.645" y="4.5974" size="1.4224" layer="21" font="vector" ratio="15" rot="R90">A15</text>
-<text x="39.624" y="8.128" size="1.524" layer="21" font="vector" ratio="15">ANALOG IN</text>
 <text x="86.995" y="6.8834" size="1.016" layer="21" font="vector" ratio="15">GND</text>
 <text x="49.911" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">TX0</text>
 <text x="52.451" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">RX0</text>
-<text x="17.78" y="43.815" size="1.524" layer="21" font="vector" ratio="15">PWM</text>
 <text x="57.531" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">TX3</text>
 <text x="60.071" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">RX3</text>
 <text x="62.611" y="42.672" size="1.016" layer="21" font="vector" ratio="15" rot="R90">TX2</text>
@@ -18796,7 +18788,7 @@ You are welcome to use this library for commercial purposes. For attribution, we
 <part name="D4" library="SparkFun-DiscreteSemi" deviceset="DIODE" device="1N4148" value="IN4004"/>
 <part name="GND1" library="supply1" deviceset="GND" device=""/>
 <part name="IC2" library="LM2576" deviceset="LM2576*" device="T-ADJ" value="LM2576T-ADJ"/>
-<part name="X3" library="con-molex" deviceset="22-23-2021" device=""/>
+<part name="X3" library="con-molex" deviceset="22-23-2021" device="" value=""/>
 <part name="C3" library="rcl" deviceset="CPOL-US" device="E2-4" value="100uF 16V"/>
 <part name="C4" library="rcl" deviceset="CPOL-US" device="E2-4" value="330uF 16V"/>
 <part name="L1" library="resistor" deviceset="L-US" device="TJ4-U1" value="100uH 3Amp"/>
