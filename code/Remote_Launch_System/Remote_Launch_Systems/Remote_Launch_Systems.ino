@@ -102,7 +102,7 @@ unsigned int read_time = 100;
 
 // Air Pressure - BMP180
 SFE_BMP180 pressure;
-#define ALTITUDE 45.0 // Altitude of Cairns address
+double bmp180_pressure, bmp180_temperature;
 
 // Debugging
 unsigned short int DEBUGGING = 1;
@@ -159,15 +159,17 @@ void loop() {
  }
   
  // Heartbeat
- // heartbeat();
-
-
+ heartbeat();
+ 
 
  // Air Pressure, Temperature
  // Prefix: D00
  // Format of string is:-
- // D00:air pressure in PA,temperature from clock
- //  displayPressure();
+ // D00:air pressure in PA from BMP180,temperature BMP180 in K
+ extractPressureTemperature();
+ bmp180_temperature += 273;
+ sendPacket(String("D00:") + String(bmp180_pressure));
+ sendPacket(String(",")    + String(bmp180_temperature));
   
 
  // GPS Tracking
@@ -177,63 +179,7 @@ void loop() {
  //
  // date is in format dd/mm/yyyy
  // time is in format hh.mintes.seconds.hundreths
- newData = false;
-  // For one second we parse GPS data and report some key values
-  for (unsigned long start = millis(); millis() - start < read_time;)
-  {
-    while (Serial1.available())
-    {
-      char c = Serial1.read();
-      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
-      if (gps.encode(c)) // Did a new valid sentence come in?
-         newData = true;
-    }
-  }  
-  
-  // If we have new data, we send it.
-  if (newData)
-  {
-    float flat, flon;
-    float flat_processed, flon_processed;
-    short int sat_count;
-    unsigned long age;
-    unsigned long speed, course, altitude;
-    int year;
-    byte month, day, hour, minute, second, hundredths;    
-    
-    gps.f_get_position(&flat, &flon, &age);
-    flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
-    flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
-    sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
-    
-    // latitude
-    dtostrf(flat_processed, 12, 8, outstr);
-    sendPacket(String("D01:") + String(outstr)); 
-    
-    // longitude
-    dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String(",") + String(outstr));;
-    
-    // altitude
-    altitude = gps.altitude()/100;
-    
-    // date/time
-    gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
-    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year));
-    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths));
-    
-    // heading
-    course = gps.f_course();    
-    sendPacket(String(",") + String(course));
-    
-    // speed
-    speed = gps.f_speed_kmph();
-    sendPacket(String(",") + String(speed));
-    
-    // # of Satellites
-    sendPacket(String(",") + String(sat_count));
-
-  }  
+ extractGPSInfo();
 
 
 
@@ -257,20 +203,13 @@ void loop() {
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String("D05:") + String(outstr));   
   
+  
  // IMU Code
  // Prefix: D06
  // Format of string is:-
  // D016:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ 
  extractIMUInfo();
- sendPacket(String("D06:") + String(roll));
- sendPacket(String(",") + String(pitch));  
- sendPacket(String(",") + String(yaw));  
- sendPacket(String(",") + String(gyroX));  
- sendPacket(String(",") + String(gyroY));  
- sendPacket(String(",") + String(gyroZ));  
- sendPacket(String(",") + String(accX));  
- sendPacket(String(",") + String(accY));  
- sendPacket(String(",") + String(accZ));   
+
    
    
  // Launch System status
@@ -834,10 +773,10 @@ byte bcdToDec(byte val)
 }
 
 
-void displayPressure()
+void extractPressureTemperature()
 {
   char status;
-  double T,P,p0,a;
+  double p0,a;
   
   status = pressure.startTemperature();
   if (status != 0)
@@ -845,72 +784,22 @@ void displayPressure()
     // Wait for the measurement to complete:
     delay(status);
 
-    // Retrieve the completed temperature measurement:
-    // Note that the measurement is stored in the variable T.
-    // Function returns 1 if successful, 0 if failure.
-
-    status = pressure.getTemperature(T);
+    status = pressure.getTemperature(bmp180_temperature);
     if (status != 0)
     {
-      // Print out the measurement:
-      Serial.print("temperature: ");
-      Serial.print(T,2);
-      Serial.print(" deg C, ");
-      Serial.print((9.0/5.0)*T+32.0,2);
-      Serial.println(" deg F");
-      
-      // Start a pressure measurement:
-      // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
-      // If request is successful, the number of ms to wait is returned.
-      // If request is unsuccessful, 0 is returned.
-
       status = pressure.startPressure(3);
       if (status != 0)
       {
         // Wait for the measurement to complete:
         delay(status);
 
-        // Retrieve the completed pressure measurement:
-        // Note that the measurement is stored in the variable P.
-        // Note also that the function requires the previous temperature measurement (T).
-        // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
-        // Function returns 1 if successful, 0 if failure.
-
-        status = pressure.getPressure(P,T);
+        status = pressure.getPressure(bmp180_pressure,bmp180_temperature);
         if (status != 0)
         {
           // Print out the measurement:
           Serial.print("absolute pressure: ");
-          Serial.print(P,2);
-          Serial.print(" mb, ");
-          Serial.print(P*0.0295333727,2);
-          Serial.println(" inHg");
-
-          // The pressure sensor returns abolute pressure, which varies with altitude.
-          // To remove the effects of altitude, use the sealevel function and your current altitude.
-          // This number is commonly used in weather reports.
-          // Parameters: P = absolute pressure in mb, ALTITUDE = current altitude in m.
-          // Result: p0 = sea-level compensated pressure in mb
-/*
-          p0 = pressure.sealevel(P,ALTITUDE); // we're at 1655 meters (Boulder, CO)
-          Serial.print("relative (sea-level) pressure: ");
-          Serial.print(p0,2);
-          Serial.print(" mb, ");
-          Serial.print(p0*0.0295333727,2);
-          Serial.println(" inHg");
-
-          // On the other hand, if you want to determine your altitude from the pressure reading,
-          // use the altitude function along with a baseline pressure (sea-level or other).
-          // Parameters: P = absolute pressure in mb, p0 = baseline pressure in mb.
-          // Result: a = altitude in m.
-
-          a = pressure.altitude(P,p0);
-          Serial.print("computed altitude: ");
-          Serial.print(a,0);
-          Serial.print(" meters, ");
-          Serial.print(a*3.28084,0);
-          Serial.println(" feet");
-*/         
+          Serial.print(bmp180_pressure,2);
+          Serial.println(" mb, ");
         }
         else Serial.println("error retrieving pressure measurement\n");
       }
@@ -1061,6 +950,16 @@ void extractIMUInfo()
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
 #endif
 
+ sendPacket(String("D06:") + String(roll));
+ sendPacket(String(",") + String(pitch));  
+ sendPacket(String(",") + String(yaw));  
+ sendPacket(String(",") + String(gyroX));  
+ sendPacket(String(",") + String(gyroY));  
+ sendPacket(String(",") + String(gyroZ));  
+ sendPacket(String(",") + String(accX));  
+ sendPacket(String(",") + String(accY));  
+ sendPacket(String(",") + String(accZ));   
+
 }
 
 
@@ -1099,4 +998,68 @@ void init_imu()
   
   timer = micros();
   delay(3000);
+}  
+
+
+
+// Extract and print GPS Info
+void extractGPSInfo()
+{
+  
+ newData = false;
+  // For one second we parse GPS data and report some key values
+  for (unsigned long start = millis(); millis() - start < read_time;)
+  {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
+      if (gps.encode(c)) // Did a new valid sentence come in?
+         newData = true;
+    }
+  }  
+  
+  // If we have new data, we send it.
+  if (newData)
+  {
+    float flat, flon;
+    float flat_processed, flon_processed;
+    short int sat_count;
+    unsigned long age;
+    unsigned long speed, course, altitude;
+    int year;
+    byte month, day, hour, minute, second, hundredths;    
+    
+    gps.f_get_position(&flat, &flon, &age);
+    flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
+    flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
+    sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
+    
+    // latitude
+    dtostrf(flat_processed, 12, 8, outstr);
+    sendPacket(String("D01:") + String(outstr)); 
+    
+    // longitude
+    dtostrf(flon_processed, 12, 8, outstr);
+    sendPacket(String(",") + String(outstr));;
+    
+    // altitude
+    altitude = gps.altitude()/100;
+    
+    // date/time
+    gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
+    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year));
+    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths));
+    
+    // heading
+    course = gps.f_course();    
+    sendPacket(String(",") + String(course));
+    
+    // speed
+    speed = gps.f_speed_kmph();
+    sendPacket(String(",") + String(speed));
+    
+    // # of Satellites
+    sendPacket(String(",") + String(sat_count));
+  }  
 }  
