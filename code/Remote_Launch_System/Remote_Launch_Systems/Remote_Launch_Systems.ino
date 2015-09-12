@@ -46,6 +46,10 @@ String str;
 long heartbeat_count;
 int  continuityState = 1;         // current state of the button
 
+// Timing
+unsigned long ulCur;
+
+
 // Menu
 unsigned long menutime = 5000;
 int EndFlag = 0;
@@ -102,6 +106,8 @@ SFE_BMP180 pressure;
 
 // Debugging
 unsigned short int DEBUGGING = 1;
+
+
 void setup() {
   // Serial Port we program with
   Serial.begin(115200);
@@ -117,50 +123,14 @@ void setup() {
   Wire.begin();
  
   // Initialise IMU
-  uint16_t status = dof.begin();
-  
-  delay(100); // Wait for sensor to stabilize
-  dof.readAccel();
-  accX = dof.calcAccel(dof.ax);
-  accY = dof.calcAccel(dof.ay);
-  accZ = dof.calcAccel(dof.az);  
-  
-#ifdef RESTRICT_PITCH // Eq. 25 and 26
-  roll  = atan2(accY, accX) * RAD_TO_DEG;
-  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
-#else // Eq. 28 and 29
-  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
-  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
-#endif
-
-  // Assuming the system is level, we use Magnetometer to get initial bearing.
-  dof.readMag();
-  double heading;
-  getHeading(dof.mx, dof.my, &heading);
-
-  // Get initial angels
-  kalmanX.setAngle(heading); // Set starting angle
-  kalmanY.setAngle(pitch);
-  kalmanZ.setAngle(roll);
-  yaw = heading;
-  Serial.println(String("yaw: ") + yaw);    
-  Serial.println(String("roll: ") + roll);
-  Serial.println(String("pitch: ") + pitch);
-  
-  timer = micros();
-  delay(3000);
-  
+  init_imu();
 
   // Initialise BMP180
   if (pressure.begin())
     Serial.println("BMP180 init success");
   else
   {
-    // Oops, something went wrong, this is usually a connection problem,
-    // see the comments at the top of this sketch for the proper connections.
-
-    Serial.println("BMP180 init fail\n\n");
-    while(1); // Pause forever.
+    sendPacket("E06");
   }
   
   // Initialisations
@@ -195,14 +165,18 @@ void loop() {
 
  // Air Pressure, Temperature
  // Prefix: D00
- // DISABLE PRESSURE FOR NOW
-//  displayPressure();
+ // Format of string is:-
+ // D00:air pressure in PA,temperature from clock
+ //  displayPressure();
   
 
  // GPS Tracking
  // Prefix: D01
- // DISABLED GPS FOR NOW WHILE WE DEVELOP IMU CODE
- /*
+ // Format of string is:-
+ // D01:latitude,longitude,altitude,date,time,heading,speed,#satellites
+ //
+ // date is in format dd/mm/yyyy
+ // time is in format hh.mintes.seconds.hundreths
  newData = false;
   // For one second we parse GPS data and report some key values
   for (unsigned long start = millis(); millis() - start < read_time;)
@@ -223,28 +197,52 @@ void loop() {
     float flat_processed, flon_processed;
     short int sat_count;
     unsigned long age;
+    unsigned long speed, course, altitude;
+    int year;
+    byte month, day, hour, minute, second, hundredths;    
+    
     gps.f_get_position(&flat, &flon, &age);
     flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
     flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
     sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
     
+    // latitude
     dtostrf(flat_processed, 12, 8, outstr);
-    sendPacket(String("LAT=") + String(outstr));
+    sendPacket(String("D01:") + String(outstr)); 
     
+    // longitude
     dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String("LON=") + String(outstr));;
+    sendPacket(String(",") + String(outstr));;
     
-    sendPacket(String("SAT=") + String(sat_count));
-    // sendPacket(" PREC=");
-    //sendPacket(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop()));
+    // altitude
+    altitude = gps.altitude()/100;
+    
+    // date/time
+    gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
+    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year));
+    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths));
+    
+    // heading
+    course = gps.f_course();    
+    sendPacket(String(",") + String(course));
+    
+    // speed
+    speed = gps.f_speed_kmph();
+    sendPacket(String(",") + String(speed));
+    
+    // # of Satellites
+    sendPacket(String(",") + String(sat_count));
+
   }  
-  */
+
 
 
  // Local Time 
  // Prefix: D02
  // DISABLE TIME FOR NOW
 //  displayTime();
+  ulCur = millis();
+  sendPacket(String("D02:") + String(ulCur));
  
 
 
@@ -261,10 +259,18 @@ void loop() {
   
  // IMU Code
  // Prefix: D06
+ // Format of string is:-
+ // D016:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ 
  extractIMUInfo();
- sendPacket(String("D06:") + String(roll) + String(","));  /// NOT YET COMPLETE.
-
-
+ sendPacket(String("D06:") + String(roll));
+ sendPacket(String(",") + String(pitch));  
+ sendPacket(String(",") + String(yaw));  
+ sendPacket(String(",") + String(gyroX));  
+ sendPacket(String(",") + String(gyroY));  
+ sendPacket(String(",") + String(gyroZ));  
+ sendPacket(String(",") + String(accX));  
+ sendPacket(String(",") + String(accY));  
+ sendPacket(String(",") + String(accZ));   
    
    
  // Launch System status
@@ -954,9 +960,9 @@ void rotateMatrix(double xb, double yb, double zb, double a, double b, double c,
 }
 
 
+// Extract and calculate information for IMU.
 void extractIMUInfo()
 {
-  
     // Read Accelerometer
   dof.readAccel();
   accX = dof.calcAccel(dof.ax);
@@ -1056,3 +1062,41 @@ void extractIMUInfo()
 #endif
 
 }
+
+
+// Initialise the IMU
+void init_imu()
+{
+  uint16_t status = dof.begin();
+
+  delay(100); // Wait for sensor to stabilize
+  dof.readAccel();
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
+  
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  roll  = atan2(accY, accX) * RAD_TO_DEG;
+  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
+  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
+#endif
+
+  // Assuming the system is level, we use Magnetometer to get initial bearing.
+  dof.readMag();
+  double heading;
+  getHeading(dof.mx, dof.my, &heading);
+
+  // Get initial angels
+  kalmanX.setAngle(heading); // Set starting angle
+  kalmanY.setAngle(pitch);
+  kalmanZ.setAngle(roll);
+  yaw = heading;
+  Serial.println(String("yaw: ") + yaw);    
+  Serial.println(String("roll: ") + roll);
+  Serial.println(String("pitch: ") + pitch);
+  
+  timer = micros();
+  delay(3000);
+}  
