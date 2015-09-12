@@ -183,12 +183,10 @@ void loop() {
 
 
 
- // Local Time 
+ // Local Time (Time since startup, or reboot)
  // Prefix: D02
- // DISABLE TIME FOR NOW
-//  displayTime();
-  ulCur = millis();
-  sendPacket(String("D02:") + String(ulCur));
+ ulCur = millis();
+ sendPacket(String("D02:") + String(ulCur));
  
 
 
@@ -207,7 +205,7 @@ void loop() {
  // IMU Code
  // Prefix: D06
  // Format of string is:-
- // D016:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ 
+ // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ 
  extractIMUInfo();
 
    
@@ -662,23 +660,7 @@ void getHeading(float hx, float hy, double *heading)
   
 }
 
-// Another fun function that does calculations based on the
-// acclerometer data. This function will print your LSM9DS0's
-// orientation -- it's roll and pitch angles.
-void printOrientation(float x, float y, float z)
-{
-  float pitch, roll;
-  
-  pitch = atan2(x, sqrt(y * y) + (z * z));
-  roll = atan2(y, sqrt(x * x) + (z * z));
-  pitch *= 180.0 / PI;
-  roll *= 180.0 / PI;
-  
-  Serial.print("Pitch, Roll: ");
-  Serial.print(pitch, 2);
-  Serial.print(", ");
-  Serial.println(roll, 2);
-}
+
 
 
 
@@ -797,9 +779,7 @@ void extractPressureTemperature()
         if (status != 0)
         {
           // Print out the measurement:
-          Serial.print("absolute pressure: ");
-          Serial.print(bmp180_pressure,2);
-          Serial.println(" mb, ");
+          // SUCCESS
         }
         else Serial.println("error retrieving pressure measurement\n");
       }
@@ -992,9 +972,11 @@ void init_imu()
   kalmanY.setAngle(pitch);
   kalmanZ.setAngle(roll);
   yaw = heading;
+  /*
   Serial.println(String("yaw: ") + yaw);    
   Serial.println(String("roll: ") + roll);
   Serial.println(String("pitch: ") + pitch);
+  */
   
   timer = micros();
   delay(3000);
