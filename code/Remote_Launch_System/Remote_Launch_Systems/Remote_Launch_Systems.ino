@@ -168,7 +168,8 @@ void loop() {
  extractPressureTemperature();
  bmp180_temperature += 273;
  sendPacket(String("D00:") + String(bmp180_pressure), false);
- sendPacket(String(",")    + String(bmp180_temperature));
+ sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here.
+ sendPacket(String(",")    + String(bmp180_temperature)); 
   
 
  // GPS Tracking
