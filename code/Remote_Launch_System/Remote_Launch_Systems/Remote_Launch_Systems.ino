@@ -38,7 +38,7 @@ long heartbeat_count;
 int  continuityState = 1;         // current state of the button
 
 // Menu
-unsigned long menutime = 5000;
+unsigned long menutime = 100;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
