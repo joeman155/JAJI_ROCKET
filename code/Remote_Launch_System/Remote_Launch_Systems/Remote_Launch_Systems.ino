@@ -1,22 +1,20 @@
 #include <voltage.h>
 #include <SPI.h>
 #include <SD.h>
-#include <TinyGPS.h>
 #include <SoftI2C.h>
 #include <Wire.h>
-#include <SFE_LSM9DS0.h>
-#include <SFE_BMP180.h>
+
 
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
-const int  powerPin = 6;            // PORTH, 6   -- Digital pin 9
-const int  armPin   = 3;            // PORTH, 3   -- Digital pin 6
-const int  continuityTestPin = 5;   // This is the pin number...not direct access
-const int  launchPin = 3;           // This is the pin number...not direct access
-const int  igniterPsuPin = A3;
-const int  arduinoPsuPin = A2;
-const int  igniterBurnDelay = 2000;
+const int  powerPin           = 6;  // PORTH, 6   -- Digital pin 9
+const int  armPin             = 3;  // PORTH, 3   -- Digital pin 6
+const int  continuityTestPin  = 5;  // This is the pin number...not direct access
+const int  launchPin          = 3;  // This is the pin number...not direct access
+const int  igniterPsuPin      = A3;
+const int  arduinoPsuPin      = A2;
+const int  igniterBurnDelay   = 2000;
 const int  launch_countdown_delay = 5000;  // The 5 second countdown.
 int state;
 
@@ -52,45 +50,6 @@ short int cutdown = 0; // Start up disabled
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 
-// IMU
-#define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
-#define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
-// Create an instance of the LSM9DS0 library called `dof` the
-// parameters for this constructor are:
-// [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
-LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
-#define PRINT_CALCULATED
-//#define PRINT_RAW
-#define PRINT_SPEED 500 // 500 ms between prints
-
-
-float gx_avg = 0;
-float gy_avg = 0;
-float gz_avg = 0;
-
-float gx_bias = 0.66;
-float gy_bias = -0.31;
-float gz_bias = -6.39;
-
-float gx_val;
-float gy_val;
-float gz_val;
-unsigned long n = 0;
-
-
-// GPS
-TinyGPS gps;
-bool newData;
-unsigned int read_time = 100;
-
-
-// RTC
-#define DS3232_I2C_ADDRESS 0x68
-
-// Air Pressure - BMP180
-SFE_BMP180 pressure;
-#define ALTITUDE 45.0 // Altitude of Cairns address
-
 // Debugging
 unsigned short int DEBUGGING = 1;
 void setup() {
@@ -106,26 +65,6 @@ void setup() {
   
   // i2C
   Wire.begin();
- 
-  // Initialise IMU
-  /*
-  uint16_t status = dof.begin();
-  Serial.println("LSM9DS0 WHO_AM_I's returned: 0x");
-  Serial.println(status, HEX);
-  Serial.println("Should be 0x49D4");
-
-  // Initialise BMP180
-  if (pressure.begin())
-    Serial.println("BMP180 init success");
-  else
-  {
-    // Oops, something went wrong, this is usually a connection problem,
-    // see the comments at the top of this sketch for the proper connections.
-
-    Serial.println("BMP180 init fail\n\n");
-    while(1); // Pause forever.
-  }
-  */
   
   // Initialisations
   heartbeat_count = 1;
@@ -166,9 +105,9 @@ void loop() {
  // Air Pressure, Temperature, voltages
  // Prefix: D00
  // Format of string is D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
- sendPacket (String("D00:") + String("293"), false);   // DUMMY INTERNAL TEMP
- sendPacket (String(",") + String("303"), false);      // DUMMY EXTERNAL TEMP
- sendPacket (String(",") + String("100000"), false);    // DUMMY AIR PRESSURE
+ sendPacket (String("D00:") + String("1000000"), false);   // DUMMY AIR PRESSURE 
+ sendPacket (String(",") + String("293"), false);      // DUMMY INTERNAL TEMP
+ sendPacket (String(",") + String("303"), false);    // DUMMY EXTERNAL PRESSURE
  
  ardupsu.read();
  ignpsu.read();
@@ -178,84 +117,10 @@ void loop() {
  sendPacket (String(",") + String(outstr), true);   
   
 
- // GPS Tracking
- // Prefix: D01
- // DISABLED GPS FOR NOW WHILE WE DEVELOP IMU CODE
- /*
- newData = false;
-  // For one second we parse GPS data and report some key values
-  for (unsigned long start = millis(); millis() - start < read_time;)
-  {
-    while (Serial1.available())
-    {
-      char c = Serial1.read();
-      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
-      if (gps.encode(c)) // Did a new valid sentence come in?
-         newData = true;
-    }
-  }  
-  
-  // If we have new data, we send it.
-  if (newData)
-  {
-    float flat, flon;
-    float flat_processed, flon_processed;
-    short int sat_count;
-    unsigned long age;
-    gps.f_get_position(&flat, &flon, &age);
-    flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
-    flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
-    sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
-    
-    dtostrf(flat_processed, 12, 8, outstr);
-    sendPacket(String("LAT=") + String(outstr));
-    
-    dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String("LON=") + String(outstr));;
-    
-    sendPacket(String("SAT=") + String(sat_count));
-    // sendPacket(" PREC=");
-    //sendPacket(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop()));
-  }  
-  */
-
-
  // Local Time 
  // Prefix: D02
  // DISABLE TIME FOR NOW
 //  displayTime();
- 
-
-
-
-
-/*  
- // IMU Code
- // Prefix: D06
-  printGyro();  // Print "G: gx, gy, gz"
-  printAccel(); // Print "A: ax, ay, az"
-  printMag();   // Print "M: mx, my, mz"
-  
-  
-  
-  // Used to calculate bias
-  if (n < 32767) {
-    gx_avg = (n * gx_avg + dof.calcGyro(dof.gx))/(n + 1);
-    gy_avg = (n * gy_avg + dof.calcGyro(dof.gy))/(n + 1);
-    gz_avg = (n * gz_avg + dof.calcGyro(dof.gz))/(n + 1);
-    n++;
-  }
-  
-   Serial.println(String("CALC BIAS: ") + String(gx_avg) + String(",") + String(gy_avg) + "," + String(gz_avg));
-  gx_bias = gx_avg;
-  gy_bias = gy_avg;
-  gz_bias = gz_avg;
-  
-  // Print the heading and orientation for fun!
-  printHeading((float) dof.mx, (float) dof.my);
-  printOrientation(dof.calcAccel(dof.ax), dof.calcAccel(dof.ay), 
-                   dof.calcAccel(dof.az));
- */
    
    
  // Launch System status
@@ -727,322 +592,4 @@ void logString(String str, boolean eol) {
 
 
 
-void printGyro()
-{
-  // To read from the gyroscope, you must first call the
-  // readGyro() function. When this exits, it'll update the
-  // gx, gy, and gz variables with the most current data.
-  dof.readGyro();
-  
-  // Now we can use the gx, gy, and gz variables as we please.
-  // Either print them as raw ADC values, or calculated in DPS.
-  Serial.print("G: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcGyro helper function to convert a raw ADC value to
-  // DPS. Give the function the value that you want to convert.
-  //joe
-  gx_val = dof.calcGyro(dof.gx) - gx_bias;
-  dtostrf(gx_val, 4, 2, outstr);
-  Serial.print(outstr);
-  Serial.print(", ");
-  
-  gy_val = dof.calcGyro(dof.gy) - gy_bias;
-  dtostrf(gy_val, 4, 2, outstr);
-  Serial.print(outstr);
-  Serial.print(", ");
-  
-  gz_val = dof.calcGyro(dof.gz) - gz_bias;
-  dtostrf(gz_val, 4, 2, outstr);  
-  Serial.println(outstr);
-#elif defined PRINT_RAW
-  Serial.print(dof.gx);
-  Serial.print(", ");
-  Serial.print(dof.gy);
-  Serial.print(", ");
-  Serial.println(dof.gz);
-#endif
-}
 
-void printAccel()
-{
-  // To read from the accelerometer, you must first call the
-  // readAccel() function. When this exits, it'll update the
-  // ax, ay, and az variables with the most current data.
-  dof.readAccel();
-  
-  // Now we can use the ax, ay, and az variables as we please.
-  // Either print them as raw ADC values, or calculated in g's.
-  Serial.print("A: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcAccel helper function to convert a raw ADC value to
-  // g's. Give the function the value that you want to convert.
-  Serial.print(dof.calcAccel(dof.ax), 2);
-  Serial.print(", ");
-  Serial.print(dof.calcAccel(dof.ay), 2);
-  Serial.print(", ");
-  Serial.println(dof.calcAccel(dof.az), 2);
-#elif defined PRINT_RAW 
-  Serial.print(dof.ax);
-  Serial.print(", ");
-  Serial.print(dof.ay);
-  Serial.print(", ");
-  Serial.println(dof.az);
-#endif
-
-}
-
-void printMag()
-{
-  // To read from the magnetometer, you must first call the
-  // readMag() function. When this exits, it'll update the
-  // mx, my, and mz variables with the most current data.
-  dof.readMag();
-  
-  // Now we can use the mx, my, and mz variables as we please.
-  // Either print them as raw ADC values, or calculated in Gauss.
-  Serial.print("M: ");
-#ifdef PRINT_CALCULATED
-  // If you want to print calculated values, you can use the
-  // calcMag helper function to convert a raw ADC value to
-  // Gauss. Give the function the value that you want to convert.
-  Serial.print(dof.calcMag(dof.mx), 2);
-  Serial.print(", ");
-  Serial.print(dof.calcMag(dof.my), 2);
-  Serial.print(", ");
-  Serial.println(dof.calcMag(dof.mz), 2);
-#elif defined PRINT_RAW
-  Serial.print(dof.mx);
-  Serial.print(", ");
-  Serial.print(dof.my);
-  Serial.print(", ");
-  Serial.println(dof.mz);
-#endif
-}
-
-// Here's a fun function to calculate your heading, using Earth's
-// magnetic field.
-// It only works if the sensor is flat (z-axis normal to Earth).
-// Additionally, you may need to add or subtract a declination
-// angle to get the heading normalized to your location.
-// See: http://www.ngdc.noaa.gov/geomag/declination.shtml
-void printHeading(float hx, float hy)
-{
-  float heading;
-  
-  if (hy > 0)
-  {
-    heading = 90 - (atan(hx / hy) * (180 / PI));
-  }
-  else if (hy < 0)
-  {
-    heading = - (atan(hx / hy) * (180 / PI));
-  }
-  else // hy = 0
-  {
-    if (hx < 0) heading = 180;
-    else heading = 0;
-  }
-  
-  Serial.print("Heading: ");
-  Serial.println(heading, 2);
-}
-
-// Another fun function that does calculations based on the
-// acclerometer data. This function will print your LSM9DS0's
-// orientation -- it's roll and pitch angles.
-void printOrientation(float x, float y, float z)
-{
-  float pitch, roll;
-  
-  pitch = atan2(x, sqrt(y * y) + (z * z));
-  roll = atan2(y, sqrt(x * x) + (z * z));
-  pitch *= 180.0 / PI;
-  roll *= 180.0 / PI;
-  
-  Serial.print("Pitch, Roll: ");
-  Serial.print(pitch, 2);
-  Serial.print(", ");
-  Serial.println(roll, 2);
-}
-
-
-
-
-void readDS3232time(byte *second, 
-byte *minute, 
-byte *hour, 
-byte *dayOfWeek, 
-byte *dayOfMonth, 
-byte *month, 
-byte *year)
-{
-  Wire.beginTransmission(DS3232_I2C_ADDRESS);
-  Wire.write(0); // set DS3232 register pointer to 00h
-  Wire.endTransmission();  
-  Wire.requestFrom(DS3232_I2C_ADDRESS, 7); // request 7 bytes of data from DS3232 starting from register 00h
-
-  // A few of these need masks because certain bits are control bits
-  *second     = bcdToDec(Wire.read() & 0x7f);
-  *minute     = bcdToDec(Wire.read());
-  *hour       = bcdToDec(Wire.read() & 0x3f);  // Need to change this if 12 hour am/pm
-  *dayOfWeek  = bcdToDec(Wire.read());
-  *dayOfMonth = bcdToDec(Wire.read());
-  *month      = bcdToDec(Wire.read());
-  *year       = bcdToDec(Wire.read());
-}
-
-
-void displayTime()
-{
-  byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
-  
-  // retrieve data from DS3232  
-  readDS3232time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
-  
-  // send it to the serial monitor
-  Serial.print(hour, DEC);// convert the byte variable to a decimal number when being displayed
-  Serial.print(":");
-  if (minute<10)
-  {
-      Serial.print("0");
-  }
-  Serial.print(minute, DEC);
-  Serial.print(":");
-  if (second<10)
-  {
-      Serial.print("0");
-  }
-  Serial.print(second, DEC);
-  Serial.print("  ");
-  Serial.print(dayOfMonth, DEC);
-  Serial.print("/");
-  Serial.print(month, DEC);
-  Serial.print("/");
-  Serial.print(year, DEC);
-  Serial.print("  Day of week:");
-  switch(dayOfWeek-1){
-  case 1:
-    Serial.println("Sunday");
-    break;
-  case 2:
-    Serial.println("Monday");
-    break;
-  case 3:
-    Serial.println("Tuesday");
-    break;
-  case 4:
-    Serial.println("Wednesday");
-    break;
-  case 5:
-    Serial.println("Thursday");
-    break;
-  case 6:
-    Serial.println("Friday");
-    break;
-  case 7:
-    Serial.println("Saturday");
-    break;
-  }
-}
-
-// Convert normal decimal numbers to binary coded decimal
-byte decToBcd(byte val)
-{
-  return ((val/10*16) + (val%10));
-}
-
-// Convert binary coded decimal to normal decimal numbers
-byte bcdToDec(byte val)
-{
-  return ( (val/16*10) + (val%16) );
-}
-
-
-void displayPressure()
-{
-  char status;
-  double T,P,p0,a;
-  
-  status = pressure.startTemperature();
-  if (status != 0)
-  {
-    // Wait for the measurement to complete:
-    delay(status);
-
-    // Retrieve the completed temperature measurement:
-    // Note that the measurement is stored in the variable T.
-    // Function returns 1 if successful, 0 if failure.
-
-    status = pressure.getTemperature(T);
-    if (status != 0)
-    {
-      // Print out the measurement:
-      Serial.print("temperature: ");
-      Serial.print(T,2);
-      Serial.print(" deg C, ");
-      Serial.print((9.0/5.0)*T+32.0,2);
-      Serial.println(" deg F");
-      
-      // Start a pressure measurement:
-      // The parameter is the oversampling setting, from 0 to 3 (highest res, longest wait).
-      // If request is successful, the number of ms to wait is returned.
-      // If request is unsuccessful, 0 is returned.
-
-      status = pressure.startPressure(3);
-      if (status != 0)
-      {
-        // Wait for the measurement to complete:
-        delay(status);
-
-        // Retrieve the completed pressure measurement:
-        // Note that the measurement is stored in the variable P.
-        // Note also that the function requires the previous temperature measurement (T).
-        // (If temperature is stable, you can do one temperature measurement for a number of pressure measurements.)
-        // Function returns 1 if successful, 0 if failure.
-
-        status = pressure.getPressure(P,T);
-        if (status != 0)
-        {
-          // Print out the measurement:
-          Serial.print("absolute pressure: ");
-          Serial.print(P,2);
-          Serial.print(" mb, ");
-          Serial.print(P*0.0295333727,2);
-          Serial.println(" inHg");
-
-          // The pressure sensor returns abolute pressure, which varies with altitude.
-          // To remove the effects of altitude, use the sealevel function and your current altitude.
-          // This number is commonly used in weather reports.
-          // Parameters: P = absolute pressure in mb, ALTITUDE = current altitude in m.
-          // Result: p0 = sea-level compensated pressure in mb
-/*
-          p0 = pressure.sealevel(P,ALTITUDE); // we're at 1655 meters (Boulder, CO)
-          Serial.print("relative (sea-level) pressure: ");
-          Serial.print(p0,2);
-          Serial.print(" mb, ");
-          Serial.print(p0*0.0295333727,2);
-          Serial.println(" inHg");
-
-          // On the other hand, if you want to determine your altitude from the pressure reading,
-          // use the altitude function along with a baseline pressure (sea-level or other).
-          // Parameters: P = absolute pressure in mb, p0 = baseline pressure in mb.
-          // Result: a = altitude in m.
-
-          a = pressure.altitude(P,p0);
-          Serial.print("computed altitude: ");
-          Serial.print(a,0);
-          Serial.print(" meters, ");
-          Serial.print(a*3.28084,0);
-          Serial.println(" feet");
-*/         
-        }
-        else Serial.println("error retrieving pressure measurement\n");
-      }
-      else Serial.println("error starting pressure measurement\n");
-    }
-    else Serial.println("error retrieving temperature measurement\n");
-  }
-  else Serial.println("error starting temperature measurement\n");
-}
