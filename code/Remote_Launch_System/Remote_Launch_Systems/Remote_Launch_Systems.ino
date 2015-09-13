@@ -38,7 +38,7 @@ long heartbeat_count;
 int  continuityState = 1;         // current state of the button
 
 // Menu
-unsigned long menutime = 250;
+unsigned long menutime = 500;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
@@ -370,13 +370,13 @@ int checkContinuity(){
   if (! isLaunchSystemPowered()) return 2;
   
   relayOn(continuityTestPin);   // turn the LED on (HIGH is the voltage level)
-  delay(200);                              // wait briefly... incase of contact bounce
+  delay(100);                              // wait briefly... incase of contact bounce
     
   continuityState = digitalRead(continuitySensePin);
 
-  delay(200);                              // wait briefly... incase of contact bounce
+  delay(100);                              // wait briefly... incase of contact bounce
   relayOff(continuityTestPin);   // turn the LED on (HIGH is the voltage level) 
-  delay(100);                              // wait briefly... incase of contact bounce  
+  delay(50);                              // wait briefly... incase of contact bounce  
   
   // A high on pin...means no continuity...
   // a low on pin means there IS continuity
