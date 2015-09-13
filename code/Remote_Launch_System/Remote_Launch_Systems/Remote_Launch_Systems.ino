@@ -165,9 +165,7 @@ void loop() {
 
  // Air Pressure, Temperature, voltages
  // Prefix: D00
-//  displayPressure();
  // Format of string is D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
- // Prefix: D04, D05
  sendPacket (String("D00:") + String("293"), false);   // DUMMY INTERNAL TEMP
  sendPacket (String(",") + String("303"), false);      // DUMMY EXTERNAL TEMP
  sendPacket (String(",") + String("100000"), false);    // DUMMY AIR PRESSURE
