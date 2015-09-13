@@ -41,7 +41,6 @@ CREATE TABLE imu_t (id integer primary key autoincrement,
                     accx      float,
                     accy      float,
                     accz      float,
-                    accz      float,
                     timer     integer,
                     creation_date datetime);
 
