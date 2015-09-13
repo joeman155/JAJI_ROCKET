@@ -28,6 +28,24 @@ CREATE TABLE gps_t (id integer primary key autoincrement,
                     gps_time  varchar2(20),
                     creation_date datetime);
 
+
+
+CREATE TABLE imu_t (id integer primary key autoincrement,
+                    instance_id varchar2(100),
+                    roll   float,
+                    pitch  float,
+                    yaw    float,
+                    gyrox     float,
+                    gyroy     float,
+                    gyroz     float,
+                    accx      float,
+                    accy      float,
+                    accz      float,
+                    accz      float,
+                    timer     integer,
+                    creation_date datetime);
+
+
 CREATE TABLE gs_psu_voltage_t (id integer primary key autoincrement,
 	                   instance_id varchar2(100),
                            psu_id integer,

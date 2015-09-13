@@ -333,15 +333,15 @@ sub decode_rx()
 			);
     insert_measurements("D00", $RLS_SOURCE, \%measurements); 
     $v_result = "Measurements: " . $p_line;
-  } elsif ($p_line =~ m/^D01:La:(.+),Lo:(.+),A:(.+),D:(.*),T:(.+),S:(.+),C:(.+),Sa:(.+)$/)
+  } elsif ($p_line =~ m/^D01:(.+),(.+),(.+),(.*),(.+),(.+),(.+),(.+)$/)
   {
-    $v_lat         = $1/100000;
-    $v_long        = $2/100000;
+    $v_lat         = $1;
+    $v_long        = $2;
     $v_alt         = $3;
     $v_gps_date    = $4;
     $v_gps_time    = $5;
-    $v_speed       = $6;
-    $v_course      = $7;
+    $v_course      = $6;
+    $v_speed       = $7;
     $v_satellites  = $8;
     $v_result = "GPS\nLatitude: " . $v_lat . "\nLongitude: " . $v_long . "\nAltitude: " . $v_alt . "\nDate: " . $v_gps_date . "\nTime: " . $v_gps_time . "\nSpeed: " . $v_speed . "\nCourse: " . $v_course . "\nSatellites: " . $v_satellites . "\n";
     $v_line = $4 . "," . $5 . "," . $v_lat . "," . $v_long . "," . $3 . "\n";
@@ -364,10 +364,24 @@ sub decode_rx()
   } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
-  } elsif ($p_line =~ /^D06:(.*$)/)
+  } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
+    $imu = array();
     
-    $v_result = "IMU: " . $1;
+    $imu['roll']  = $1;
+    $imu['pitch'] = $2;
+    $imu['yaw']   = $3;
+    $imu['gyrox'] = $4;
+    $imu['gyroy'] = $5;
+    $imu['gyroz'] = $6;
+    $imu['accx']  = $7;
+    $imu['accy']  = $8;
+    $imu['accz']  = $9;
+    $imu['timer'] = $10;
+
+    insert_imu(1, $imu);
+    
+    $v_result = "IMU: Roll " . $1 . ", Pitch " . $2 . ", Yaw " . $3 . " ....";
   } elsif ($p_line =~ /^D07:(.*$)/)
   {
     set_lc_power_status($1);
@@ -1324,4 +1338,24 @@ sub is_cutdown_request_made()
 
  return $v_result;
 
+}
+
+
+# Insert IMU figures
+sub insert_imu($$)
+{
+ local($p_instance, $imu) = @_;
+
+ # Initialise DB connection
+ my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+
+ # Put in DB
+ $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer,creation_date)
+                   values (?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
+
+ $sth = $dbh->prepare($query);
+ $sth->execute($p_instance, $imu['roll'], $imu['pitch'], $imu['yaw'], $imu['gyrox'], $imu['gyroy'], $imu['gyroz'],
+               $imu['accx'], $imu['accy'], $imu['accz'], $imu['timer']);
+
+ $dbh->disconnect();
 }
