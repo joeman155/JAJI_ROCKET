@@ -4,6 +4,9 @@
 #include <SD.h>
 #include <SoftI2C.h>
 #include <Wire.h>
+#include <TinyGPS.h>
+#include <SFE_LSM9DS0.h>
+#include <SFE_BMP180.h>
  
 
 
@@ -174,9 +177,10 @@ void loop() {
  extractPressureTemperature();
  bmp180_temperature += 273;
  sendPacket(String("D00:") + String(bmp180_pressure), false);
- sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here.
+ sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
  sendPacket(String(",")    + String(bmp180_temperature),false); 
-  
+ 
+ // also wish to package voltage readings along with other measurements immediately above.
  ardupsu.read();
  ignpsu.read();
  dtostrf(ardupsu.value(),4, 2, outstr);   
@@ -1060,3 +1064,18 @@ void extractGPSInfo()
     sendPacket(String(",") + String(sat_count));
   }  
 }  
+
+
+// Convert normal decimal numbers to binary coded decimal
+byte decToBcd(byte val)
+{
+  return ((val/10*16) + (val%10));
+}
+
+// Convert binary coded decimal to normal decimal numbers
+byte bcdToDec(byte val)
+{
+  return ( (val/16*10) + (val%16) );
+}
+
+
