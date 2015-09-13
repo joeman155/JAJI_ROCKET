@@ -24,7 +24,7 @@ const int  launchPin          = 3;  // This is the pin number...not direct acces
 const int  igniterPsuPin      = A3;
 const int  arduinoPsuPin      = A2;
 const int  igniterBurnDelay   = 2000;
-const int  launch_countdown_delay = 5000;  // The 5 second countdown.
+const int  launch_countdown_delay = 6000;  // The 5 second countdown.
 int state;
 
 // SD Card and file declarations
@@ -55,7 +55,7 @@ uint32_t ulCur;
 
 
 // Menu
-unsigned long menutime = 100;
+unsigned long menutime = 250;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
