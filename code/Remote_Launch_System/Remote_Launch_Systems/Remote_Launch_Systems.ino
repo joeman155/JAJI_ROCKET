@@ -14,13 +14,13 @@
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
-const int  powerPin = 6;            // PORTH, 6   -- Digital pin 9
-const int  armPin   = 3;            // PORTH, 3   -- Digital pin 6
-const int  continuityTestPin = 5;   // This is the pin number...not direct access
-const int  launchPin = 3;           // This is the pin number...not direct access
-const int  igniterPsuPin = A3;
-const int  arduinoPsuPin = A2;
-const int  igniterBurnDelay = 2000;
+const int  powerPin           = 6;  // PORTH, 6   -- Digital pin 9
+const int  armPin             = 3;  // PORTH, 3   -- Digital pin 6
+const int  continuityTestPin  = 5;  // This is the pin number...not direct access
+const int  launchPin          = 3;  // This is the pin number...not direct access
+const int  igniterPsuPin      = A3;
+const int  arduinoPsuPin      = A2;
+const int  igniterBurnDelay   = 2000;
 int state;
 
 // SD Card and file declarations
@@ -59,7 +59,7 @@ const boolean menu_enabled = false;
 // States
 short int cutdown = 0; // Start up disabled
 
-// Sensors
+// Voltage Sensors
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 
@@ -74,9 +74,6 @@ const byte DRDYG = 4;  // DRDYG tells us when gyro data is ready
 // parameters for this constructor are:
 // [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
-#define PRINT_CALCULATED
-//#define PRINT_RAW
-#define PRINT_SPEED 500 // 500 ms between prints
 
 // KALMAN
 uint32_t timer;
@@ -136,9 +133,11 @@ void setup() {
   // Initialisations
   heartbeat_count = 1;
 
+  // Initialise the voltage measurements
   ignpsu.setup(igniterPsuPin, 10, 4.7); 
   ardupsu.setup(arduinoPsuPin, 15, 4.7); 
  
+  // Initialise the Launch Systems
   initLaunchSystem();
   resetLaunchSystem();
 
@@ -168,7 +167,7 @@ void loop() {
  // D00:air pressure in PA from BMP180,temperature BMP180 in K
  extractPressureTemperature();
  bmp180_temperature += 273;
- sendPacket(String("D00:") + String(bmp180_pressure));
+ sendPacket(String("D00:") + String(bmp180_pressure), false);
  sendPacket(String(",")    + String(bmp180_temperature));
   
 
@@ -192,7 +191,6 @@ void loop() {
 
  // Voltages
  // Prefix: D04, D05
- // DISABLED VOLTAGES WHILE WE DEVELOP OTHER CODE
  ardupsu.read();
  dtostrf(ardupsu.value(),5, 2, outstr);   
  sendPacket (String("D04:") + String(outstr)); 
@@ -205,14 +203,13 @@ void loop() {
  // IMU Code
  // Prefix: D06
  // Format of string is:-
- // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ 
+ // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
  extractIMUInfo();
 
    
    
  // Launch System status
  // Prefix: D07, D08
- // DISABLED LAUNCH STATUS STUFF FOR NOW
  sendPacket(String("D07:") + String(isLaunchSystemPowered()));
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
   
@@ -339,6 +336,26 @@ void sendPacket(String str) {
   
 }
 
+
+void sendPacket(String str, boolean eol) {
+  if (eol) {
+    Serial2.println(str);
+    logString(str);
+  } else {
+    Serial2.print(str);
+    logString(str, eol);
+  }    
+  
+  // Debug to console, if debugging is enabled
+  if (DEBUGGING == 1) {
+    if (eol) {
+       Serial.println(str);
+    } else {
+       Serial.print(str);
+    }
+  }
+  
+}
 
 
 void pollSerial() 
@@ -610,6 +627,27 @@ void logString(String str) {
   } 
 }
 
+
+
+// Log string to log file
+void logString(String str, boolean eol) {
+  // ONLY proceed if no sdcard errors
+  if (sdCardState == 1) {
+     myFile = SD.open("log.txt", FILE_WRITE);
+
+     // if the file opened okay, write to it:
+     if (myFile) {
+       if (eol) {
+          myFile.println(str);
+       } else {
+          myFile.print(str);
+       }
+       myFile.close();
+     } else {
+      sdCardState = -1; // Error occured
+     }
+  } 
+}
 
 
 
@@ -915,7 +953,7 @@ void extractIMUInfo()
 
   
   /* Print Useful Data */
-#if  1            // Set to 1 to activate
+#if  0            // Set to 1 to activate
   Serial.print("RAW: "); 
   Serial.print(accX); Serial.print("\t");
   Serial.print(accY); Serial.print("\t");
@@ -930,15 +968,16 @@ void extractIMUInfo()
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
 #endif
 
- sendPacket(String("D06:") + String(roll));
- sendPacket(String(",") + String(pitch));  
- sendPacket(String(",") + String(yaw));  
- sendPacket(String(",") + String(gyroX));  
- sendPacket(String(",") + String(gyroY));  
- sendPacket(String(",") + String(gyroZ));  
- sendPacket(String(",") + String(accX));  
- sendPacket(String(",") + String(accY));  
- sendPacket(String(",") + String(accZ));   
+ sendPacket(String("D06:") + String(roll), false);
+ sendPacket(String(",") + String(pitch), false);  
+ sendPacket(String(",") + String(yaw), false);  
+ sendPacket(String(",") + String(gyroX), false);  
+ sendPacket(String(",") + String(gyroY), false);  
+ sendPacket(String(",") + String(gyroZ), false);  
+ sendPacket(String(",") + String(accX), false);  
+ sendPacket(String(",") + String(accY), false);  
+ sendPacket(String(",") + String(accZ), false);   
+ sendPacket(String(",") + String(timer));    
 
 }
 
@@ -1019,27 +1058,27 @@ void extractGPSInfo()
     
     // latitude
     dtostrf(flat_processed, 12, 8, outstr);
-    sendPacket(String("D01:") + String(outstr)); 
+    sendPacket(String("D01:") + String(outstr), false); 
     
     // longitude
     dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String(",") + String(outstr));;
+    sendPacket(String(",") + String(outstr), false);;
     
     // altitude
     altitude = gps.altitude()/100;
     
     // date/time
     gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
-    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year));
-    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths));
+    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year), false);
+    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths), false);
     
     // heading
     course = gps.f_course();    
-    sendPacket(String(",") + String(course));
+    sendPacket(String(",") + String(course), false);
     
     // speed
     speed = gps.f_speed_kmph();
-    sendPacket(String(",") + String(speed));
+    sendPacket(String(",") + String(speed), false);
     
     // # of Satellites
     sendPacket(String(",") + String(sat_count));
