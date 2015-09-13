@@ -51,7 +51,7 @@ long heartbeat_count;
 int  continuityState = 1;         // current state of the button
 
 // Timing
-unsigned long ulCur;
+uint32_t ulCur;
 
 
 // Menu
@@ -205,7 +205,7 @@ void loop() {
 
  // Local Time (Time since startup, or reboot)
  // Prefix: D02
- ulCur = millis();
+ ulCur = micros();
  sendPacket(String("D02:") + String(ulCur));
  
 
