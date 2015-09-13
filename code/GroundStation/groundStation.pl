@@ -317,9 +317,9 @@ sub decode_rx()
     $v_result = "RLS powered up";
   } elsif ($p_line =~ m/^D00:(.+),(.+),(.+),(.+),(.+)$/)
   {
-    $v_internal_temp = $1;
-    $v_external_temp = $2;
-    $v_air_pressure = $3;
+    $v_air_pressure = $1;
+    $v_internal_temp = $2;
+    $v_external_temp = $3;
     $v_cpu_voltage = sprintf("%.2f", $4);
     $v_ign_voltage = sprintf("%.2f", $5);
     $v_alt = get_altitude($v_air_pressure);
@@ -364,7 +364,7 @@ sub decode_rx()
   } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
-  } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
+  } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
     $imu = array();
     
