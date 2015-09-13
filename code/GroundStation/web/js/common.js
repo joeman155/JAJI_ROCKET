@@ -307,10 +307,10 @@ function startTimer() {
     var timeDec = function (){
         timeLeft--;
         document.getElementById('countdown').innerHTML = timeLeft;
-        if(timeLeft === 1){
+        if(timeLeft === 0){
             document.getElementById('countdown').innerHTML = 'Blastoff';
         }
-        if(timeLeft ===0) {
+        if(timeLeft ===-1) {
             clearInterval(cinterval);
             timeLeft = 5;
             hideCountdown();
