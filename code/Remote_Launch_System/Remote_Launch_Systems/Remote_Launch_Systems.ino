@@ -1,10 +1,14 @@
 #include <voltage.h>
+#include <Kalman.h>
 #include <SPI.h>
 #include <SD.h>
 #include <SoftI2C.h>
 #include <Wire.h>
  
 
+
+// delay between measurements
+#define LOOP_DELAY 100
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -30,12 +34,20 @@ char inChar=-1; // Where to store the character read
 char nextChar=-1; // Where we store the peeked character
 byte index = 0; // Index into array; where to store the character
 
+#define M_PI 3.14159265
+#define RADIANS_TO_DEGREES(radians) ((radians) * (180.0 / M_PI)) 
+#define DEGREES_TO_RADIANS(degrees) ((degrees) * (M_PI / 180.0)) 
+
 static char outstr[15];
 String str;
 
 // Other config
 long heartbeat_count;
 int  continuityState = 1;         // current state of the button
+
+// Timing
+unsigned long ulCur;
+
 
 // Menu
 unsigned long menutime = 5000;
@@ -46,15 +58,55 @@ const boolean menu_enabled = true;
 // States
 short int cutdown = 0; // Start up disabled
 
-// Sensors
+// Voltage Sensors
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 
+// IMU
+#define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
+#define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
+const byte INT1XM = 2; // INT1XM tells us when accel data is ready
+const byte INT2XM = 3; // INT2XM tells us when mag data is ready
+const byte DRDYG = 4;  // DRDYG tells us when gyro data is ready
+
+// Create an instance of the LSM9DS0 library called `dof` the
+// parameters for this constructor are:
+// [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
+LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
+
+// KALMAN
+uint32_t timer;
+#define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
+Kalman kalmanX; // Yaw
+Kalman kalmanY; // Pitch
+Kalman kalmanZ; // Role
+float yaw, roll, pitch;
+double accX, accY, accZ;
+double gyroX, gyroY, gyroZ;
+double gyroXangle, gyroYangle; // Angle calculate using the gyro only
+double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filter
+
+
+// GPS
+TinyGPS gps;
+bool newData;
+unsigned int read_time = 100;
+
+
+// RTC
+#define DS3232_I2C_ADDRESS 0x68
+
+// Air Pressure - BMP180
+SFE_BMP180 pressure;
+double bmp180_pressure, bmp180_temperature;
+
 // Debugging
 unsigned short int DEBUGGING = 1;
+
+
 void setup() {
   // Serial Port we program with
-  Serial.begin(57600);
+  Serial.begin(115200);
   
   // GPS
   Serial1.begin(4800);
@@ -65,13 +117,26 @@ void setup() {
   
   // i2C
   Wire.begin();
+ 
+  // Initialise IMU
+  init_imu();
+
+  // Initialise BMP180
+  if (pressure.begin())
+    Serial.println("BMP180 init success");
+  else
+  {
+    sendPacket("E06");
+  }
   
   // Initialisations
   heartbeat_count = 1;
 
+  // Initialise the voltage measurements
   ignpsu.setup(igniterPsuPin, 10, 4.7); 
   ardupsu.setup(arduinoPsuPin, 15, 4.7); 
  
+  // Initialise the Launch Systems
   initLaunchSystem();
   resetLaunchSystem();
 
@@ -82,7 +147,6 @@ void setup() {
   } else {
     sdCardState = 1;
   }
-
 }
 
 void loop() {
@@ -99,28 +163,64 @@ void loop() {
   
  // Heartbeat
  heartbeat();
-
-
+ 
 
  // Air Pressure, Temperature, voltages
  // Prefix: D00
- // Format of string is D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
- sendPacket (String("D00:") + String("1000000"), false);   // DUMMY AIR PRESSURE 
- sendPacket (String(",") + String("293"), false);      // DUMMY INTERNAL TEMP
- sendPacket (String(",") + String("303"), false);    // DUMMY EXTERNAL PRESSURE
- 
+ // Format of string is:-
+ // D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
+ //  - Temperatures are in Kelvin
+ //  - Pressures are in Pascals
+ extractPressureTemperature();
+ bmp180_temperature += 273;
+ sendPacket(String("D00:") + String(bmp180_pressure), false);
+ sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here.
+ sendPacket(String(",")    + String(bmp180_temperature),false); 
+  
  ardupsu.read();
  ignpsu.read();
  dtostrf(ardupsu.value(),4, 2, outstr);   
  sendPacket (String(",") + String(outstr), false); 
  dtostrf(ignpsu.value(),5, 2, outstr);  
  sendPacket (String(",") + String(outstr), true);   
-  
 
- // Local Time 
+
+
+ // GPS Tracking
+ // Prefix: D01
+ // Format of string is:-
+ // D01:latitude,longitude,altitude,date,time,heading,speed,#satellites
+ //
+ // date is in format dd/mm/yyyy
+ // time is in format hh.mintes.seconds.hundreths
+ extractGPSInfo();
+
+
+
+ // Local Time (Time since startup, or reboot)
  // Prefix: D02
- // DISABLE TIME FOR NOW
-//  displayTime();
+ ulCur = millis();
+ sendPacket(String("D02:") + String(ulCur));
+ 
+
+
+ // Voltages
+ // Prefix: D04, D05
+ ardupsu.read();
+ dtostrf(ardupsu.value(),5, 2, outstr);   
+ sendPacket (String("D04:") + String(outstr)); 
+
+ ignpsu.read();
+ dtostrf(ignpsu.value(),5, 2, outstr);  
+ sendPacket (String("D05:") + String(outstr));   
+  
+  
+ // IMU Code
+ // Prefix: D06
+ // Format of string is:-
+ // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
+ extractIMUInfo();
+
    
    
  // Launch System status
@@ -129,8 +229,7 @@ void loop() {
  sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
  
   
- // Really don't think this delay is doing us any good. The more data the better.
- // delay(2000);
+ delay(LOOP_DELAY);
 }
 
 
@@ -591,5 +690,373 @@ void logString(String str, boolean eol) {
 
 
 
+// Here's a fun function to calculate your heading, using Earth's
+// magnetic field.
+// It only works if the sensor is flat (z-axis normal to Earth).
+// Additionally, you may need to add or subtract a declination
+// angle to get the heading normalized to your location.
+// See: http://www.ngdc.noaa.gov/geomag/declination.shtml
+void printHeading(float hx, float hy)
+{
+  float heading;
+  
+  if (hy > 0)
+  {
+    heading = 90 - (atan(hx / hy) * (180 / PI));
+  }
+  else if (hy < 0)
+  {
+    heading = - (atan(hx / hy) * (180 / PI));
+  }
+  else // hy = 0
+  {
+    if (hx < 0) heading = 180;
+    else heading = 0;
+  }
+  
+  Serial.print("Heading: ");
+  Serial.println(heading, 2);
+}
+
+void getHeading(float hx, float hy, double *heading)
+{
+  
+  if (hy > 0)
+  {
+    *heading = 90 - (atan(hx / hy) * (180 / PI));
+  }
+  else if (hy < 0)
+  {
+    *heading = - (atan(hx / hy) * (180 / PI));
+  }
+  else // hy = 0
+  {
+    if (hx < 0) *heading = 180;
+    else *heading = 0;
+  }  
+  
+}
 
 
+
+
+
+
+void readDS3232time(byte *second, 
+byte *minute, 
+byte *hour, 
+byte *dayOfWeek, 
+byte *dayOfMonth, 
+byte *month, 
+byte *year)
+{
+  Wire.beginTransmission(DS3232_I2C_ADDRESS);
+  Wire.write(0); // set DS3232 register pointer to 00h
+  Wire.endTransmission();  
+  Wire.requestFrom(DS3232_I2C_ADDRESS, 7); // request 7 bytes of data from DS3232 starting from register 00h
+
+  // A few of these need masks because certain bits are control bits
+  *second     = bcdToDec(Wire.read() & 0x7f);
+  *minute     = bcdToDec(Wire.read());
+  *hour       = bcdToDec(Wire.read() & 0x3f);  // Need to change this if 12 hour am/pm
+  *dayOfWeek  = bcdToDec(Wire.read());
+  *dayOfMonth = bcdToDec(Wire.read());
+  *month      = bcdToDec(Wire.read());
+  *year       = bcdToDec(Wire.read());
+}
+
+
+
+
+
+void extractPressureTemperature()
+{
+  char status;
+  double p0,a;
+  
+  status = pressure.startTemperature();
+  if (status != 0)
+  {
+    // Wait for the measurement to complete:
+    delay(status);
+
+    status = pressure.getTemperature(bmp180_temperature);
+    if (status != 0)
+    {
+      status = pressure.startPressure(3);
+      if (status != 0)
+      {
+        // Wait for the measurement to complete:
+        delay(status);
+
+        status = pressure.getPressure(bmp180_pressure,bmp180_temperature);
+        if (status != 0)
+        {
+          // Print out the measurement:
+          // SUCCESS
+        }
+        else Serial.println("error retrieving pressure measurement\n");
+      }
+      else Serial.println("error starting pressure measurement\n");
+    }
+    else Serial.println("error retrieving temperature measurement\n");
+  }
+  else Serial.println("error starting temperature measurement\n");
+}
+
+
+
+// Convert vector xb,yb,zb back to Global Reference Frame
+// a,b,c are the angles (yaw, pitch and roll) - all in degrees.
+// The results are put into the xg, yg and zg
+void rotateMatrix(double xb, double yb, double zb, double a, double b, double c,
+                  double *xg, double *yg, double *zg)
+{
+  float M[3][3];     // Rotation Matrix
+  // float xg, yg, zg;  // Vector in the global reference frame
+  
+  // Convert to Radians as cosine/sine expect angles in Radians
+  a = DEGREES_TO_RADIANS(a);
+  b = DEGREES_TO_RADIANS(b);
+  c = DEGREES_TO_RADIANS(c);
+  
+  // Initialise the Matrix based on the angle of the Body co-ordinate system.
+  M[0][0] = cos(a) * cos(b);
+  M[0][1] = cos(c) * sin(a) + cos(a) * sin(c) * sin(b);
+  M[0][2] = sin(c) * sin(a) - cos(c) * cos(a) * sin(b);
+  
+  M[1][0] = -cos(b) * sin(a);
+  M[1][1] = cos(c) * cos(a) - sin(c) * sin(b) * sin(a);
+  M[1][2] = cos(a) * sin(c) + cos(c) * sin(b) * sin(a);
+  
+  M[2][0] = sin(b);
+  M[2][1] = -cos(b) * sin(c);
+  M[2][2] = cos(b) * cos(c);
+  
+  
+  // Compute the vector x,y,z in the Global Reference system
+  *xg = M[0][0] * xb + M[0][1] * yb + M[0][2] * zb;
+  *yg = M[1][0] * xb + M[1][1] * yb + M[1][2] * zb;
+  *zg = M[2][0] * xb + M[2][1] * yb + M[2][2] * zb;
+  
+  
+}
+
+
+// Extract and calculate information for IMU.
+void extractIMUInfo()
+{
+    // Read Accelerometer
+  dof.readAccel();
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
+
+
+  // Heading from Magnetometer.
+  double heading;  
+  dof.readMag();  
+  getHeading((float) dof.mx, (float) dof.my, &heading);  
+
+
+  // Read Gyro 
+  dof.readGyro();
+  gyroX = dof.calcGyro(dof.gx);
+  gyroY = dof.calcGyro(dof.gy);
+  gyroZ = dof.calcGyro(dof.gz);  
+
+
+  // Time Steps
+  double dt = (double)(micros() - timer) / 1000000; // Calculate delta time
+  timer = micros();  
+  
+   
+  // Derive Roll and Pitch
+  double roll, pitch;
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  roll  = atan2(accY, accX) * RAD_TO_DEG;
+  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
+  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
+#endif
+
+  
+  double gyroXrate = gyroX; 
+  double gyroYrate = gyroY; 
+  double gyroZrate = gyroZ; 
+  yaw = heading;
+  
+  // Use Kalman filter to get new Pitch and Role
+#ifdef RESTRICT_PITCH
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((roll < -90 && kalAngleZ > 90) || (roll > 90 && kalAngleZ < -90)) {
+    kalmanZ.setAngle(roll);
+    kalAngleZ = roll;
+  } else
+    kalAngleZ = kalmanZ.getAngle(roll, gyroZrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleX) > 90)
+    gyroYrate = -gyroYrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt);
+#else
+  // This fixes the transition problem when the accelerometer angle jumps between -180 and 180 degrees
+  if ((pitch < -90 && kalAngleY > 90) || (pitch > 90 && kalAngleY < -90)) {
+    kalmanY.setAngle(pitch);
+    kalAngleY = pitch;
+  } else
+    kalAngleY = kalmanY.getAngle(pitch, gyroYrate, dt); // Calculate the angle using a Kalman filter
+
+  if (abs(kalAngleY) > 90)
+    gyroZrate = -gyroZrate; // Invert rate, so it fits the restriced accelerometer reading
+  kalAngleZ = kalmanZ.getAngle(roll, gyroZrate, dt); // Calculate the angle using a Kalman filter
+#endif
+
+
+  // Use Kalman to derive Yaw
+  kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
+  yaw = kalAngleX;
+ 
+  // Reverse Angle of Pitch
+  pitch = -kalAngleY;
+
+  // Roll == kalAngleZ
+  roll = kalAngleZ;
+
+ // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
+ // with components down. Acceration should be positive. (Though it reads negative)
+ accZ = accZ * -1;
+
+  
+  /* Print Useful Data */
+#if  0            // Set to 1 to activate
+  Serial.print("RAW: "); 
+  Serial.print(accX); Serial.print("\t");
+  Serial.print(accY); Serial.print("\t");
+  Serial.print(accZ); Serial.print("\t");
+  Serial.print(gyroX); Serial.print("\t");
+  Serial.print(gyroY); Serial.print("\t");
+  Serial.print(gyroZ); Serial.print("\t");
+  Serial.print("\t");
+
+  Serial.print(String("Roll: ") + roll); Serial.print("\t");
+  Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
+  Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
+#endif
+
+ sendPacket(String("D06:") + String(roll), false);
+ sendPacket(String(",") + String(pitch), false);  
+ sendPacket(String(",") + String(yaw), false);  
+ sendPacket(String(",") + String(gyroX), false);  
+ sendPacket(String(",") + String(gyroY), false);  
+ sendPacket(String(",") + String(gyroZ), false);  
+ sendPacket(String(",") + String(accX), false);  
+ sendPacket(String(",") + String(accY), false);  
+ sendPacket(String(",") + String(accZ), false);   
+ sendPacket(String(",") + String(timer));    
+
+}
+
+
+// Initialise the IMU
+void init_imu()
+{
+  uint16_t status = dof.begin();
+
+  delay(100); // Wait for sensor to stabilize
+  dof.readAccel();
+  accX = dof.calcAccel(dof.ax);
+  accY = dof.calcAccel(dof.ay);
+  accZ = dof.calcAccel(dof.az);  
+  
+#ifdef RESTRICT_PITCH // Eq. 25 and 26
+  roll  = atan2(accY, accX) * RAD_TO_DEG;
+  pitch = atan(-accZ / sqrt(accY * accY + accX * accX)) * RAD_TO_DEG;
+#else // Eq. 28 and 29
+  roll  = atan(accY / sqrt(accZ * accZ + accX * accX)) * RAD_TO_DEG;
+  pitch = atan2(-accZ, accX) * RAD_TO_DEG;
+#endif
+
+  // Assuming the system is level, we use Magnetometer to get initial bearing.
+  dof.readMag();
+  double heading;
+  getHeading(dof.mx, dof.my, &heading);
+
+  // Get initial angels
+  kalmanX.setAngle(heading); // Set starting angle
+  kalmanY.setAngle(pitch);
+  kalmanZ.setAngle(roll);
+  yaw = heading;
+  /*
+  Serial.println(String("yaw: ") + yaw);    
+  Serial.println(String("roll: ") + roll);
+  Serial.println(String("pitch: ") + pitch);
+  */
+  
+  timer = micros();
+  delay(3000);
+}  
+
+
+
+// Extract and print GPS Info
+void extractGPSInfo()
+{
+  
+ newData = false;
+  // For one second we parse GPS data and report some key values
+  for (unsigned long start = millis(); millis() - start < read_time;)
+  {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
+      if (gps.encode(c)) // Did a new valid sentence come in?
+         newData = true;
+    }
+  }  
+  
+  // If we have new data, we send it.
+  if (newData)
+  {
+    float flat, flon;
+    float flat_processed, flon_processed;
+    short int sat_count;
+    unsigned long age;
+    unsigned long speed, course, altitude;
+    int year;
+    byte month, day, hour, minute, second, hundredths;    
+    
+    gps.f_get_position(&flat, &flon, &age);
+    flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
+    flon_processed = flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6;
+    sat_count      = gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites();
+    
+    // latitude
+    dtostrf(flat_processed, 12, 8, outstr);
+    sendPacket(String("D01:") + String(outstr), false); 
+    
+    // longitude
+    dtostrf(flon_processed, 12, 8, outstr);
+    sendPacket(String(",") + String(outstr), false);;
+    
+    // altitude
+    altitude = gps.altitude()/100;
+    
+    // date/time
+    gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
+    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year), false);
+    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths), false);
+    
+    // heading
+    course = gps.f_course();    
+    sendPacket(String(",") + String(course), false);
+    
+    // speed
+    speed = gps.f_speed_kmph();
+    sendPacket(String(",") + String(speed), false);
+    
+    // # of Satellites
+    sendPacket(String(",") + String(sat_count));
+  }  
+}  
