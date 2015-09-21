@@ -96,6 +96,33 @@
 			});
 		}
 
+
+                function igetOrientation()
+                {
+                // Poll Server
+                $.ajax({
+                        url: 'getOrientation.php',
+                        type: "GET",
+                        dataType: "json",
+                        async: false,
+                        cache: false,
+                        success: function(data) {
+                                $.each(data, function(index,element) {
+                                   // Foreach message...add it to the browser page.
+                                   // last_id = element.id;
+                                   // addMessage("<li>" + element.id + " (" + element.creation_date + ") - " + element.message + "</li>");
+                                   alert('id: ' + element.id);
+                                });
+                                },
+                        failure: function() {
+                                alert('failure occured');
+                                }
+
+                        });
+                }
+
+
+
 	function addMessage(message)
 	{
 		$("#logs").prepend(message);

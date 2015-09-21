@@ -17,7 +17,36 @@ catch (PDOException $e)
 # Orientation queries....
 ?>
 <script>
-	// 3d Drawing
+
+    // Function to get Orientation
+    function getOrientation()
+    {
+    // Poll Server
+    $.ajax({
+            url: 'getOrientation.php',
+            type: "GET",
+            dataType: "json",
+            async: false,
+            cache: false,
+            success: function(data) {
+                       if (data.id !== undefined) {
+                          // alert('id: ' + data.id);
+                       }
+                    },
+            failure: function() {
+                    alert('failure occured');
+                    }
+
+            });
+    }
+
+    // Schedule routine to get orientation regularly
+    setInterval(function(){
+          getOrientation();
+          }, 5000);
+
+
+    // 3d Drawing
     var ch = 0.01;
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
