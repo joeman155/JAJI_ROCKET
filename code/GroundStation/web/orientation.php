@@ -41,9 +41,9 @@ catch (PDOException $e)
     }
 
     // Schedule routine to get orientation regularly
-    setInterval(function(){
-          getOrientation();
-          }, 5000);
+    // setInterval(function(){
+    //       getOrientation();
+    //       }, 1000);
 
 
     // 3d Drawing
@@ -99,6 +99,7 @@ catch (PDOException $e)
             line.rotation.x += ch;
             cube.rotation.z += ch;
             line.rotation.z += ch;
+            getOrientation();
 
 
             renderer.render(scene, camera);
