@@ -93,6 +93,9 @@ catch (PDOException $e)
 
     var render = function () {
             requestAnimationFrame( render );
+        var current_index = $("#tabs").tabs("option","active");
+        if (current_index != 5) return;
+
 
 /*
             cube.rotation.y += 0.02;
