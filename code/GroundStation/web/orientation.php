@@ -17,6 +17,10 @@ catch (PDOException $e)
 # Orientation queries....
 ?>
 <script>
+    var roll;
+    var pitch;
+    var yaw;
+    yaw = roll = pitch = 0;
 
     // Function to get Orientation
     function getOrientation()
@@ -31,6 +35,9 @@ catch (PDOException $e)
             success: function(data) {
                        if (data.id !== undefined) {
                           // alert('id: ' + data.id);
+                          pitch = data.pitch;
+                          roll  = data.roll;
+                          yaw   = data.yaw;
                        }
                     },
             failure: function() {
@@ -87,6 +94,7 @@ catch (PDOException $e)
     var render = function () {
             requestAnimationFrame( render );
 
+/*
             cube.rotation.y += 0.02;
             line.rotation.y += 0.02;
             if (cube.rotation.x > .8) {
@@ -99,7 +107,17 @@ catch (PDOException $e)
             line.rotation.x += ch;
             cube.rotation.z += ch;
             line.rotation.z += ch;
+*/
+            // Get Latest rotation angles
             getOrientation();
+
+            // var m = new THREE.Matrix4();
+            // m.makeRotationX(pitch * 3.1415/180);
+            cube.rotation.x = 3.141592 * pitch / 180;
+            line.rotation.x = 3.141592 * pitch / 180;
+            cube.rotation.z = 3.141592 * roll / 180;
+            line.rotation.z = 3.141592 * roll / 180;
+            
 
 
             renderer.render(scene, camera);
