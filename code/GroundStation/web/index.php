@@ -22,6 +22,7 @@
   <script src="jq/ui/jquery.ui.dialog.js"></script>
   <script src="js/jquery.cookie.js"></script>
   <script src="js/jquery.timeago.js"></script>
+  <script src="js/three.min.js"></script>
   <script src="js/common.js" type="text/javascript" charset="utf-8"></script>
 
   <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
@@ -203,6 +204,7 @@
 		<li><a href="images.php">Images</a></li>
 		<li><a href="#map-canvas">Map</a></li>
 		<li><a href="hab_control.html">Hab Control</a></li>
+		<li><a href="orientation.php">Orientation</a></li>
 		<li><a href="gs_control.php">GS Control</a></li>
 		<li><a href="launch_console.html">Launch console</a></li>
 		<li><a href="upload_prediction.php">Upload Prediction</a></li>
@@ -225,6 +227,9 @@
 	</div>
 
 	<div id="gscontrol">
+	</div>
+
+	<div id="orientation">
 	</div>
 
 	<div id="launchconsole">
