@@ -1037,10 +1037,11 @@ void extractGPSInfo()
     
     // longitude
     dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String(",") + String(outstr), false);;
+    sendPacket(String(",") + String(outstr), false);
     
     // altitude
     altitude = gps.altitude()/100;
+    sendPacket(String(",") + String(altitude), false);    
     
     // date/time
     gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
