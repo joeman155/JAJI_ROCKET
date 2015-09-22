@@ -17,6 +17,7 @@ catch (PDOException $e)
 # Orientation queries....
 ?>
 <script>
+    var y = 0;
     var roll;
     var pitch;
     var yaw;
@@ -69,18 +70,24 @@ catch (PDOException $e)
     // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00} );
     var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors} );
     var material2 = new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 1 } );
-    var a = new THREE.Vector3(0,1,0);
-    var c = new THREE.Vector3();
+    var xn = new THREE.Vector3(1,0,0);
+    var yn = new THREE.Vector3(0,1,0);
+    var zn = new THREE.Vector3(0,0,1);
+    var tx = new THREE.Vector3();
+    var ty = new THREE.Vector3();
+    var tz = new THREE.Vector3();
     for (var i = 0; i < geometry.faces.length; i++) {
-      c.crossVectors(a, geometry.faces[i].normal);
-      if (c.x == 0 && c.y == 0 && c.z == 0) {
+      tx.crossVectors(xn, geometry.faces[i].normal);
+      ty.crossVectors(yn, geometry.faces[i].normal);
+      tz.crossVectors(zn, geometry.faces[i].normal);
+      if (ty.x == 0 && ty.y == 0 && ty.z == 0) {
          geometry.faces[i].color.set( 0xaaaa00 );
+      } else if (i ==0 || i == 1 || i == 16 || i == 17) {
+        geometry.faces[i].color.set( 0xff0000 );
+      } else if (i == 8 || i == 9 || i == 24 || i == 25) {
+        geometry.faces[i].color.set( 0x00ff00 );
       } else {
-        if (i == 20 || i == 21) {
-          geometry.faces[i].color.set( 0x0000aa );
-        } else {
-          geometry.faces[i].color.set( 0x00aa00 );
-        }
+        geometry.faces[i].color.set( 0x0000aa );
       }
     }
     var cube = new THREE.Mesh( geometry, material );
@@ -89,7 +96,10 @@ catch (PDOException $e)
     scene.add( cube );
     // scene.add( line );
 
-    camera.position.z = 15;
+    camera.position.x = 0;
+    camera.position.y = 10;
+    camera.position.z = 12;
+    camera.lookAt( new THREE.Vector3(0, -10, -12));
 
     var render = function () {
             requestAnimationFrame( render );
@@ -111,15 +121,38 @@ catch (PDOException $e)
             cube.rotation.z += ch;
             line.rotation.z += ch;
 */
+            // We update Quaternion ourselves
+            cube.matrixAutoUpdate = false;
+            line.matrixAutoUpdate = false;
+
             // Get Latest rotation angles
             getOrientation();
 
-            // var m = new THREE.Matrix4();
-            // m.makeRotationX(pitch * 3.1415/180);
-            cube.rotation.x = 3.141592 * pitch / 180;
-            line.rotation.x = 3.141592 * pitch / 180;
-            cube.rotation.z = 3.141592 * roll / 180;
-            line.rotation.z = 3.141592 * roll / 180;
+            var q = new THREE.Quaternion(); // For Yaw
+            var r = new THREE.Quaternion(); // For Pitch
+            var s = new THREE.Quaternion(); // For Roll
+            var zi = new THREE.Quaternion(); // For Intermediate Quaternion
+            var z = new THREE.Quaternion(); // For Resultant Quaternion
+
+// joe
+// y = y + 5;
+            q.setFromAxisAngle(new THREE.Vector3(0,1,0), y * Math.PI/180);
+            r.setFromAxisAngle(new THREE.Vector3(0,0,1), pitch * Math.PI/180);
+            s.setFromAxisAngle(new THREE.Vector3(1,0,0), roll * Math.PI/180);
+            zi.multiplyQuaternions(q,r)
+            z.multiplyQuaternions(zi,s)
+            cube.matrix.makeRotationFromQuaternion(z);
+            line.matrix.makeRotationFromQuaternion(z);
+//            cube.matrix.makeRotationFromQuaternion(r);
+//            line.matrix.makeRotationFromQuaternion(r);
+
+
+            // cube.rotation.y = 3.141592 * yaw / 180;
+            // line.rotation.y = 3.141592 * yaw / 180;
+            // cube.rotation.z = 3.141592 * pitch / 180;
+            // line.rotation.z = 3.141592 * pitch / 180;
+            // cube.rotation.x = 3.141592 * roll / 180;
+            // line.rotation.x = 3.141592 * roll / 180;
             
 
 
