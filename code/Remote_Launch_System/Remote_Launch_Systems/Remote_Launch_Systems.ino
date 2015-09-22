@@ -957,7 +957,11 @@ void extractIMUInfo()
 void init_imu()
 {
   uint16_t status = dof.begin();
-
+  Serial.print("LSM9DS0 WHO_AM_I's returned: 0x");
+  Serial.println(status, HEX);
+  Serial.println("Should be 0x49D4");
+  Serial.println();
+  
   delay(100); // Wait for sensor to stabilize
   dof.readAccel();
   accX = dof.calcAccel(dof.ax);
