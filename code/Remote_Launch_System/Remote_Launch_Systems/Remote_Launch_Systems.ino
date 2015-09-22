@@ -13,7 +13,7 @@
 
 
 // delay between measurements
-#define LOOP_DELAY 100
+#define LOOP_DELAY 50
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -55,7 +55,7 @@ uint32_t ulCur;
 
 
 // Menu
-unsigned long menutime = 500;
+unsigned long menutime = 200;
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
@@ -161,7 +161,7 @@ void loop() {
     pollSerial();
     
     // Just allow enough time for responses, etc to make their way through.
-    delay(200);    
+    delay(50);    
  }
  
 
@@ -724,20 +724,20 @@ void printHeading(float hx, float hy)
   Serial.println(heading, 2);
 }
 
-void getHeading(float hx, float hy, double *heading)
+void getHeading(float hz, float hy, double *heading)
 {
   
   if (hy > 0)
   {
-    *heading = 90 - (atan(hx / hy) * (180 / PI));
+    *heading = 90 - (atan(hz / hy) * (180 / PI));
   }
   else if (hy < 0)
   {
-    *heading = - (atan(hx / hy) * (180 / PI));
+    *heading = - (atan(hz / hy) * (180 / PI));
   }
   else // hy = 0
   {
-    if (hx < 0) *heading = 180;
+    if (hz < 0) *heading = 180;
     else *heading = 0;
   }  
   
@@ -862,7 +862,7 @@ void extractIMUInfo()
   // Heading from Magnetometer.
   double heading;  
   dof.readMag();  
-  getHeading((float) dof.mx, (float) dof.my, &heading);  
+  getHeading((float) dof.mz, (float) dof.my, &heading);  
 
 
   // Read Gyro 
@@ -986,7 +986,7 @@ void init_imu()
   // Assuming the system is level, we use Magnetometer to get initial bearing.
   dof.readMag();
   double heading;
-  getHeading(dof.mx, dof.my, &heading);
+  getHeading(dof.mz, dof.my, &heading);
 
   // Get initial angels
   kalmanX.setAngle(heading); // Set starting angle
