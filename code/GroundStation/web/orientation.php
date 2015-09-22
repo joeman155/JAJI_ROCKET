@@ -136,7 +136,7 @@ catch (PDOException $e)
 
 // joe
 // y = y + 5;
-            q.setFromAxisAngle(new THREE.Vector3(0,1,0), y * Math.PI/180);
+            q.setFromAxisAngle(new THREE.Vector3(0,1,0), yaw * Math.PI/180);
             r.setFromAxisAngle(new THREE.Vector3(0,0,1), pitch * Math.PI/180);
             s.setFromAxisAngle(new THREE.Vector3(1,0,0), roll * Math.PI/180);
             zi.multiplyQuaternions(q,r)
