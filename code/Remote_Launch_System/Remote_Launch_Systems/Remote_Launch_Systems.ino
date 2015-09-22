@@ -208,17 +208,6 @@ void loop() {
  ulCur = micros();
  sendPacket(String("D02:") + String(ulCur));
  
-
-
- // Voltages
- // Prefix: D04, D05
- ardupsu.read();
- dtostrf(ardupsu.value(),5, 2, outstr);   
- sendPacket (String("D04:") + String(outstr)); 
-
- ignpsu.read();
- dtostrf(ignpsu.value(),5, 2, outstr);  
- sendPacket (String("D05:") + String(outstr));   
   
   
  // IMU Code
