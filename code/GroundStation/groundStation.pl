@@ -31,7 +31,8 @@ use Switch;
 $home_dir = "/data/gs/";
 
 # DATABASE CONFIG
-my $db_string = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB file
+my $db_string    = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB file
+my $pg_db_string = "dbi:Pg:dbname=rls";
 
 # SERIAL CONFIG
 my $serial_port = "/dev/ttyAMA0";
@@ -97,7 +98,7 @@ print "GroundStation started....beginning Serial Port initialisation...\n";
 
 # INITIALISE THE SERIAL PORT
 my $port=Device::SerialPort->new($serial_port) || die "Can't open $serial_port: $!\n";;
-$port->read_const_time(2000);       # const time for read (milliseconds)
+$port->read_const_time(200);        # const time for read (milliseconds)
 $port->read_char_time(5);           # avg time between read char
 my $STALL_DEFAULT=10;               # how many seconds to wait for new input
 my $timeout=$STALL_DEFAULT;
@@ -366,20 +367,21 @@ sub decode_rx()
     $v_result = "Taking picture";
   } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
-    $imu = array();
+    my %imu;
     
-    $imu['roll']  = $1;
-    $imu['pitch'] = $2;
-    $imu['yaw']   = $3;
-    $imu['gyrox'] = $4;
-    $imu['gyroy'] = $5;
-    $imu['gyroz'] = $6;
-    $imu['accx']  = $7;
-    $imu['accy']  = $8;
-    $imu['accz']  = $9;
-    $imu['timer'] = $10;
+    $imu{'roll'}  = $1;
+    $imu{'pitch'} = $2;
+    $imu{'yaw'}   = $3;
+    $imu{'gyrox'} = $4;
+    $imu{'gyroy'} = $5;
+    $imu{'gyroz'} = $6;
+    $imu{'accx'}  = $7;
+    $imu{'accy'}  = $8;
+    $imu{'accz'}  = $9;
+    $imu{'timer'} = $10;
 
-    insert_imu(1, $imu);
+    print "Got IMU\n";
+    insert_imu(1, \%imu);
     
     $v_result = "IMU: Roll " . $1 . ", Pitch " . $2 . ", Yaw " . $3 . " ....";
   } elsif ($p_line =~ /^D07:(.*$)/)
@@ -1344,18 +1346,24 @@ sub is_cutdown_request_made()
 # Insert IMU figures
 sub insert_imu($$)
 {
- local($p_instance, $imu) = @_;
+ local($p_instance, $imu_hash) = @_;
+
+ %imu = %$imu_hash;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ # my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer,creation_date)
-                   values (?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
+ # $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer,creation_date)
+ #                   values (?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
+
+ $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer)
+                   values (?,?,?,?,?,?,?,?,?,?,?)";
 
  $sth = $dbh->prepare($query);
- $sth->execute($p_instance, $imu['roll'], $imu['pitch'], $imu['yaw'], $imu['gyrox'], $imu['gyroy'], $imu['gyroz'],
-               $imu['accx'], $imu['accy'], $imu['accz'], $imu['timer']);
+ $sth->execute($p_instance, $imu{'roll'}, $imu{'pitch'}, $imu{'yaw'}, $imu{'gyrox'}, $imu{'gyroy'}, $imu{'gyroz'},
+               $imu{'accx'}, $imu{'accy'}, $imu{'accz'}, $imu{'timer'});
 
  $dbh->disconnect();
 }

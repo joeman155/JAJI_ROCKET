@@ -6,7 +6,7 @@ include "functions.php";
 
 # Get all the latest measurements
 try {
-     $dbh = new PDO("sqlite:" . $db_file);
+     $dbh = new PDO("pgsql:user=www-data dbname=rls password=joeman");
     }
 catch (PDOException $e)
     {
@@ -18,6 +18,7 @@ catch (PDOException $e)
 ?>
 <script>
     var y = 0;
+    var rcc = 0;
     var roll;
     var pitch;
     var yaw;
@@ -65,46 +66,60 @@ catch (PDOException $e)
     container = document.getElementById( 'canvas' );
     container.appendChild(renderer.domElement);
 
-    // var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-    var geometry = new THREE.CylinderGeometry(1,1,10,16);
-    // var material = new THREE.MeshBasicMaterial( { color: 0x00ff00} );
+    var geometry_cube = new THREE.BoxGeometry( 10, 10, 10 );
+    var geometry_rls = new THREE.CylinderGeometry(1,1,10,16);
     var material = new THREE.MeshBasicMaterial( { vertexColors: THREE.FaceColors} );
     var material2 = new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 1 } );
+    var material3 = new THREE.MeshBasicMaterial( { color: 0xff0000, linewidth: 2, wireframe: true } );
     var xn = new THREE.Vector3(1,0,0);
     var yn = new THREE.Vector3(0,1,0);
     var zn = new THREE.Vector3(0,0,1);
     var tx = new THREE.Vector3();
     var ty = new THREE.Vector3();
     var tz = new THREE.Vector3();
-    for (var i = 0; i < geometry.faces.length; i++) {
-      tx.crossVectors(xn, geometry.faces[i].normal);
-      ty.crossVectors(yn, geometry.faces[i].normal);
-      tz.crossVectors(zn, geometry.faces[i].normal);
+    for (var i = 0; i < geometry_rls.faces.length; i++) {
+      tx.crossVectors(xn, geometry_rls.faces[i].normal);
+      ty.crossVectors(yn, geometry_rls.faces[i].normal);
+      tz.crossVectors(zn, geometry_rls.faces[i].normal);
       if (ty.x == 0 && ty.y == 0 && ty.z == 0) {
-         geometry.faces[i].color.set( 0xaaaa00 );
-      } else if (i ==0 || i == 1 || i == 16 || i == 17) {
-        geometry.faces[i].color.set( 0xff0000 );
+         geometry_rls.faces[i].color.set( 0xaaaa00 );
+      } else if (i ==0 || i == 1 ) {
+        geometry_rls.faces[i].color.set( 0xff0000 );
+      } else if (i == 16 || i == 17) {
+        geometry_rls.faces[i].color.set( 0x999999 );
       } else if (i == 8 || i == 9 || i == 24 || i == 25) {
-        geometry.faces[i].color.set( 0x00ff00 );
+        geometry_rls.faces[i].color.set( 0x00ff00 );
       } else {
-        geometry.faces[i].color.set( 0x0000aa );
+        geometry_rls.faces[i].color.set( 0x0000aa );
       }
     }
-    var cube = new THREE.Mesh( geometry, material );
-    var line = new THREE.Line( geometry, material2 );
+    var static_cube = new THREE.Mesh( geometry_cube, material3 );
+    var rls = new THREE.Mesh( geometry_rls, material );
+    var line = new THREE.Line( geometry_rls, material2 );
 
-    scene.add( cube );
-    // scene.add( line );
+    scene.add( rls );
+    scene.add( static_cube );
 
-    camera.position.x = 0;
-    camera.position.y = 10;
-    camera.position.z = 12;
-    camera.lookAt( new THREE.Vector3(0, -10, -12));
+    camera.position.x = 8;
+    camera.position.y = 8;
+    camera.position.z = 15;
+    camera.lookAt( new THREE.Vector3(-8, -8, -15));
+
+    // geometry_rls.rotateZ(Math.PI/2);
 
     var render = function () {
             requestAnimationFrame( render );
         var current_index = $("#tabs").tabs("option","active");
         if (current_index != 5) return;
+
+    // Don't want a refresh ALL the time....there aren't enough updates
+    // to warrant this.
+    if (rcc < 2) {
+       rcc++;
+       return;
+    } else  {
+      rcc = 0;
+    }
 
 
 /*
@@ -121,12 +136,19 @@ catch (PDOException $e)
             cube.rotation.z += ch;
             line.rotation.z += ch;
 */
+//	    cube.rotation.z = Math.PI/2;
+//	    line.rotation.z = Math.PI/2;
+
             // We update Quaternion ourselves
-            cube.matrixAutoUpdate = false;
+            rls.matrixAutoUpdate = false;
             line.matrixAutoUpdate = false;
 
             // Get Latest rotation angles
             getOrientation();
+
+// ADJUSTMENTS THAT NEED TO ULTIMATELY FIND THEIR WAY BACK IN ARDUINO
+yaw = - yaw;
+pitch = - pitch;
 
             var q = new THREE.Quaternion(); // For Yaw
             var r = new THREE.Quaternion(); // For Pitch
@@ -141,17 +163,18 @@ catch (PDOException $e)
             s.setFromAxisAngle(new THREE.Vector3(1,0,0), roll * Math.PI/180);
             zi.multiplyQuaternions(q,r)
             z.multiplyQuaternions(zi,s)
-            cube.matrix.makeRotationFromQuaternion(z);
+            rls.matrix.makeRotationFromQuaternion(z);
             line.matrix.makeRotationFromQuaternion(z);
-//            cube.matrix.makeRotationFromQuaternion(r);
+//            rls.matrix.makeRotationFromQuaternion(r);
 //            line.matrix.makeRotationFromQuaternion(r);
 
 
-            // cube.rotation.y = 3.141592 * yaw / 180;
+
+            // rls.rotation.y = 3.141592 * yaw / 180;
             // line.rotation.y = 3.141592 * yaw / 180;
-            // cube.rotation.z = 3.141592 * pitch / 180;
+            // rls.rotation.z = 3.141592 * pitch / 180;
             // line.rotation.z = 3.141592 * pitch / 180;
-            // cube.rotation.x = 3.141592 * roll / 180;
+            // rls.rotation.x = 3.141592 * roll / 180;
             // line.rotation.x = 3.141592 * roll / 180;
             
 
