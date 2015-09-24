@@ -89,5 +89,146 @@ CREATE TABLE messages_t (id integer primary key default nextval('message_id_seq'
 
 ALTER TABLE messages_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
 
-grant select on measurement_t to "www-data";
+grant select on messages_t to "www-data";
 
+
+CREATE sequence gps_id_seq;
+
+
+CREATE TABLE gps_t (id integer primary key default nextval('gps_id_seq'),
+                    instance_id varchar(100),
+                    latitude float,
+                    longitude float,
+                    height    integer,
+		    speed     float,
+		    course    float,
+                    satellites integer,
+                    gps_date  varchar(20),
+                    gps_time  varchar(20),
+                    creation_date date);
+
+ALTER TABLE gps_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on gps_t to "www-data";
+
+CREATE sequence gs_psu_voltage_id_seq;
+
+CREATE TABLE gs_psu_voltage_t (id integer primary key default nextval('gs_psu_voltage_id_seq'),
+                           instance_id varchar(100),
+                           psu_id integer,
+                           voltage float,
+                           creation_date date);
+
+ALTER TABLE gs_psu_voltage_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on gs_psu_voltage_t to "www-data";
+
+CREATE sequence radio_stats_id_seq;
+
+CREATE TABLE radio_stats_t (id integer primary key default nextval('radio_stats_id_seq'),
+                             instance_id varchar(100),
+                             place integer,
+                             stats text,
+                             creation_date date);
+
+ALTER TABLE radio_stats_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on radio_stats_t to "www-data";
+
+CREATE sequence heartbeat_id_seq;
+
+
+CREATE TABLE heartbeat_t (id integer primary key default nextval('heartbeat_id_seq'),
+                          instance_id varchar(100),
+                          heartbeat integer,
+                          creation_date date);
+
+ALTER TABLE heartbeat_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on heartbeat_t to "www-data";
+
+CREATE sequence gps_prediction_id_seq;
+
+
+CREATE TABLE gps_prediction_t (id integer primary key default nextval('gps_prediction_id_seq'),
+                    dtime integer,
+                    latitude float,
+                    longitude float,
+                    height    integer,
+                    creation_date date);
+
+ALTER TABLE gps_prediction_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on gps_prediction_t to "www-data";
+
+CREATE sequence requests_id_seq;
+
+CREATE TABLE requests_t (id integer primary key default nextval('requests_id_seq'),
+                    source varchar(10),
+                    request_code varchar(150),
+                    destination varchar(10),
+                    ip varchar(15),
+                    status_code integer,
+                    notes varchar(150),
+                    creation_date date,
+                    last_update_date date);
+
+ALTER TABLE requests_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on requests_t to "www-data";
+
+CREATE TABLE request_status_t (status_code char(1) primary key,
+                               status_name varchar(15),
+                               status_desc varchar(150));
+
+grant select on request_status_t to "www-data";
+
+
+
+
+CREATE TABLE request_types_t (request_code char(1) primary key,
+                              request_name varchar(15));
+
+grant select on request_types_t to "www-data";
+
+CREATE sequence launch_system_status_id_seq;
+
+CREATE TABLE launch_system_status_t (id integer primary key default nextval('launch_system_status_id_seq'),
+           attribute char(1),
+           status   integer,
+           notes    varchar(150),
+           creation_date date);
+
+ALTER TABLE launch_system_status_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on launch_system_status_t to "www-data";
+
+
+INSERT INTO request_status_t (status_code, status_name)
+VALUES ('C', 'Created');
+
+INSERT INTO request_status_t (status_code, status_name)
+VALUES ('P', 'Processing');
+
+INSERT INTO request_status_t (status_code, status_name)
+VALUES ('F', 'Finished');
+
+
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('P', 'Power');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('A', 'Arm');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('C', 'Continuity Test');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('T', 'Invalidate Continuity Test');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('L', 'Launch');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('M', 'Resetting previous Launch status');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('N', 'NoPhotos');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('K', 'Cutdown');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('X', 'Xmodem Download');
