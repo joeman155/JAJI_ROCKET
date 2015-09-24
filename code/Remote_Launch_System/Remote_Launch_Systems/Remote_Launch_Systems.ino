@@ -13,7 +13,7 @@
 
 
 // delay between measurements
-#define LOOP_DELAY 50
+#define LOOP_DELAY 10
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -49,34 +49,30 @@ String str;
 // Other config
 long heartbeat_count;
 int  continuityState = 1;         // current state of the button
+unsigned long heartbeat_period = 5000;
+unsigned long heartbeat_timer   = 0;
 
 // Timing
 uint32_t ulCur;
 
 
 // Menu
-unsigned long menutime = 200;
+unsigned int menutime;                // Menu time.
+unsigned int menutime_initial = 50;   // Initial time we wait
+unsigned int menutime_final = 200;    // The time we wait if we suddenly find we have commands being sent.
 int EndFlag = 0;
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
+boolean command_processed;            // Indicates if command was processed on menu.
 
 // States
 short int cutdown = 0; // Start up disabled
 
-// Voltage Sensors
-VOLTAGE ignpsu;
-VOLTAGE ardupsu;
+
 
 // IMU
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
-const byte INT1XM = 2; // INT1XM tells us when accel data is ready
-const byte INT2XM = 3; // INT2XM tells us when mag data is ready
-const byte DRDYG = 4;  // DRDYG tells us when gyro data is ready
-
-// Create an instance of the LSM9DS0 library called `dof` the
-// parameters for this constructor are:
-// [SPI or I2C Mode declaration],[gyro I2C address],[xm I2C add.]
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
 
 // KALMAN
@@ -96,6 +92,8 @@ double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filte
 TinyGPS gps;
 bool newData;
 unsigned int read_time = 100;
+unsigned long gps_period = 10000;  // i.e. get GPS reading every 10 seconds
+unsigned long gps_timer = 0;
 
 
 // RTC
@@ -104,6 +102,11 @@ unsigned int read_time = 100;
 // Air Pressure - BMP180
 SFE_BMP180 pressure;
 double bmp180_pressure, bmp180_temperature;
+VOLTAGE ignpsu;
+VOLTAGE ardupsu;
+unsigned long sensors_timer = 0;
+unsigned long sensors_period = 5000;
+
 
 // Debugging
 unsigned short int DEBUGGING = 1;
@@ -160,15 +163,19 @@ void loop() {
  if (menu_enabled) {
     pollSerial();
     
-    // Just allow enough time for responses, etc to make their way through.
-    delay(50);    
+    // Just allow enough time for responses, etc to make their way through - IF there were commands processed.
+    if (command_processed) {
+       delay(50);   // MAY NEED TO ADJUST    
+    }
  }
  
 
   
  // Heartbeat
- heartbeat();
- 
+ if (millis() - heartbeat_timer > heartbeat_period) {
+    heartbeat();
+    heartbeat_timer = millis();
+ }
 
  // Air Pressure, Temperature, voltages
  // Prefix: D00
@@ -176,20 +183,23 @@ void loop() {
  // D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
  //  - Temperatures are in Kelvin
  //  - Pressures are in Pascals
- extractPressureTemperature();
- bmp180_temperature += 273;
- sendPacket(String("D00:") + String(bmp180_pressure), false);
- sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
- sendPacket(String(",")    + String(bmp180_temperature),false); 
+ if (millis() - sensors_timer > sensors_period) {
+   extractPressureTemperature();
+   bmp180_temperature += 273;
+   sendPacket(String("D00:") + String(bmp180_pressure), false);
+   sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
+   sendPacket(String(",")    + String(bmp180_temperature),false); 
  
- // also wish to package voltage readings along with other measurements immediately above.
- ardupsu.read();
- ignpsu.read();
- dtostrf(ardupsu.value(),4, 2, outstr);   
- sendPacket (String(",") + String(outstr), false); 
- dtostrf(ignpsu.value(),5, 2, outstr);  
- sendPacket (String(",") + String(outstr), true);   
-
+   // also wish to package voltage readings along with other measurements immediately above.
+   ardupsu.read();
+   ignpsu.read();
+   dtostrf(ardupsu.value(),4, 2, outstr);   
+   sendPacket (String(",") + String(outstr), false); 
+   dtostrf(ignpsu.value(),5, 2, outstr);  
+   sendPacket (String(",") + String(outstr), true);   
+  
+   sensors_timer = millis();
+ }
 
 
  // GPS Tracking
@@ -199,7 +209,11 @@ void loop() {
  //
  // date is in format dd/mm/yyyy
  // time is in format hh.mintes.seconds.hundreths
- extractGPSInfo();
+ // Only collect GPS info every 'gps_period' seconds
+ if (millis() - gps_timer > gps_period) {
+    extractGPSInfo();
+    gps_timer = millis();
+ }
 
 
 
@@ -375,11 +389,11 @@ void sendPacket(String str, boolean eol) {
 }
 
 
+// Send Menu to groundstation and wait for a response.
 void pollSerial() 
 {  
  // Make sure all prior data sent is REALLY sent and wait a little for it to be processed by groundstation.  
  Serial2.flush();
- delay(200);
  
  sendPacket("M"); // Menu  (to tell the other end we are ready to receive commands)
   
@@ -387,7 +401,8 @@ void pollSerial()
  inData[0]    = '\0';
  EndFlag = 0;
  index = 0;
- 
+ menutime = menutime_initial; // Initial menu time length
+ command_processed = false;
 
  
  while(!EndFlag) {
@@ -396,6 +411,12 @@ void pollSerial()
     }
       
     while(Serial2.available() > 0 ) {
+      
+      // If we get a character, then there must be something coming our way...so we extend our listen period a bit longer.
+      if (menutime < menutime_final) {
+         menutime = menutime_final;
+         command_processed = true;
+      }
       
       // Accept nothing longer than 20 characters 
        if(index > 19) {
@@ -847,11 +868,10 @@ void extractIMUInfo()
   accY = dof.calcAccel(dof.ay);
   accZ = dof.calcAccel(dof.az);  
 
-
-  // Heading from Magnetometer.
+  // Get readings from Magnetometer.
   double heading;  
   dof.readMag();  
-  getHeading((float) dof.mz, (float) dof.my, &heading);  
+
 
 
   // Read Gyro 
@@ -880,7 +900,7 @@ void extractIMUInfo()
   double gyroXrate = gyroX; 
   double gyroYrate = gyroY; 
   double gyroZrate = gyroZ; 
-  yaw = heading;
+  
   
   // Use Kalman filter to get new Pitch and Role
 #ifdef RESTRICT_PITCH
@@ -906,11 +926,6 @@ void extractIMUInfo()
     gyroZrate = -gyroZrate; // Invert rate, so it fits the restriced accelerometer reading
   kalAngleZ = kalmanZ.getAngle(roll, gyroZrate, dt); // Calculate the angle using a Kalman filter
 #endif
-
-
-  // Use Kalman to derive Yaw
-  kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
-  yaw = kalAngleX;
  
   // Reverse Angle of Pitch
   pitch = -kalAngleY;
@@ -918,9 +933,20 @@ void extractIMUInfo()
   // Roll == kalAngleZ
   roll = kalAngleZ;
 
- // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
- // with components down. Acceration should be positive. (Though it reads negative)
- accZ = accZ * -1;
+  // Correct Acceration - (with board with components up, up (z) is positive), but board is other way around
+  // with components down. Acceration should be positive. (Though it reads negative)
+  accZ = accZ * -1;
+
+  // Derive heading
+  float cmx, cmy;
+  cmx = dof.mz * cos(DEGREES_TO_RADIANS(pitch)) + dof.my * sin(DEGREES_TO_RADIANS(roll)) * sin(DEGREES_TO_RADIANS(pitch)) + dof.mx * cos(DEGREES_TO_RADIANS(roll)) * sin(DEGREES_TO_RADIANS(pitch));
+  cmy = dof.my * cos(DEGREES_TO_RADIANS(roll)) - dof.mx * sin(DEGREES_TO_RADIANS(roll));
+  getHeading((float) cmx, (float) cmy, &heading);  
+  yaw = heading;
+  
+  // Use Kalman to derive Yaw
+  kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
+  yaw = kalAngleX;
 
   
   /* Print Useful Data */
@@ -937,6 +963,8 @@ void extractIMUInfo()
   Serial.print(String("Roll: ") + roll); Serial.print("\t");
   Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
+  
+  delay(1000);
 #endif
 
  sendPacket(String("D06:") + String(roll), false);
