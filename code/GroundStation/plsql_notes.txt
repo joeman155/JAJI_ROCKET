@@ -56,5 +56,38 @@ ALTER TABLE imu_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
 
 grant select on imu_t to "www-data";
 
+CREATE sequence measurement_group_id_seq;
 
+CREATE TABLE measurement_group_t (
+    id integer primary key default nextval('measurement_group_id_seq'),
+    group_name varchar(5),
+    source varchar(10),
+    creation_date date);
+
+ALTER TABLE measurement_group_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on measurement_group_t to "www-data";
+
+CREATE sequence measurement_id_seq;
+
+CREATE TABLE measurement_t (id integer primary key default nextval('measurement_id_seq'),
+    instance_id varchar(100),
+    group_id integer,
+    name   varchar(20),
+    value float);
+
+grant select on measurement_t to "www-data";
+
+
+
+CREATE sequence message_id_seq;
+
+CREATE TABLE messages_t (id integer primary key default nextval('message_id_seq'),
+                         instance_id varchar(100),
+                         message varchar(256),
+                         creation_date date);
+
+ALTER TABLE messages_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+
+grant select on measurement_t to "www-data";
 
