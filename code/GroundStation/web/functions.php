@@ -51,7 +51,7 @@ function insert_request_internal($p_request_code, $p_source, $p_destination, $p_
 
  # Initialise DB connection
  try {
-      $dbh = new PDO("sqlite:" . $db_file);
+      $dbh = new PDO("pgsql:user=www-data dbname=rls");
      }
  catch (PDOException $e)
      {

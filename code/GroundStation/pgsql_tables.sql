@@ -139,6 +139,7 @@ DROP TABLE gps_prediction_t;
 DROP SEQUENCE  gps_prediction_id_seq;
 
 CREATE sequence gps_prediction_id_seq;
+GRANT select,update on SEQUENCE gps_prediction_id_seq to "www-data";
 
 
 CREATE TABLE gps_prediction_t (id integer primary key default nextval('gps_prediction_id_seq'),
@@ -151,11 +152,14 @@ CREATE TABLE gps_prediction_t (id integer primary key default nextval('gps_predi
 ALTER TABLE gps_prediction_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
 
 grant select on gps_prediction_t to "www-data";
+grant insert,delete,update on gps_prediction_t to "www-data";
+
 
 DROP TABLE requests_t;
 DROP SEQUENCE requests_id_seq;
 
 CREATE sequence requests_id_seq;
+GRANT select,update on SEQUENCE requests_id_seq to "www-data";
 
 CREATE TABLE requests_t (id integer primary key default nextval('requests_id_seq'),
                     source varchar(10),
@@ -170,6 +174,7 @@ CREATE TABLE requests_t (id integer primary key default nextval('requests_id_seq
 ALTER TABLE requests_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
 
 grant select on requests_t to "www-data";
+grant insert,update on requests_t to "www-data";
 
 DROP TABLE request_status_t;
 
