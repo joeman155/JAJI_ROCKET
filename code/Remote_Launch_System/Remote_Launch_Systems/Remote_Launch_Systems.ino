@@ -110,6 +110,7 @@ unsigned long sensors_period = 5000;
 
 // Debugging
 unsigned short int DEBUGGING = 1;
+unsigned short int RECEIVEPORT = 0;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 
 void setup() {
@@ -161,7 +162,11 @@ void loop() {
 
  // Get Serial Input (menu) 
  if (menu_enabled) {
-    pollSerial();
+   if (RECEIVEPORT == 0) {
+      pollSerial(Serial);
+   } else if (RECEIVEPORT == 2) {
+      pollSerial(Serial2);
+   }
     
     // Just allow enough time for responses, etc to make their way through - IF there were commands processed.
     if (command_processed) {
@@ -390,13 +395,12 @@ void sendPacket(String str, boolean eol) {
 
 
 // Send Menu to groundstation and wait for a response.
-void pollSerial() 
+void pollSerial(HardwareSerial &serial_device) 
 {  
  // Make sure all prior data sent is REALLY sent and wait a little for it to be processed by groundstation.  
- Serial2.flush();
+ serial_device.flush();
  
  sendPacket("M"); // Menu  (to tell the other end we are ready to receive commands)
-  
  unsigned long startTime = millis();
  inData[0]    = '\0';
  EndFlag = 0;
@@ -410,8 +414,7 @@ void pollSerial()
       EndFlag = 1;
     }
       
-    while(Serial2.available() > 0 ) {
-      
+    while(serial_device.available() > 0 ) {
       // If we get a character, then there must be something coming our way...so we extend our listen period a bit longer.
       if (menutime < menutime_final) {
          menutime = menutime_final;
@@ -422,7 +425,7 @@ void pollSerial()
        if(index > 19) {
           break;   // To long...refusing to process.
        }
-       inChar = Serial2.read(); // Read a character
+       inChar = serial_device.read(); // Read a character
        
        inData[index] = inChar; // Store it
        index++; // Increment where to write next
