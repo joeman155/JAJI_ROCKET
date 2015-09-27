@@ -14,6 +14,9 @@
 
 // delay between measurements
 #define LOOP_DELAY 10
+short int profile = 1;              // Tells what 'profile' we follow ...e.g. just imu...or launch ,etc 
+                                    // 1 = Normal   (no IMU mass data)
+                                    // 2 = IMU      (lots of IMU data for orientation tab)
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -26,6 +29,8 @@ const int  arduinoPsuPin      = A2;
 const int  igniterBurnDelay   = 2000;
 const int  launch_countdown_delay = 6000;  // The 5 second countdown.
 int state;
+unsigned long launch_period  = 500;
+unsigned long launch_timer   = 0;
 
 // SD Card and file declarations
 const int chipSelect = 4;
@@ -54,16 +59,19 @@ unsigned long heartbeat_timer   = 0;
 
 // Timing
 uint32_t ulCur;
-
+unsigned long timing_period  = 500;
+unsigned long timing_timer   = 0;
 
 // Menu
-unsigned int menutime;                // Menu time.
-unsigned int menutime_initial = 50;   // Initial time we wait
-unsigned int menutime_final = 200;    // The time we wait if we suddenly find we have commands being sent.
-int EndFlag = 0;
+unsigned int  menutime;                   // Menu time.
+unsigned int  menutime_initial = 250;    // Initial time we wait
+unsigned int  menutime_final   = 250;   // The time we wait if we suddenly find we have commands being sent.
+unsigned long menu_period      = 1000;   // Only present menu once a second
+unsigned long menu_timer       = 0;      
+int EndFlag = 0;                         // Means end of menu
 char param[10];  // Parameter for functions called when requests sent.
 const boolean menu_enabled = true;
-boolean command_processed;            // Indicates if command was processed on menu.
+boolean getting_data;            // Indicates if command was processed on menu.
 
 // States
 short int cutdown = 0; // Start up disabled
@@ -74,6 +82,8 @@ short int cutdown = 0; // Start up disabled
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
+unsigned long imu_period  = 50;
+unsigned long imu_timer   = 0;
 
 // KALMAN
 uint32_t timer;
@@ -115,7 +125,7 @@ unsigned short int RECEIVEPORT = 0;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 void setup() {
   // Serial Port we program with
-  Serial.begin(115200);
+  Serial.begin(57600);
   
   // GPS
   Serial1.begin(4800);
@@ -161,17 +171,20 @@ void setup() {
 void loop() {
 
  // Get Serial Input (menu) 
- if (menu_enabled) {
-   if (RECEIVEPORT == 0) {
-      pollSerial(Serial);
-   } else if (RECEIVEPORT == 2) {
-      pollSerial(Serial2);
-   }
+ if (millis() - menu_timer > menu_period) {
+    if (menu_enabled) {
+      if (RECEIVEPORT == 0) {
+         pollSerial(Serial);
+      } else if (RECEIVEPORT == 2) {
+         pollSerial(Serial2);
+      }
     
     // Just allow enough time for responses, etc to make their way through - IF there were commands processed.
-    if (command_processed) {
-       delay(50);   // MAY NEED TO ADJUST    
+    //if (getting_data) {
+    //   delay(50);   // MAY NEED TO ADJUST    
+    //}
     }
+    menu_timer = millis();
  }
  
 
@@ -224,24 +237,31 @@ void loop() {
 
  // Local Time (Time since startup, or reboot)
  // Prefix: D02
- ulCur = micros();
- sendPacket(String("D02:") + String(ulCur));
- 
+ if (millis() - timing_timer > timing_period) { 
+    ulCur = micros();
+    sendPacket(String("D02:") + String(ulCur));
+    timing_timer = millis();
+ }
   
   
  // IMU Code
  // Prefix: D06
  // Format of string is:-
  // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
- extractIMUInfo();
+ if (millis() - imu_timer > imu_period) { 
+    extractIMUInfo();
+    imu_timer = millis();
+ }
 
    
    
  // Launch System status
  // Prefix: D07, D08
- sendPacket(String("D07:") + String(isLaunchSystemPowered()));
- sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
- 
+ if (millis() - launch_timer > launch_period) { 
+    sendPacket(String("D07:") + String(isLaunchSystemPowered()));
+    sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
+    launch_timer = millis();
+ }
   
  delay(LOOP_DELAY);
 }
@@ -400,13 +420,16 @@ void pollSerial(HardwareSerial &serial_device)
  // Make sure all prior data sent is REALLY sent and wait a little for it to be processed by groundstation.  
  serial_device.flush();
  
+ // Wait for data that hasn't made it to GS to get there.... BEFORE issuing menu command
+ delay(200);
+ 
  sendPacket("M"); // Menu  (to tell the other end we are ready to receive commands)
  unsigned long startTime = millis();
  inData[0]    = '\0';
  EndFlag = 0;
  index = 0;
  menutime = menutime_initial; // Initial menu time length
- command_processed = false;
+ getting_data = false;
 
  
  while(!EndFlag) {
@@ -415,18 +438,19 @@ void pollSerial(HardwareSerial &serial_device)
     }
       
     while(serial_device.available() > 0 ) {
+      getting_data = true;
       // If we get a character, then there must be something coming our way...so we extend our listen period a bit longer.
       if (menutime < menutime_final) {
          menutime = menutime_final;
-         command_processed = true;
       }
+      
       
       // Accept nothing longer than 20 characters 
        if(index > 19) {
           break;   // To long...refusing to process.
        }
        inChar = serial_device.read(); // Read a character
-       
+              
        inData[index] = inChar; // Store it
        index++; // Increment where to write next
        inData[index] = '\0'; // Null terminate the string
