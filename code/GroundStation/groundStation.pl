@@ -1091,10 +1091,10 @@ sub sendModemRequest($$$)
  local ($p_request_string,$p_response_string, $p_request_id) = @_;
  $v_result = "";
 
- $count_out = $port->write($p_request_string . "\r\n");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
  print "** " . $str if $DEBUG;
+ $count_out = $port->write($p_request_string . "\r\n");
 
  my $gotit = "";
  $ismatch = 0;
