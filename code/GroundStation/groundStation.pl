@@ -38,7 +38,7 @@ my $pg_db_string = "dbi:Pg:dbname=rls";
 # my $serial_port = "/dev/ttyAMA0";
 # my $serial_speed = 57600;
 my $serial_port = "/dev/ttyACM0";
-my $serial_speed = 115200;
+my $serial_speed = 57600;
 
 # DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
