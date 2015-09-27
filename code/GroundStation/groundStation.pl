@@ -84,6 +84,7 @@ my $file_num = 1;
 
 # SENSOR CONFIGURATIONS
 # ((r2 + r1)/r2) * (3.3/1024)
+my $gs_voltage_measurements = 1;    # 1 = Gathering enabled, 0 = Disabled
 my $gs_psu1_voltage_exec = $home_dir . "Voltage_Reader_Master";
 my $gs_psu1_voltage_multiplier = ((3.6 + 1)/1) * (3.3/1024);
 my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
@@ -174,7 +175,7 @@ while (1 == 1)
 
 # COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
 #       # Get GS PSU1 voltage supply reading and put into table
-       if ($gs_psu1_voltage_ctr > 300) {
+       if ($gs_voltage_measurements == 1 && $gs_psu1_voltage_ctr > 300) {
           $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
           insert_gs_psu_voltage(1, $v_voltage);
           $gs_psu1_voltage_ctr = 0;
@@ -1097,7 +1098,6 @@ sub sendModemRequest($$$)
 
  my $gotit = "";
  $ismatch = 0;
- $port->purge_rx;
  my $start_time = time;
  my $timeout = 0;
  until (("" ne $gotit && $ismatch != 0) || $timeout == 1) {
