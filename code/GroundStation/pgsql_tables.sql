@@ -15,9 +15,9 @@ CREATE TABLE imu_t (id integer primary key default nextval('imu_id_seq'),
                     accy      float,
                     accz      float,
                     timer     integer,
-                    creation_date date);
+                    creation_date timestamp);
 
-ALTER TABLE imu_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE imu_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on imu_t to "www-data";
 
@@ -30,9 +30,9 @@ CREATE TABLE measurement_group_t (
     id integer primary key default nextval('measurement_group_id_seq'),
     group_name varchar(5),
     source varchar(10),
-    creation_date date);
+    creation_date timestamp);
 
-ALTER TABLE measurement_group_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE measurement_group_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on measurement_group_t to "www-data";
 
@@ -61,9 +61,9 @@ CREATE sequence message_id_seq;
 CREATE TABLE messages_t (id integer primary key default nextval('message_id_seq'),
                          instance_id varchar(100),
                          message varchar(512),
-                         creation_date date);
+                         creation_date timestamp);
 
-ALTER TABLE messages_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE messages_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on messages_t to "www-data";
 
@@ -84,9 +84,9 @@ CREATE TABLE gps_t (id integer primary key default nextval('gps_id_seq'),
                     satellites integer,
                     gps_date  varchar(20),
                     gps_time  varchar(20),
-                    creation_date date);
+                    creation_date timestamp);
 
-ALTER TABLE gps_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE gps_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on gps_t to "www-data";
 
@@ -99,9 +99,9 @@ CREATE TABLE gs_psu_voltage_t (id integer primary key default nextval('gs_psu_vo
                            instance_id varchar(100),
                            psu_id integer,
                            voltage float,
-                           creation_date date);
+                           creation_date timestamp);
 
-ALTER TABLE gs_psu_voltage_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE gs_psu_voltage_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on gs_psu_voltage_t to "www-data";
 
@@ -114,9 +114,9 @@ CREATE TABLE radio_stats_t (id integer primary key default nextval('radio_stats_
                              instance_id varchar(100),
                              place integer,
                              stats text,
-                             creation_date date);
+                             creation_date timestamp);
 
-ALTER TABLE radio_stats_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE radio_stats_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on radio_stats_t to "www-data";
 
@@ -129,9 +129,9 @@ CREATE sequence heartbeat_id_seq;
 CREATE TABLE heartbeat_t (id integer primary key default nextval('heartbeat_id_seq'),
                           instance_id varchar(100),
                           heartbeat integer,
-                          creation_date date);
+                          creation_date timestamp);
 
-ALTER TABLE heartbeat_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE heartbeat_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on heartbeat_t to "www-data";
 
@@ -147,9 +147,9 @@ CREATE TABLE gps_prediction_t (id integer primary key default nextval('gps_predi
                     latitude float,
                     longitude float,
                     height    integer,
-                    creation_date date);
+                    creation_date timestamp);
 
-ALTER TABLE gps_prediction_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE gps_prediction_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on gps_prediction_t to "www-data";
 grant insert,delete,update on gps_prediction_t to "www-data";
@@ -168,10 +168,10 @@ CREATE TABLE requests_t (id integer primary key default nextval('requests_id_seq
                     ip varchar(15),
                     status_code char(1),
                     notes varchar(150),
-                    creation_date date,
-                    last_update_date date);
+                    creation_date timestamp,
+                    last_update_date timestamp);
 
-ALTER TABLE requests_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE requests_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on requests_t to "www-data";
 grant insert,update on requests_t to "www-data";
@@ -202,9 +202,9 @@ CREATE TABLE launch_system_status_t (id integer primary key default nextval('lau
            attribute char(1),
            status   integer,
            notes    varchar(150),
-           creation_date date);
+           creation_date timestamp);
 
-ALTER TABLE launch_system_status_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
+ALTER TABLE launch_system_status_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
 
 grant select on launch_system_status_t to "www-data";
 
