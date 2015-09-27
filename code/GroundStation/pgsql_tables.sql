@@ -183,7 +183,7 @@ grant select on request_status_t to "www-data";
 DROP TABLE request_types_t;
 
 CREATE TABLE request_types_t (request_code char(1) primary key,
-                              request_name varchar(15));
+                              request_name varchar(50));
 
 grant select on request_types_t to "www-data";
 
