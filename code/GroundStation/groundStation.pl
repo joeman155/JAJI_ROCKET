@@ -35,8 +35,10 @@ my $db_string    = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB f
 my $pg_db_string = "dbi:Pg:dbname=rls";
 
 # SERIAL CONFIG
-my $serial_port = "/dev/ttyAMA0";
-my $serial_speed = 57600;
+# my $serial_port = "/dev/ttyAMA0";
+# my $serial_speed = 57600;
+my $serial_port = "/dev/ttyACM0";
+my $serial_speed = 115200;
 
 # DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
@@ -168,11 +170,11 @@ while (1 == 1)
     until ("" ne $serial_rx) {
        $serial_rx = $port->lookfor;       # poll until data ready
        die "Aborted without match\n" unless (defined $serial_rx);
-       select(undef,undef,undef,0.1);
+       # select(undef,undef,undef,0.1);
 
 # COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
 #       # Get GS PSU1 voltage supply reading and put into table
-       if ($gs_psu1_voltage_ctr > 10) {
+       if ($gs_psu1_voltage_ctr > 300) {
           $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
           insert_gs_psu_voltage(1, $v_voltage);
           $gs_psu1_voltage_ctr = 0;
@@ -274,7 +276,7 @@ while (1 == 1)
             # NOTE: We only want to get status IF the power is not on...
             # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
-               if ($radio_stats_count > 60) {
+               if ($radio_stats_count > 660) {
                    get_radio_stats();
                    $radio_stats_count = 0;
                } else {
@@ -559,6 +561,7 @@ sub log_radio_stats($$)
 
 
 
+#joe
 sub log_message($)
 {
   local($message) = @_;
@@ -567,10 +570,10 @@ sub log_message($)
   if ($message)
   {
     # Initialise DB connection
-    my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+    my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO messages_t (message, creation_date) values (?, datetime('now', 'localtime'))";
+    $query = "INSERT INTO messages_t (message) values (?)";
 
     $sth = $dbh->prepare($query);
     $sth->execute($message);
@@ -1351,13 +1354,9 @@ sub insert_imu($$)
  %imu = %$imu_hash;
 
  # Initialise DB connection
- # my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
  my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- # $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer,creation_date)
- #                   values (?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
-
  $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer)
                    values (?,?,?,?,?,?,?,?,?,?,?)";
 

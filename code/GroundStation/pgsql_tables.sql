@@ -60,7 +60,7 @@ CREATE sequence message_id_seq;
 
 CREATE TABLE messages_t (id integer primary key default nextval('message_id_seq'),
                          instance_id varchar(100),
-                         message varchar(256),
+                         message varchar(512),
                          creation_date date);
 
 ALTER TABLE messages_t ALTER COLUMN creation_date SET DEFAULT CURRENT_DATE;
