@@ -36,7 +36,7 @@ cp Voltage_Reader_Master /data/gs/
 
 echo Initialising the database...
 [ -f /data/gs/db/gs.db ] && mv /data/gs/db/gs.db /data/gs/db/gs.db.bck
-# sqlite3 /data/gs/db/gs.db < tables.sql
+sqlite3 /data/gs/db/gs.db < tables.sql
 psql rls -f pgsql_tables.sql
 chmod 777 /data/gs/db/gs.db
 
