@@ -2,7 +2,7 @@
 include "config.inc";
 
 try {
-     $dbh = new PDO("sqlite:" . $db_file);
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
     }
 catch (PDOException $e)
     {

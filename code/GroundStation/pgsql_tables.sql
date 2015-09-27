@@ -162,7 +162,7 @@ CREATE TABLE requests_t (id integer primary key default nextval('requests_id_seq
                     request_code varchar(150),
                     destination varchar(10),
                     ip varchar(15),
-                    status_code integer,
+                    status_code char(1),
                     notes varchar(150),
                     creation_date date,
                     last_update_date date);
