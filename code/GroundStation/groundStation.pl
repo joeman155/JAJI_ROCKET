@@ -263,6 +263,7 @@ while (1 == 1)
             {
                print "** No Requests, so exit the menu...\n" if $DEBUG;
                sendModemRequest("R00", "A00", 0);
+               # sendModemRequest("R00", "", 0);
             }
 
             # If no error...then imcrement count.
@@ -1095,6 +1096,12 @@ sub sendModemRequest($$$)
  log_message($str);
  print "** " . $str if $DEBUG;
  $count_out = $port->write($p_request_string . "\r\n");
+
+ # If no response string requested...then we don't want to wait for other end
+ # to exit.
+ if ($p_response_string eq "") {
+    return;
+ }
 
  my $gotit = "";
  $ismatch = 0;
