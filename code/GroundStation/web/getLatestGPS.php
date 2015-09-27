@@ -2,13 +2,13 @@
 include "config.inc";
 
 # Get all the latest measurements
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
    # GPS
    $sql = "select * from gps_t where id = (select max(id) from gps_t)";

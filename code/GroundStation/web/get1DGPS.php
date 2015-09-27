@@ -2,13 +2,13 @@
 include "config.inc";
 
 # Get all the latest measurements
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
    # Determine how many points there are. We don't want at most 30 points
    $now = date("Y-m-d");

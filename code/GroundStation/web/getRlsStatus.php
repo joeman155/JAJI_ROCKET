@@ -6,13 +6,12 @@ include "functions.php";
 
 # Get all the latest measurements
 try {
-     $dbh = new PDO("sqlite:" . $db_file);
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
     }
 catch (PDOException $e)
     {
      echo $e->getMessage();
     }
-
 
 
 $request_code    = $_REQUEST['request'];
