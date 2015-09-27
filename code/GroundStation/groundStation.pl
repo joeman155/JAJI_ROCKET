@@ -299,10 +299,10 @@ sub decode_rx()
   ($p_line) = @_;
 
   # See what data we have and respond to it
-  if ($p_line =~ /M/)
+  if ($p_line =~ /^M$/)
   {
     $v_result = "Menu_Image";
-  } elsif ($p_line =~ /MNI/)
+  } elsif ($p_line =~ /^MNI$/)
   {
     $v_result = "Menu_NoImage";
   } elsif ($p_line =~ /^H:([0-9]+)$/)
