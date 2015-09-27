@@ -35,7 +35,9 @@ my $db_string    = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB f
 my $pg_db_string = "dbi:Pg:dbname=rls";
 
 # SERIAL CONFIG
-my $serial_port = "/dev/ttyAMA0";
+# my $serial_port = "/dev/ttyAMA0";
+# my $serial_speed = 57600;
+my $serial_port = "/dev/ttyACM0";
 my $serial_speed = 57600;
 
 # DATE/TIME FORMAT
@@ -82,6 +84,7 @@ my $file_num = 1;
 
 # SENSOR CONFIGURATIONS
 # ((r2 + r1)/r2) * (3.3/1024)
+my $gs_voltage_measurements = 0;    # 1 = Gathering enabled, 0 = Disabled
 my $gs_psu1_voltage_exec = $home_dir . "Voltage_Reader_Master";
 my $gs_psu1_voltage_multiplier = ((3.6 + 1)/1) * (3.3/1024);
 my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
@@ -168,11 +171,11 @@ while (1 == 1)
     until ("" ne $serial_rx) {
        $serial_rx = $port->lookfor;       # poll until data ready
        die "Aborted without match\n" unless (defined $serial_rx);
-       select(undef,undef,undef,0.1);
+       # select(undef,undef,undef,0.1);
 
 # COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
 #       # Get GS PSU1 voltage supply reading and put into table
-       if ($gs_psu1_voltage_ctr > 10) {
+       if ($gs_voltage_measurements == 1 && $gs_psu1_voltage_ctr > 300) {
           $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
           insert_gs_psu_voltage(1, $v_voltage);
           $gs_psu1_voltage_ctr = 0;
@@ -274,7 +277,7 @@ while (1 == 1)
             # NOTE: We only want to get status IF the power is not on...
             # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
-               if ($radio_stats_count > 60) {
+               if ($radio_stats_count > 660) {
                    get_radio_stats();
                    $radio_stats_count = 0;
                } else {
@@ -297,10 +300,10 @@ sub decode_rx()
   ($p_line) = @_;
 
   # See what data we have and respond to it
-  if ($p_line =~ /M/)
+  if ($p_line =~ /^M$/)
   {
     $v_result = "Menu_Image";
-  } elsif ($p_line =~ /MNI/)
+  } elsif ($p_line =~ /^MNI$/)
   {
     $v_result = "Menu_NoImage";
   } elsif ($p_line =~ /^H:([0-9]+)$/)
@@ -546,10 +549,10 @@ sub log_radio_stats($$)
  local ($p_place, $p_stats) = @_;
 
     # Initialise DB connection
-    my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+    my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO radio_stats_t (place, stats, creation_date) values (?,?, datetime('now', 'localtime'))";
+    $query = "INSERT INTO radio_stats_t (place, stats) values (?,?)";
 
     $sth = $dbh->prepare($query);
     $sth->execute($p_place, $p_stats);
@@ -567,10 +570,10 @@ sub log_message($)
   if ($message)
   {
     # Initialise DB connection
-    my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+    my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
-    $query = "INSERT INTO messages_t (message, creation_date) values (?, datetime('now', 'localtime'))";
+    $query = "INSERT INTO messages_t (message) values (?)";
 
     $sth = $dbh->prepare($query);
     $sth->execute($message);
@@ -589,16 +592,21 @@ sub insert_measurements()
 
  %measurements = %$measurements_hash;
 
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Insert a Group measurement record
- $query = "INSERT INTO measurement_group_t (group_name, source, creation_date)
-           VALUES (?,?, datetime('now', 'localtime'))";
+ $query = "INSERT INTO measurement_group_t (group_name, source)
+           VALUES (?,?)";
 
  $sth = $dbh->prepare($query);
  $sth->execute($group_name, $source);
 
- $v_group_id = $dbh->sqlite_last_insert_rowid();
+ $query = "SELECT currval('measurement_group_id_seq')";
+ $sth = $dbh->prepare($query);
+ $sth->execute();
+
+ #joe
+ ($v_group_id) = $sth->fetchrow_array();
 
  # Insert Measurements
  @measurement_names = keys %measurements;
@@ -616,7 +624,7 @@ sub insert_measurement()
  local($group_id, $measurement_name, $measurement_value) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "INSERT INTO measurement_t (group_id, name, value)
@@ -634,11 +642,11 @@ sub insert_heartbeat()
  local($heartbeat) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
 
- $query = "INSERT INTO heartbeat_t (heartbeat, creation_date) 
- 	values (?, datetime('now', 'localtime'))";
+ $query = "INSERT INTO heartbeat_t (heartbeat)
+ 	values (?)";
 
  $sth = $dbh->prepare($query);
  $sth->execute($heartbeat);
@@ -652,11 +660,11 @@ sub insert_gps()
  local($latitude, $longitude, $height, $gps_date, $gps_time, $gps_speed, $gps_course, $satellites) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO gps_t (latitude, longitude, height, speed, course, satellites, gps_date, gps_time, creation_date)
-                   values (?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
+ $query = "INSERT INTO gps_t (latitude, longitude, height, speed, course, satellites, gps_date, gps_time)
+                   values (?,?,?,?,?,?,?,?)";
 
  $sth = $dbh->prepare($query);
  $sth->execute($latitude, $longitude, $height, $gps_speed, $gps_course, $satellites, $gps_date, $gps_time);
@@ -688,11 +696,11 @@ sub insert_gs_psu_voltage($$)
  local($p_psu_id, $p_voltage) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- $query = "INSERT INTO gs_psu_voltage_t (voltage, psu_id, creation_date)
-           values (?,?, datetime('now', 'localtime'))";
+ $query = "INSERT INTO gs_psu_voltage_t (voltage, psu_id)
+           values (?,?)";
 
  $sth = $dbh->prepare($query);
  $sth->execute($p_voltage, $p_psu_id);
@@ -836,15 +844,15 @@ sub dequeue_request()
  $v_id = 0;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Get the earliest request (FIFO)
  $query = "SELECT min(id)
            FROM   requests_t
-           WHERE  status_code = 'C'";
+           WHERE  status_code = ?";
 
  $sth = $dbh->prepare($query);
- $sth->execute();
+ $sth->execute('C');
  
  ($v_id) = $sth->fetchrow_array();
  $sth->finish();
@@ -871,7 +879,7 @@ sub get_request_code($)
  local ($p_request_id) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Get request_code for given request ID
  $query = "SELECT request_code
@@ -1083,14 +1091,13 @@ sub sendModemRequest($$$)
  local ($p_request_string,$p_response_string, $p_request_id) = @_;
  $v_result = "";
 
- $count_out = $port->write($p_request_string . "\r\n");
  $str = "Sending request string $p_request_string to RLS  (Request ID: $p_request_id)\n";
  log_message($str);
  print "** " . $str if $DEBUG;
+ $count_out = $port->write($p_request_string . "\r\n");
 
  my $gotit = "";
  $ismatch = 0;
- $port->purge_rx;
  my $start_time = time;
  my $timeout = 0;
  until (("" ne $gotit && $ismatch != 0) || $timeout == 1) {
@@ -1173,7 +1180,7 @@ sub updateRequestDetails($$)
  }
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "UPDATE requests_t
@@ -1195,7 +1202,7 @@ sub setRequestStatus($$)
  local ($p_request_id, $p_status_code) = @_;
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "UPDATE requests_t
@@ -1218,15 +1225,15 @@ sub set_launch_console_attribute($$;$)
  local ($p_attribute, $p_status, $p_notes) = @_;
 
     # Initialise DB connection
-    my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+    my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
     if (defined $p_notes) {
-       $query = "INSERT INTO launch_system_status_t (attribute, status, notes, creation_date) values (?,?,?,datetime('now', 'localtime'))"; 
+       $query = "INSERT INTO launch_system_status_t (attribute, status, notes) values (?,?,?)"; 
        $sth = $dbh->prepare($query);
        $sth->execute($p_attribute, $p_status, $p_notes);
     } else {
-       $query = "INSERT INTO launch_system_status_t (attribute, status, creation_date) values (?,?,datetime('now', 'localtime'))"; 
+       $query = "INSERT INTO launch_system_status_t (attribute, status) values (?,?)"; 
        $sth = $dbh->prepare($query);
        $sth->execute($p_attribute, $p_status);
     }
@@ -1286,7 +1293,7 @@ sub get_last_status($;$)
  $v_status = 0; # Default status
 
  # Initialise DB connection
- my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
+ my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  if ($p_exclude_pending == 1) {
@@ -1351,13 +1358,9 @@ sub insert_imu($$)
  %imu = %$imu_hash;
 
  # Initialise DB connection
- # my $dbh = DBI->connect($db_string,"","",{ RaiseError => 1},) or die $DBI::errstr;
  my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
- # $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer,creation_date)
- #                   values (?,?,?,?,?,?,?,?,?,?,?,datetime('now', 'localtime'))";
-
  $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer)
                    values (?,?,?,?,?,?,?,?,?,?,?)";
 

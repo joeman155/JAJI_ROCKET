@@ -13,7 +13,7 @@ $v_local_timestamp = isset($_REQUEST['local_timestamp']) ? $_REQUEST['local_time
 
 # Get all the latest measurements
 try {
-     $dbh = new PDO("sqlite:" . $db_file);
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
     }
 catch (PDOException $e)
     {

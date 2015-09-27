@@ -19,14 +19,13 @@ function get_request_name($p_request_code)
  global $db_file;
 
  # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-      return NULL;
-     }
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
  $sql = "SELECT request_name
          FROM request_types_t
@@ -52,7 +51,7 @@ function insert_request_internal($p_request_code, $p_source, $p_destination, $p_
 
  # Initialise DB connection
  try {
-      $dbh = new PDO("sqlite:" . $db_file);
+      $dbh = new PDO("pgsql:user=www-data dbname=rls");
      }
  catch (PDOException $e)
      {
@@ -60,12 +59,9 @@ function insert_request_internal($p_request_code, $p_source, $p_destination, $p_
       return NULL;
      }
 
- $sql = "INSERT INTO requests_t (source, destination, request_code, ip, status_code, creation_date)
+ $sql = "INSERT INTO requests_t (source, destination, request_code, ip, status_code)
          VALUES ('" . $p_source . "', '" . $p_destination . "', '" . $p_request_code . "',
-                 '" . $p_ip . "', '" . $v_status_code . "',  datetime('now', 'localtime'))";
-
- # print $sql . "<br><br>\n";
-file_put_contents("/tmp/sql.txt", $sql);
+                 '" . $p_ip . "', '" . $v_status_code . "')";
 
  if (! $dbh->exec($sql)) {
     print "Error when executing statement to insert request\n";
@@ -84,14 +80,13 @@ function set_request_status($p_request_id, $p_status_code)
  global $db_file;
 
  # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
-
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
  $sql = "UPDATE requests_t 
          SET    status_code = '" . $p_status_code . "',
@@ -111,14 +106,13 @@ function get_latest_request_status($p_request_code)
  global $db_file;
 
  # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
-
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
  $sql = "SELECT status_code
          FROM   requests_t 
@@ -147,13 +141,13 @@ function is_pending_request($p_request_code)
  global $db_file;
 
  # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
  $sql = "SELECT count(*) rowcount
          FROM   requests_t
@@ -189,14 +183,13 @@ function get_rls_status($p_attribute, $p_exclude_pending = 0)
  $result = array();
 
  # Initialise DB connection
- try {
-      $dbh = new PDO("sqlite:" . $db_file);
-     }
- catch (PDOException $e)
-     {
-      echo $e->getMessage();
-     }
-
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
 
  # If p_exclude_pending == 0, this means we don't care what sttus
  if ($p_exclude_pending == 0) {
