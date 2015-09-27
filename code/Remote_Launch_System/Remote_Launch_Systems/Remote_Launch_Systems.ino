@@ -65,7 +65,7 @@ unsigned long timing_timer   = 0;
 // Menu
 unsigned int  menutime;                   // Menu time.
 unsigned int  menutime_initial = 250;    // Initial time we wait
-unsigned int  menutime_final   = 250;   // The time we wait if we suddenly find we have commands being sent.
+unsigned int  menutime_final   = 500;   // The time we wait if we suddenly find we have commands being sent.
 unsigned long menu_period      = 1000;   // Only present menu once a second
 unsigned long menu_timer       = 0;      
 int EndFlag = 0;                         // Means end of menu
@@ -76,13 +76,11 @@ boolean getting_data;            // Indicates if command was processed on menu.
 // States
 short int cutdown = 0; // Start up disabled
 
-
-
 // IMU
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
-unsigned long imu_period  = 50;
+unsigned long imu_period  = 200;
 unsigned long imu_timer   = 0;
 
 // KALMAN
@@ -170,98 +168,26 @@ void setup() {
 
 void loop() {
 
- // Get Serial Input (menu) 
- if (millis() - menu_timer > menu_period) {
-    if (menu_enabled) {
-      if (RECEIVEPORT == 0) {
-         pollSerial(Serial);
-      } else if (RECEIVEPORT == 2) {
-         pollSerial(Serial2);
-      }
-    
-    // Just allow enough time for responses, etc to make their way through - IF there were commands processed.
-    //if (getting_data) {
-    //   delay(50);   // MAY NEED TO ADJUST    
-    //}
-    }
-    menu_timer = millis();
- }
+  show_menu();
  
 
+  send_heartbeat();
   
- // Heartbeat
- if (millis() - heartbeat_timer > heartbeat_period) {
-    heartbeat();
-    heartbeat_timer = millis();
- }
 
- // Air Pressure, Temperature, voltages
- // Prefix: D00
- // Format of string is:-
- // D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
- //  - Temperatures are in Kelvin
- //  - Pressures are in Pascals
- if (millis() - sensors_timer > sensors_period) {
-   extractPressureTemperature();
-   bmp180_temperature += 273;
-   sendPacket(String("D00:") + String(bmp180_pressure), false);
-   sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
-   sendPacket(String(",")    + String(bmp180_temperature),false); 
+  physical_measurements();
  
-   // also wish to package voltage readings along with other measurements immediately above.
-   ardupsu.read();
-   ignpsu.read();
-   dtostrf(ardupsu.value(),4, 2, outstr);   
-   sendPacket (String(",") + String(outstr), false); 
-   dtostrf(ignpsu.value(),5, 2, outstr);  
-   sendPacket (String(",") + String(outstr), true);   
+
+  show_gps();
+
+ 
+  timing();
+
   
-   sensors_timer = millis();
- }
-
-
- // GPS Tracking
- // Prefix: D01
- // Format of string is:-
- // D01:latitude,longitude,altitude,date,time,heading,speed,#satellites
- //
- // date is in format dd/mm/yyyy
- // time is in format hh.mintes.seconds.hundreths
- // Only collect GPS info every 'gps_period' seconds
- if (millis() - gps_timer > gps_period) {
-    extractGPSInfo();
-    gps_timer = millis();
- }
-
-
-
- // Local Time (Time since startup, or reboot)
- // Prefix: D02
- if (millis() - timing_timer > timing_period) { 
-    ulCur = micros();
-    sendPacket(String("D02:") + String(ulCur));
-    timing_timer = millis();
- }
+  imu();
   
   
- // IMU Code
- // Prefix: D06
- // Format of string is:-
- // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
- if (millis() - imu_timer > imu_period) { 
-    extractIMUInfo();
-    imu_timer = millis();
- }
+  launch_systems();
 
-   
-   
- // Launch System status
- // Prefix: D07, D08
- if (millis() - launch_timer > launch_period) { 
-    sendPacket(String("D07:") + String(isLaunchSystemPowered()));
-    sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
-    launch_timer = millis();
- }
   
  delay(LOOP_DELAY);
 }
@@ -1130,3 +1056,110 @@ byte bcdToDec(byte val)
 }
 
 
+
+
+void show_menu()
+{
+ // Get Serial Input (menu) 
+ if (millis() - menu_timer > menu_period) {
+    if (menu_enabled) {
+      if (RECEIVEPORT == 0) {
+         pollSerial(Serial);
+      } else if (RECEIVEPORT == 2) {
+         pollSerial(Serial2);
+      }
+    }
+    menu_timer = millis();
+ }
+}
+
+
+void send_heartbeat()
+{
+ // Heartbeat
+ if (millis() - heartbeat_timer > heartbeat_period) {
+    heartbeat();
+    heartbeat_timer = millis();
+ }
+} 
+
+void physical_measurements()
+{
+ // Air Pressure, Temperature, voltages
+ // Prefix: D00
+ // Format of string is:-
+ // D00:InternalTemp,ExternalTemp,AirPressure,CPUVoltage,IGNVoltage
+ //  - Temperatures are in Kelvin
+ //  - Pressures are in Pascals
+ if (millis() - sensors_timer > sensors_period) {
+   extractPressureTemperature();
+   bmp180_temperature += 273;
+   sendPacket(String("D00:") + String(bmp180_pressure), false);
+   sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
+   sendPacket(String(",")    + String(bmp180_temperature),false); 
+ 
+   // also wish to package voltage readings along with other measurements immediately above.
+   ardupsu.read();
+   ignpsu.read();
+   dtostrf(ardupsu.value(),4, 2, outstr);   
+   sendPacket (String(",") + String(outstr), false); 
+   dtostrf(ignpsu.value(),5, 2, outstr);  
+   sendPacket (String(",") + String(outstr), true);   
+  
+   sensors_timer = millis();
+ }
+}
+
+
+void   show_gps()
+{
+ // GPS Tracking
+ // Prefix: D01
+ // Format of string is:-
+ // D01:latitude,longitude,altitude,date,time,heading,speed,#satellites
+ //
+ // date is in format dd/mm/yyyy
+ // time is in format hh.mintes.seconds.hundreths
+ // Only collect GPS info every 'gps_period' seconds
+ if (millis() - gps_timer > gps_period) {
+    extractGPSInfo();
+    gps_timer = millis();
+ }
+}
+
+void   timing()
+{
+ // Local Time (Time since startup, or reboot)
+ // Prefix: D02
+ if (millis() - timing_timer > timing_period) { 
+    ulCur = micros();
+    sendPacket(String("D02:") + String(ulCur));
+    timing_timer = millis();
+ }
+}
+
+
+
+void  imu()
+{
+ // IMU Code
+ // Prefix: D06
+ // Format of string is:-
+ // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
+ if (millis() - imu_timer > imu_period) { 
+    extractIMUInfo();
+    imu_timer = millis();
+ }
+}
+
+
+void launch_systems()
+{
+ // Launch System status
+ // Prefix: D07, D08
+ if (millis() - launch_timer > launch_period) { 
+    sendPacket(String("D07:") + String(isLaunchSystemPowered()));
+    sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
+    launch_timer = millis();
+ }
+}
