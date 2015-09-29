@@ -29,7 +29,6 @@ const int  arduinoPsuPin      = A2;
 const int  igniterBurnDelay   = 2000;
 const int  launch_countdown_delay = 6000;  // The 5 second countdown.
 int state;
-unsigned long launch_period  = 500;
 unsigned long launch_timer   = 0;
 
 // SD Card and file declarations
@@ -54,19 +53,16 @@ String str;
 // Other config
 long heartbeat_count;
 int  continuityState = 1;         // current state of the button
-unsigned long heartbeat_period = 5000;
 unsigned long heartbeat_timer   = 0;
 
 // Timing
 uint32_t ulCur;
-unsigned long timing_period  = 500;
 unsigned long timing_timer   = 0;
 
 // Menu
 unsigned int  menutime;                   // Menu time.
 unsigned int  menutime_initial = 250;    // Initial time we wait
-unsigned int  menutime_final   = 500;   // The time we wait if we suddenly find we have commands being sent.
-unsigned long menu_period      = 1000;   // Only present menu once a second
+unsigned int  menutime_final   = 1000;   // The time we wait if we suddenly find we have commands being sent.
 unsigned long menu_timer       = 0;      
 int EndFlag = 0;                         // Means end of menu
 char param[10];  // Parameter for functions called when requests sent.
@@ -80,7 +76,6 @@ short int cutdown = 0; // Start up disabled
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
-unsigned long imu_period  = 200;
 unsigned long imu_timer   = 0;
 
 // KALMAN
@@ -100,7 +95,6 @@ double kalAngleX, kalAngleY, kalAngleZ; // Calculated angle using a Kalman filte
 TinyGPS gps;
 bool newData;
 unsigned int read_time = 100;
-unsigned long gps_period = 10000;  // i.e. get GPS reading every 10 seconds
 unsigned long gps_timer = 0;
 
 
@@ -113,7 +107,6 @@ double bmp180_pressure, bmp180_temperature;
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 unsigned long sensors_timer = 0;
-unsigned long sensors_period = 5000;
 
 
 // Debugging
@@ -123,7 +116,7 @@ unsigned short int RECEIVEPORT = 0;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 void setup() {
   // Serial Port we program with
-  Serial.begin(57600);
+  Serial.begin(9600);
   
   // GPS
   Serial1.begin(4800);
@@ -166,33 +159,60 @@ void setup() {
   }
 }
 
+
+
+// LOOP AROUND GETTING DATA AND SENDING BACK
+// We have different profiles....data sets that we can send back.
 void loop() {
 
-  show_menu();
- 
+  if (profile == 1) {
+     profile1();
+  } else if (profile == 2) {
+     profile2();
+  }
 
-  send_heartbeat();
-  
-
-  physical_measurements();
- 
-
-  show_gps();
-
- 
-  timing();
-
-  
-  imu();
-  
-  
-  launch_systems();
-
-  
- delay(LOOP_DELAY);
 }
 
 
+// Standard profile
+// The parameters passed to each function are:-
+// - The Period - in Milliseconds.
+void profile1()
+{
+  show_menu(1000);
+
+  send_heartbeat(5000);
+
+  physical_measurements(5000);
+
+  show_gps(10000);
+
+  timing(500);
+  
+  imu(1000);
+  
+  launch_systems(500);
+
+  delay(LOOP_DELAY);   
+}
+
+
+// IMU profile
+// The parameters passed to each function are:-
+// - The Period - in Milliseconds.
+void profile2()
+{
+  show_menu(30000);
+
+  send_heartbeat(5000);
+
+  imu(100);
+
+  delay(LOOP_DELAY);   
+}
+
+
+// Process what we receive from the GroundStation
 int processRxSerial(char *rxString)
 {
  int theend = 0;  // Indicates to calling routine if we are ending our listening on the Serial Port
@@ -299,6 +319,7 @@ int processRxSerial(char *rxString)
 
 
 
+// Send out Heartbeart
 void heartbeat() 
 {
   str = String("H:") + String(heartbeat_count);
@@ -307,6 +328,7 @@ void heartbeat()
 }
 
 
+// Send Packets to GroundStation and to log file
 void sendPacket(String str) {
   Serial2.println(str);
   logString(str);
@@ -549,10 +571,12 @@ void togglepowerLaunchSystem() {
 }
 
 
+
 // Turn Power on
 void poweronLaunchSystem() {
    bitWrite(PORTH, powerPin, HIGH);
 }
+
 
 // Turn Power off (We dis-arm for safety purposes as well)
 void poweroffLaunchSystem() {
@@ -659,34 +683,14 @@ void logString(String str, boolean eol) {
 
 
 
+
 // Here's a fun function to calculate your heading, using Earth's
 // magnetic field.
 // It only works if the sensor is flat (z-axis normal to Earth).
 // Additionally, you may need to add or subtract a declination
 // angle to get the heading normalized to your location.
 // See: http://www.ngdc.noaa.gov/geomag/declination.shtml
-void printHeading(float hx, float hy)
-{
-  float heading;
-  
-  if (hy > 0)
-  {
-    heading = 90 - (atan(hx / hy) * (180 / PI));
-  }
-  else if (hy < 0)
-  {
-    heading = - (atan(hx / hy) * (180 / PI));
-  }
-  else // hy = 0
-  {
-    if (hx < 0) heading = 180;
-    else heading = 0;
-  }
-  
-  Serial.print("Heading: ");
-  Serial.println(heading, 2);
-}
-
+// Get the heading based on the magnetic readings
 void getHeading(float hz, float hy, double *heading)
 {
   
@@ -710,7 +714,7 @@ void getHeading(float hz, float hy, double *heading)
 
 
 
-
+// Read the time on the local clock
 void readDS3232time(byte *second, 
 byte *minute, 
 byte *hour, 
@@ -737,7 +741,7 @@ byte *year)
 
 
 
-
+// Get the Pressure and temperature
 void extractPressureTemperature()
 {
   char status;
@@ -849,11 +853,9 @@ void extractIMUInfo()
   pitch = atan2(-accZ, accX) * RAD_TO_DEG;
 #endif
 
-  
   double gyroXrate = gyroX; 
   double gyroYrate = gyroY; 
   double gyroZrate = gyroZ; 
-  
   
   // Use Kalman filter to get new Pitch and Role
 #ifdef RESTRICT_PITCH
@@ -1058,7 +1060,7 @@ byte bcdToDec(byte val)
 
 
 
-void show_menu()
+void show_menu(int menu_period)
 {
  // Get Serial Input (menu) 
  if (millis() - menu_timer > menu_period) {
@@ -1074,7 +1076,7 @@ void show_menu()
 }
 
 
-void send_heartbeat()
+void send_heartbeat(int heartbeat_period)
 {
  // Heartbeat
  if (millis() - heartbeat_timer > heartbeat_period) {
@@ -1083,7 +1085,7 @@ void send_heartbeat()
  }
 } 
 
-void physical_measurements()
+void physical_measurements(int sensors_period)
 {
  // Air Pressure, Temperature, voltages
  // Prefix: D00
@@ -1111,7 +1113,7 @@ void physical_measurements()
 }
 
 
-void   show_gps()
+void show_gps(int gps_period)
 {
  // GPS Tracking
  // Prefix: D01
@@ -1127,7 +1129,7 @@ void   show_gps()
  }
 }
 
-void   timing()
+void timing(int timing_period)
 {
  // Local Time (Time since startup, or reboot)
  // Prefix: D02
@@ -1140,7 +1142,7 @@ void   timing()
 
 
 
-void  imu()
+void imu(int imu_period)
 {
  // IMU Code
  // Prefix: D06
@@ -1153,7 +1155,7 @@ void  imu()
 }
 
 
-void launch_systems()
+void launch_systems(int launch_period)
 {
  // Launch System status
  // Prefix: D07, D08
