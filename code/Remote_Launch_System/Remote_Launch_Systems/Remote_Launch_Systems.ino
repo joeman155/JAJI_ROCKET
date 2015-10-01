@@ -110,7 +110,7 @@ unsigned long sensors_timer = 0;
 
 
 // Debugging
-unsigned short int DEBUGGING = 0;
+unsigned short int DEBUGGING = 1;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 
@@ -693,20 +693,44 @@ void logString(String str, boolean eol) {
 // Get the heading based on the magnetic readings
 void getHeading(float hz, float hy, double *heading)
 {
-  
-  if (hy > 0)
+  /*
+  if (hy > 0 )
   {
     *heading = 90 - (atan(hz / hy) * (180 / PI));
   }
   else if (hy < 0)
   {
-    *heading = - (atan(hz / hy) * (180 / PI));
+    *heading =  - (atan(hz / hy) * (180 / PI));
   }
   else // hy = 0
   {
     if (hz < 0) *heading = 180;
     else *heading = 0;
+  } 
+ */ 
+ 
+  if (hy > 0 && hz > 0)
+  {
+    *heading = 360 - (atan(hy / hz) * (180 / PI));
+  }
+  else if (hy > 0 && hz < 0)
+  {
+    *heading =  180 - (atan(hy / hz) * (180 / PI));
+  }
+  else if (hy < 0 && hz < 0)
+  {
+    *heading =  90 + (atan(hz / hy) * (180 / PI));
+  }
+  else if (hy < 0 && hz > 0)
+  {
+    *heading =  - (atan(hy / hz) * (180 / PI));
   }  
+  else // hy = 0
+  {
+    if (hz < 0) *heading = 180;
+    else *heading = 0;
+  }  
+  
   
 }
 
@@ -902,10 +926,18 @@ void extractIMUInfo()
   // Use Kalman to derive Yaw
   kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
   yaw = kalAngleX;
+  
+  // Attempting to correct around the transistion point 0--360
+  if (yaw > 360) {
+     yaw = yaw - 360;
+  }
+  if (yaw < 0) {
+    yaw = 360 + yaw;
+  }
 
   
   /* Print Useful Data */
-#if  0            // Set to 1 to activate
+#if  1            // Set to 1 to activate
   Serial.print("RAW: "); 
   Serial.print(accX); Serial.print("\t");
   Serial.print(accY); Serial.print("\t");
