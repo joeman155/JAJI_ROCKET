@@ -12,7 +12,7 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 1;
+unsigned short int DEBUGGING = 0;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -291,6 +291,15 @@ int processRxSerial(char *rxString)
    {
       sendPacket(String("A09:") + String(isLaunchSystemArmed()));        
    } 
+   else if (strncmp(rxString, "R10", 3) == 0) 
+   {
+      if (strcmp(param, "1") == 0) {
+         profile = 1;
+      } else if (strcmp(param, "2") == 0) {
+         profile = 2;
+      }
+      sendPacket(String("A10:") + String(profile));
+   }    
    else if (strcmp(rxString, "R04") == 0) 
    {
       state = initiatePreLaunch();
