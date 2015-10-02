@@ -171,16 +171,12 @@ sub monitor_systems()
 
 while (1 == 1)
 {
-
-
     my $serial_rx = "";
     until ("" ne $serial_rx) {
        $serial_rx = $port->lookfor;       # poll until data ready
        die "Aborted without match\n" unless (defined $serial_rx);
-       # select(undef,undef,undef,0.1);
 
-# COmMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
-#       # Get GS PSU1 voltage supply reading and put into table
+       # Get GS PSU1 voltage supply reading and put into table
        if ($gs_voltage_measurements == 1 && $gs_psu1_voltage_ctr > 300) {
           $v_voltage = get_gs_psu_voltage($gs_psu1_voltage_exec, $gs_psu1_voltage_multiplier);
           insert_gs_psu_voltage(1, $v_voltage);
@@ -390,7 +386,6 @@ sub decode_rx()
     $imu{'accz'}  = $9;
     $imu{'timer'} = $10;
 
-    print "Got IMU\n";
     insert_imu(1, \%imu);
     
     $v_result = "IMU: Roll " . $1 . ", Pitch " . $2 . ", Yaw " . $3 . " ....";
@@ -984,6 +979,8 @@ sub process_requests()
           $v_profile_msg = "IMU Profile set";
        } elsif ($v_result == 1) {
           $v_profile_msg = "Standard Profile set";
+       } elsif ($v_result == 0) {
+          $v_profile_msg = "Timed out waiting for response";
        } else {
           $v_ct_msg = "Unknown profile";
        }
