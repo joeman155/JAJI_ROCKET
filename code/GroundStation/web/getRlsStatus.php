@@ -18,7 +18,7 @@ $request_code    = $_REQUEST['request'];
 $exclude_pending = $_REQUEST['exclude_pending'];
 
 
-if (! in_array($request_code, array("P","A","C","L","N","K", "X"))) {
+if (! in_array($request_code, array("P","A","C","L","N","K", "X", "I"))) {
   $v_msg = "Unknown Request - Code: $v_request_code;";
   echo $v_msg;
   exit;

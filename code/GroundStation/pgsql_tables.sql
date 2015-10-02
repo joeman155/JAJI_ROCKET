@@ -237,3 +237,6 @@ INSERT INTO request_types_t (request_code, request_name) VALUES ('N', 'NoPhotos'
 INSERT INTO request_types_t (request_code, request_name) VALUES ('K', 'Cutdown');
 
 INSERT INTO request_types_t (request_code, request_name) VALUES ('X', 'Xmodem Download');
+
+INSERT INTO request_types_t (request_code, request_name) VALUES ('I', 'Profile');
+

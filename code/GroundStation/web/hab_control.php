@@ -14,7 +14,8 @@ catch (PDOException $e)
     }
 
 
-# Get latest launch systms status
+# Get latest launch systems status
+## PHOTO
 $nophotos_status              = get_rls_status("N");
 $rls_nophotos_status          = $nophotos_status["status"];
 $rls_nophots_notes            = $nophotos_status["notes"];
@@ -22,6 +23,7 @@ $rls_nophotos_status_date_raw = $nophotos_status["creation_date"];
 $rls_nophots_status_date      =  date("Y-m-d H:i:s", strtotime($rls_nophotos_status_date_raw));
 $rls_nophots_is_pending       = is_pending_request("N");
 
+## CUTDOWN
 $cutdown_status                = get_rls_status("K");
 $rls_cutdown_status            = $cutdown_status["status"];
 $rls_cutdown_notes             = $cutdown_status["notes"];
@@ -29,13 +31,22 @@ $rls_cutdown_status_date_raw   = $cutdown_status["creation_date"];
 $rls_cutdown_status_date       =  date("Y-m-d H:i:s", strtotime($rls_cutdown_status_date_raw));
 $rls_cutdown_is_pending        = is_pending_request("K");
 
+## PROFILE
+$profile_status                = get_rls_status("I");
+$rls_profile_status            = $profile_status["status"];
+$rls_profile_notes             = $profile_status["notes"];
+$rls_profile_status_date_raw   = $profile_status["creation_date"];
+$rls_profile_status_date       =  date("Y-m-d H:i:s", strtotime($rls_profile_status_date_raw));
+$rls_profile_is_pending        = is_pending_request("I");
+
+
+
 # print "rls_nophotos_status: " . $rls_nophotos_status . "<br>\n";
 # print "rls_cutdown_status: "  . $rls_cutdown_status . "<br>\n";
 
 ?>
 
 <script>
-
         $("#nophotos").click(function() {
         reload_paused = 1;
         $("#nophotos").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
@@ -89,6 +100,22 @@ $rls_cutdown_is_pending        = is_pending_request("K");
  $cutdown_msg = $rls_cutdown_notes;
 
 
+# PROFILE
+ $profile_msg = $rls_profile_notes;
+ if ($rls_profile_status == 1) {
+    $profile_msg = "Standard";
+    $profile_button_text = "IMU";
+    $rls_profile_status_css = "on";
+ } else if ($rls_profile_status == 2) {
+    $profile_msg = "IMU";
+    $profile_button_text = "Standard";
+    $rls_profile_status_css = "on";
+ } else {
+    $rls_profile_status_css = "un";
+    $profile_msg = "Unknown";
+ }
+
+
 # Only allow cutdown button to work IF the cutdown status <> 1...i.e. cutdown not initiated yet.
 if ($rls_cutdown_status != 1) {
 ?>
@@ -121,6 +148,26 @@ if ($rls_cutdown_status != 1) {
 ?>
 
 
+<script>
+        $("#profile").click(function() {
+        reload_paused = 1;
+        $("#profile").css("background", "url(/images/ajax-loader.gif) no-repeat center center");
+        $.ajax({
+                url: "enqueueRequest.php",
+                data: {
+                       request: "I"
+                      },
+                success: function(s,x) {
+                        $("#msgText").html(s);
+                        showMsg();
+                        v_current_status = getRlsStatus('I', 1);
+                        checkStatus('profile', 'N', v_current_status);
+                }
+            });
+        });
+</script>
+
+
 
 
 <div id="list_wrapper">
@@ -138,6 +185,13 @@ if ($rls_cutdown_status != 1) {
          <div>
            (Currently <?=$nophotos_msg?>)
          </div>
+      </li>
+      <li>
+         <h2>Profile</h2>
+         <a id="profile" class="styled-button-<?= $rls_profile_status_css?>">Set Profile to <?= $profile_button_text?></a>
+           <div>
+              (Currently: <?= $profile_msg?>)
+           </div>
       </li>
    </ul>
 </div>
