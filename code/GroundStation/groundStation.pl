@@ -84,7 +84,7 @@ my $file_num = 1;
 
 # SENSOR CONFIGURATIONS
 # ((r2 + r1)/r2) * (3.3/1024)
-my $gs_voltage_measurements = 0;    # 1 = Gathering enabled, 0 = Disabled
+my $gs_voltage_measurements = 1;    # 1 = Gathering enabled, 0 = Disabled
 my $gs_psu1_voltage_exec = $home_dir . "Voltage_Reader_Master";
 my $gs_psu1_voltage_multiplier = ((3.6 + 1)/1) * (3.3/1024);
 my $gs_psu1_voltage_ctr = 0; # we only want to get the voltage every now and then...we keep
