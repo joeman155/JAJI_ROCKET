@@ -200,7 +200,7 @@ void profile1()
 // - The Period - in Milliseconds.
 void profile2()
 {
-  show_menu(30000);
+  show_menu(15000);
 
   send_heartbeat(5000);
 
