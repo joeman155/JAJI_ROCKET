@@ -161,7 +161,7 @@ if ($rls_cutdown_status != 1) {
                         $("#msgText").html(s);
                         showMsg();
                         v_current_status = getRlsStatus('I', 1);
-                        checkStatus('profile', 'N', v_current_status);
+                        checkStatus('profile', 'I', v_current_status);
                 }
             });
         });
