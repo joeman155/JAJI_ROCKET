@@ -16,7 +16,7 @@ catch (PDOException $e)
 
 $request_code = $_REQUEST['request'];
 
-if (! in_array($request_code, array("P","A","C","L","N","K", "X", "T", "M"))) {
+if (! in_array($request_code, array("P","A","C","L","N","K", "X", "T", "M", "I"))) {
   $v_msg = "Unknown Request - Code: $v_request_code;";
   echo $v_msg;
   exit;

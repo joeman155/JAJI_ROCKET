@@ -36,9 +36,9 @@ my $pg_db_string = "dbi:Pg:dbname=rls";
 
 # SERIAL CONFIG
 # my $serial_port = "/dev/ttyAMA0";
-# my $serial_speed = 57600;
 my $serial_port = "/dev/ttyACM0";
-my $serial_speed = 57600;
+# my $serial_speed = 57600;
+my $serial_speed = 9600;
 
 # DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
@@ -149,6 +149,12 @@ if (!defined $v_nophotos_status || $v_nophotos_status != 1) {
 $v_launch_status = get_last_status("L");
 if (!defined $v_launch_status || $v_launch_status != 9) {
    set_launch_console_attribute("L", 9, "System Startup");
+}
+
+# Initialise Profile status
+$v_profile_status = get_last_status("I");
+if (!defined $v_profile_status || $v_profile_status != 3) {
+   set_launch_console_attribute("I", 3, "System Startup");
 }
 
 
@@ -965,6 +971,25 @@ sub process_requests()
              set_launch_console_attribute("C", 0, "Failed during Arm");
           }
        }
+    } elsif ($v_request_code =~ /^I/) {
+       print "** Profile change request ...\n" if $DEBUG;
+
+       set_launch_console_attribute("I", -1, "Pending");
+       $v_result = sendModemRequest("R10", "A10", $v_req_id);
+
+       setRequestStatus  ($v_req_id, "F");  # Set status of request to FINISHED
+
+       # Based on result, set appropriate INFO message.
+       if ($v_result == 2) {
+          $v_profile_msg = "IMU Profile set";
+       } elsif ($v_result == 1) {
+          $v_profile_msg = "Standard Profile set";
+       } else {
+          $v_ct_msg = "Unknown profile";
+       }
+
+       set_launch_console_attribute("I", $v_result, $v_profile_msg);
+
     } elsif ($v_request_code =~ /^C/) {
        print "** Continuity request...\n" if $DEBUG;
 
