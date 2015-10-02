@@ -291,13 +291,15 @@ int processRxSerial(char *rxString)
    {
       sendPacket(String("A09:") + String(isLaunchSystemArmed()));        
    } 
-   else if (strncmp(rxString, "R10", 3) == 0) 
+   else if (strcmp(rxString, "R10") == 0) 
    {
-      if (strcmp(param, "1") == 0) {
-         profile = 1;
-      } else if (strcmp(param, "2") == 0) {
+      // Toggle the profile value.
+      if (profile == 1) {
          profile = 2;
-      }
+      } else if (profile == 2) {
+         profile = 1;
+      } 
+      
       sendPacket(String("A10:") + String(profile));
    }    
    else if (strcmp(rxString, "R04") == 0) 
