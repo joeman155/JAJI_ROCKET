@@ -17,7 +17,7 @@ unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
 #define LOOP_DELAY 10
-short int profile = 2;              // Tells what 'profile' we follow ...e.g. just imu...or launch ,etc 
+short int profile = 1;              // Tells what 'profile' we follow ...e.g. just imu...or launch ,etc 
                                     // 1 = Normal   (no IMU mass data)
                                     // 2 = IMU      (lots of IMU data for orientation tab)
 
