@@ -11,10 +11,13 @@
 #include <SFE_BMP180.h>
  
 
+// Debugging
+unsigned short int DEBUGGING = 1;
+unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
 #define LOOP_DELAY 10
-short int profile = 1;              // Tells what 'profile' we follow ...e.g. just imu...or launch ,etc 
+short int profile = 2;              // Tells what 'profile' we follow ...e.g. just imu...or launch ,etc 
                                     // 1 = Normal   (no IMU mass data)
                                     // 2 = IMU      (lots of IMU data for orientation tab)
 
@@ -107,11 +110,6 @@ double bmp180_pressure, bmp180_temperature;
 VOLTAGE ignpsu;
 VOLTAGE ardupsu;
 unsigned long sensors_timer = 0;
-
-
-// Debugging
-unsigned short int DEBUGGING = 1;
-unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 
 void setup() {
@@ -731,6 +729,7 @@ void getHeading(float hz, float hy, double *heading)
     else *heading = 0;
   }  
   
+  *heading = 360 - *heading;
   
 }
 
@@ -923,10 +922,6 @@ void extractIMUInfo()
   getHeading((float) cmx, (float) cmy, &heading);  
   yaw = heading;
   
-  // Use Kalman to derive Yaw
-  kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
-  yaw = kalAngleX;
-  
   // Attempting to correct around the transistion point 0--360
   if (yaw > 360) {
      yaw = yaw - 360;
@@ -934,10 +929,28 @@ void extractIMUInfo()
   if (yaw < 0) {
     yaw = 360 + yaw;
   }
+  
+  // Use Kalman to derive Yaw
+  if (yaw > 180 && yaw < 360 && kalAngleX > 0 && kalAngleX < 180 )  { 
+     // Going from EAST to WEST
+     kalmanX.setAngle(yaw);  
+     kalAngleX = yaw;
+  } else if (kalAngleX > 180 && kalAngleX < 360 && yaw > 0 && yaw < 180 )  { 
+     // Going from WEST to EAST
+     kalmanX.setAngle(yaw);  
+     kalAngleX = yaw;
+  } else {
+     kalAngleX = kalmanX.getAngle(yaw, -gyroXrate, dt); // Calculate the angle using a Kalman filter
+     yaw = kalAngleX;
+  }
+  
+  
+     
+
 
   
   /* Print Useful Data */
-#if  1            // Set to 1 to activate
+#if  0            // Set to 1 to activate
   Serial.print("RAW: "); 
   Serial.print(accX); Serial.print("\t");
   Serial.print(accY); Serial.print("\t");
@@ -951,7 +964,7 @@ void extractIMUInfo()
   Serial.print(String("Pitch: ") + pitch); Serial.print("\t");
   Serial.print(String("Yaw: ") + yaw); Serial.println("\t");
   
-  delay(1000);
+  delay(300);
 #endif
 
  sendPacket(String("D06:") + String(roll), false);
