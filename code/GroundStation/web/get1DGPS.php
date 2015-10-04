@@ -29,7 +29,7 @@ catch (PDOException $e)
    }
 
    # GPS
-   $sql = "select latitude, longitude, height, gps_date, gps_time, time(creation_date) as creation_date
+   $sql = "select latitude, longitude, height, gps_date, gps_time, creation_date::time as creation_date
            from gps_t 
            where creation_date >= '" . $now . "'
            order by id ASC";
