@@ -170,7 +170,9 @@ void loop() {
      profile1();
   } else if (profile == 2) {
      profile2();
-     profile2_timer = millis();
+     if (profile2_timer == 0) {
+        profile2_timer = millis();
+     }
   }
 
 }
@@ -208,7 +210,8 @@ void profile2()
   
   // We only want to sit in profile2 profile for 30 seconds.
   if (millis() - profile2_timer > 30000) {
-    profile = 1; 
+    profile = 1;           // Back to profile1
+    profile2_timer = 0;    // Reset timer
   }
 
   send_heartbeat(5000);
