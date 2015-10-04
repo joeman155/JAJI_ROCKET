@@ -45,6 +45,9 @@ apt-get install i2c-tools
 
 apt-get install apache2 php5 sqlite3
 
+NOTE: We have opted to use the postgres database instead of sqlite3
+      because of massive performance improvements.
+
 apt-get install hostapd
 
 apt-get install php5-sqlite
