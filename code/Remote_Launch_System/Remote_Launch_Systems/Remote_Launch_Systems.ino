@@ -23,6 +23,7 @@ short int profile = 1;              // Tells what 'profile' we follow ...e.g. ju
 
 
 unsigned long profile2_timer = 0;   // Track how long we are in profile2 state.
+unsigned long profile_timer;        // Used to ensure we only show profile setting every few seconds.
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -185,6 +186,8 @@ void profile1()
 {
   show_menu(1000);
 
+  show_profile(3000);
+  
   send_heartbeat(5000);
 
   physical_measurements(5000);
@@ -207,6 +210,8 @@ void profile1()
 void profile2()
 {
   show_menu(30000); // Don't really need this, but keeping in here for safety measure.
+  
+  show_profile(3000);
   
   // We only want to sit in profile2 profile for 30 seconds.
   if (millis() - profile2_timer > 30000) {
@@ -1209,6 +1214,14 @@ void timing(int timing_period)
 }
 
 
+void show_profile(int profile_period)
+{
+  // Prefix: D04
+  if (millis() - profile_timer > profile_period) { 
+     sendPacket(String("D04:") + String(profile));
+     profile_timer = millis();
+  }
+} 
 
 void imu(int imu_period)
 {
