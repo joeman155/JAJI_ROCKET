@@ -4,6 +4,16 @@
 <?
 include "config.inc";
 
+# Get all the latest measurements
+try {
+     $dbh = new PDO("pgsql:user=www-data dbname=rls");
+     $dbh->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING );
+    }
+catch (PDOException $e)
+    {
+     echo $e->getMessage();
+    }
+
 
 $allowedExts = array("csv","txt");
 $temp = explode(".", $_FILES["file"]["name"]);
@@ -60,46 +70,25 @@ enctype="multipart/form-data">
 
 function remove_predictions()
 {
-  global $db_file;
+  global $dbh;
 
-# Get all the latest measurements
-try {
-     $dbh = new PDO("sqlite:" . $db_file);
-     $dbh->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING );
-    }
-catch (PDOException $e)
-    {
-     echo $e->getMessage();
-    }
-
-$sql = "DELETE FROM gps_prediction_t";
-$rows_deleted = $dbh->exec($sql) . "<br>";
-print "# of rows deleted: " . $rows_deleted . "<br>\n";
-
+  $sql = "DELETE FROM gps_prediction_t";
+  $rows_deleted = $dbh->exec($sql) . "<br>";
+  print "# of rows deleted: " . $rows_deleted . "<br>\n";
 }
 
 
 function import_prediction($p_file)
 {
-
- global $db_file;
-
-# Get all the latest measurements
-try {
-     $dbh = new PDO("sqlite:" . $db_file);
-    }
-catch (PDOException $e)
-    {
-     echo $e->getMessage();
-    }
+  global $dbh;
 
   $rows = 0;
   if (($handle = fopen($p_file, "r")) !== FALSE) {
     while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
         $num = count($data);
 		$rows = $rows + 1;
-		$sql = "INSERT INTO gps_prediction_t (dtime, latitude, longitude, height, creation_date) VALUES ";
-		$sql .= "(" . $data[0] . ", " . $data[1] . ", " . $data[2] . ", " . $data[3] . ", " . "datetime('now', 'localtime'))";
+		$sql = "INSERT INTO gps_prediction_t (dtime, latitude, longitude, height) VALUES ";
+		$sql .= "(" . $data[0] . ", " . $data[1] . ", " . $data[2] . ", " . $data[3] . ")";
 		# print $sql . "<br><br>\n";
 
 		if (! $dbh->exec($sql)) {
