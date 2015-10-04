@@ -21,6 +21,9 @@ short int profile = 1;              // Tells what 'profile' we follow ...e.g. ju
                                     // 1 = Normal   (no IMU mass data)
                                     // 2 = IMU      (lots of IMU data for orientation tab)
 
+
+unsigned long profile2_timer = 0;   // Track how long we are in profile2 state.
+
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
 const int  powerPin           = 6;  // PORTH, 6   -- Digital pin 9
@@ -167,6 +170,7 @@ void loop() {
      profile1();
   } else if (profile == 2) {
      profile2();
+     profile2_timer = millis();
   }
 
 }
@@ -200,7 +204,12 @@ void profile1()
 // - The Period - in Milliseconds.
 void profile2()
 {
-  show_menu(15000);
+  show_menu(30000); // Don't really need this, but keeping in here for safety measure.
+  
+  // We only want to sit in profile2 profile for 30 seconds.
+  if (millis() - profile2_timer > 30000) {
+    profile = 1; 
+  }
 
   send_heartbeat(5000);
 
