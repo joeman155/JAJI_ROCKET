@@ -169,10 +169,10 @@ void loop() {
   if (profile == 1) {
      profile1();
   } else if (profile == 2) {
-     profile2();
      if (profile2_timer == 0) {
         profile2_timer = millis();
-     }
+     }    
+     profile2();
   }
 
 }
