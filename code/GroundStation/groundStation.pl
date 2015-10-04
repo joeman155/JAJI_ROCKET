@@ -371,6 +371,10 @@ sub decode_rx()
   } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
+  } elsif ($p_line =~ /^D04:(.*$)/)
+  {
+    set_lc_profile_status($1);
+    $v_result = "Profile setting: " . $1;
   } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
     my %imu;
@@ -1288,6 +1292,25 @@ sub set_lc_power_status($)
  set_launch_console_attribute("P", $p_status, $v_notes);
 
 }
+
+
+# Set Profile Setting
+sub set_lc_profile_status($)
+{
+ local ($p_status) = @_;
+ if ($p_status == 2) {
+    $v_notes = "IMU";
+ } elsif ($p_status == 1) {
+    $v_notes = "Standard";
+ } else {
+    $v_notes = "Unknown";
+ }
+
+ set_launch_console_attribute("I", $p_status, $v_notes);
+
+}
+
+
 
 
 # Set Arm status
