@@ -125,6 +125,17 @@ if ($latitude != "" && $longitude != "" && $v_local_lat != "" && $v_local_long !
 }
 
 
+# IMU - The idea here is to provide evidence of stability over two time frames,
+#       2 minutes and 5 minutes. The values the RRLS will provide for these
+#       two time frames are:-
+#  - peak absolute rotation speed (for each axis)
+#  - average absolute speed       (for each axis)
+#  - variance                     (for each axis)
+#  - average pitch angle
+#  - average roll angle
+
+
+
 
 # ALERTS
 $alerts = array();
@@ -204,6 +215,26 @@ if ($v_los_distance > $threshold_distance) {
         array_push($alerts['alerts'] = array('text'  => $alert_distance,
         			             'title' => "Distance exceeds " . $threshold_distance . "km?"));
 }
+
+
+
+# IMU Alerts
+# gyro peak and avg speed X exceeds safety setting in last 5 minutes.
+# gyro peak and avg speed Y exceeds safety setting in last 5 minutes
+# gyro peak and avg speed Z exceeds safety setting in last 5 minutes
+
+# pitch exceeds safety setting in last 5 minutes
+# roll exceeds safety setting in last 5 minutes
+
+# gyro peak and avg speed X exceeds safety setting in last 2 minutes.
+# gyro peak and avg speed Y exceeds safety setting in last 2 minutes
+# gyro peak and avg speed Z exceeds safety setting in last 2 minutes
+
+# pitch exceeds safety setting in last 2 minutes
+# roll exceeds safety setting in last 2 minutes
+
+
+
 
 
 ?>
