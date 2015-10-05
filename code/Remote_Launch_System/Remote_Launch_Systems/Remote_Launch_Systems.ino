@@ -12,7 +12,7 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 0;
+unsigned short int DEBUGGING = 1;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -79,6 +79,15 @@ boolean getting_data;            // Indicates if command was processed on menu.
 // States
 short int cutdown = 0; // Start up disabled
 
+
+// Linksprite Camera - on Serialport 3
+byte ZERO = 0x00;
+byte incomingbyte;
+long int j=0,k=0,count=0,i=0x0000;
+uint8_t MH,ML;
+boolean camera_EndFlag=0;
+
+
 // IMU
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
@@ -118,10 +127,23 @@ unsigned long sensors_timer = 0;
 
 void setup() {
   // Serial Port we program with
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   // GPS
   Serial1.begin(4800);
+  
+  // Linksprite Camera
+  Serial3.begin(115200);
+  delay(100);
+  SendResetCmd();
+  delay(2000);
+  SetBaudRateCmd(0x2A);
+  delay(500);
+  Serial3.begin(38400);
+  delay(100);
+  
+  // DEBUGGING - TESTING
+  // takePicture();
   
   // Radio Modem
   Serial2.begin(57600);
@@ -1245,4 +1267,155 @@ void launch_systems(int launch_period)
     sendPacket(String("D08:") + String(isLaunchSystemArmed()));  
     launch_timer = millis();
  }
+}
+
+
+
+void SendResetCmd()
+{
+    Serial3.write(0x56);
+    Serial3.write(ZERO);
+    Serial3.write(0x26);
+    Serial3.write(ZERO);
+}
+ 
+/*************************************/
+/* Set ImageSize :
+/* <1> 0x22 : 160*120
+/* <2> 0x11 : 320*240
+/* <3> 0x00 : 640*480
+/* <4> 0x1D : 800*600
+/* <5> 0x1C : 1024*768
+/* <6> 0x1B : 1280*960
+/* <7> 0x21 : 1600*1200
+/************************************/
+void SetImageSizeCmd(byte Size)
+{
+    Serial3.write(0x56);
+    Serial3.write(ZERO);  
+    Serial3.write(0x54);
+    Serial3.write(0x01);
+    Serial3.write(Size);
+}
+ 
+/*************************************/
+/* Set BaudRate :
+/* <1>¡¡0xAE  :   9600
+/* <2>¡¡0x2A  :   38400
+/* <3>¡¡0x1C  :   57600
+/* <4>¡¡0x0D  :   115200
+/* <5>¡¡0xAE  :   128000
+/* <6>¡¡0x56  :   256000
+/*************************************/
+void SetBaudRateCmd(byte baudrate)
+{
+    Serial3.write(0x56);
+    Serial3.write(ZERO);
+    Serial3.write(0x24);
+    Serial3.write(0x03);
+    Serial3.write(0x01);
+    Serial3.write(baudrate);
+}
+ 
+void SendTakePhotoCmd()
+{
+    Serial3.write(0x56);
+    Serial3.write(ZERO);
+    Serial3.write(0x36);
+    Serial3.write(0x01);
+    Serial3.write(ZERO); 
+}
+ 
+void SendReadDataCmd()
+{
+    MH=i/0x100;
+    ML=i%0x100;
+    Serial3.write(0x56);
+    Serial3.write(ZERO);
+    Serial3.write(0x32);
+    Serial3.write(0x0c);
+    Serial3.write(ZERO);
+    Serial3.write(0x0a);
+    Serial3.write(ZERO);
+    Serial3.write(ZERO);
+    Serial3.write(MH);
+    Serial3.write(ML);
+    Serial3.write(ZERO);
+    Serial3.write(ZERO);
+    Serial3.write(ZERO);
+    Serial3.write(0x20);
+    Serial3.write(ZERO);
+    Serial3.write(0x0a);
+    i+=0x20;
+}
+ 
+void StopTakePhotoCmd()
+{
+    Serial3.write(0x56);
+    Serial3.write(ZERO);
+    Serial3.write(0x36);
+    Serial3.write(0x01);
+    Serial3.write(0x03);
+}
+
+
+
+void takePicture()
+{
+    byte a[32];
+    int ii;
+ 
+    SendResetCmd();
+    delay(2000);                            //Wait 2-3 second to send take picture command
+    SetImageSizeCmd(0x21);
+    delay(1000);   // Not sure if this delay is needed...put in so that previous command hopefully will work.
+    SendTakePhotoCmd();
+    delay(1000);
+    while(Serial3.available()>0)
+    {
+        incomingbyte=Serial3.read();
+    }
+ 
+    myFile = SD.open("pic2.jpg", FILE_WRITE); //The file name should not be too long
+ 
+    while(!camera_EndFlag)
+    {
+        j=0;
+        k=0;
+        count=0;
+        //Serial3.flush();
+        SendReadDataCmd();
+        delay(20);
+        while(Serial3.available()>0)
+        {
+            incomingbyte=Serial3.read();
+            k++;
+            delay(1); //250 for regular
+            if((k>5)&&(j<32)&&(!camera_EndFlag))
+            {
+                a[j]=incomingbyte;
+                if((a[j-1]==0xFF)&&(a[j]==0xD9))     //tell if the picture is finished
+                {
+                    camera_EndFlag=1;
+                }
+                j++;
+                count++;
+            }
+        }
+ 
+        for(j=0;j<count;j++)
+        {
+            if(a[j]<0x10)  Serial.print("0");
+            Serial.print(a[j],HEX);           // observe the image through serial port
+            Serial.print(" ");
+        }
+ 
+        for(ii=0; ii<count; ii++)
+        myFile.write(a[ii]);
+        Serial.println();
+    }
+ 
+    myFile.close();
+    Serial.print("Finished writing data to file");
+    while(1);
 }
