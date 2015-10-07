@@ -9,6 +9,7 @@
 #include <TinyGPS.h>
 #include <SFE_LSM9DS0.h>
 #include <SFE_BMP180.h>
+#include "ssdv.h"
  
 
 // Debugging
@@ -134,16 +135,15 @@ void setup() {
   
   // Linksprite Camera
   Serial3.begin(115200);
-  delay(100);
+  delay(200);
   SendResetCmd();
   delay(2000);
   SetBaudRateCmd(0x2A);
-  delay(500);
+  delay(100);
   Serial3.begin(38400);
   delay(100);
-  
-  // DEBUGGING - TESTING
-  // takePicture();
+  SetImageSizeCmd(0x00);    // 0x1c - 1024X768    0x00 - 640/480
+  delay(100);  
   
   // Radio Modem
   Serial2.begin(57600);
@@ -181,6 +181,10 @@ void setup() {
   } else {
     sdCardState = 1;
   }
+  
+  // DEBUGGING - TESTING
+  // takePicture();
+  int result = send_image();  
 }
 
 
@@ -1365,10 +1369,10 @@ void takePicture()
     byte a[32];
     int ii;
  
-    SendResetCmd();
-    delay(2000);                            //Wait 2-3 second to send take picture command
-    SetImageSizeCmd(0x21);
-    delay(1000);   // Not sure if this delay is needed...put in so that previous command hopefully will work.
+    //SendResetCmd();
+    //delay(2000);                            //Wait 2-3 second to send take picture command
+    //SetImageSizeCmd(0x1D);   // Set to highest resolution
+    //delay(100);   // Not sure if this delay is needed...put in so that previous command hopefully will work.
     SendTakePhotoCmd();
     delay(1000);
     while(Serial3.available()>0)
@@ -1376,7 +1380,7 @@ void takePicture()
         incomingbyte=Serial3.read();
     }
  
-    myFile = SD.open("pic2.jpg", FILE_WRITE); //The file name should not be too long
+    myFile = SD.open("pic6.jpg", FILE_WRITE); //The file name should not be too long
  
     while(!camera_EndFlag)
     {
@@ -1417,5 +1421,99 @@ void takePicture()
  
     myFile.close();
     Serial.print("Finished writing data to file");
-    while(1);
+    // while(1);
+}
+
+
+int send_image()
+{
+  Serial.println("send_image");
+  
+  int c, i;
+  //FILE *fin = stdin;   //Use MyFile instead
+  //FILE *fout = stdout; // Not using output files in Arduino code - sending directly down the serial line.
+  char encode = -1;
+  char type = SSDV_TYPE_NORMAL;
+  int droptest = 0;
+  char callsign[7];
+  uint8_t image_id = 0;
+  ssdv_t ssdv;
+
+  uint8_t pkt[SSDV_PKT_SIZE], b[128], *jpeg;
+  size_t jpeg_length;
+	
+  callsign[0] = '\0';
+
+  myFile = SD.open("pic6.jpg", FILE_READ);
+    
+  ssdv_enc_init(&ssdv, type, callsign, image_id);
+  ssdv_enc_set_buffer(&ssdv, pkt);	
+  i = 0;
+  
+  
+  while(1)
+  {
+     while((c = ssdv_enc_get_packet(&ssdv)) == SSDV_FEED_ME)
+     {
+	
+        // size_t r = myFile.read(b, 1, 128, fin); // Replaced with loop below.
+	
+        int byte_count = 0;
+        while(byte_count < 128 && myFile.available())
+        {
+           b[byte_count] = myFile.read();
+           byte_count++;   
+        }
+        size_t r = byte_count;
+       
+//Serial.println(String("Bytes: ") + String(r));
+//Serial.println(String("c: ")     + String(c));
+
+
+/*
+	if(r <= 0) {
+           Serial.println("Premature end of file\n");
+	   break;
+	}
+*/
+	ssdv_enc_feed(&ssdv, b, r);
+
+
+     }
+     
+     // Serial.println("Working on buffer");
+     // Serial.println(String("Width: ") + String(ssdv.width));     
+     if (ssdv.error) {
+         Serial.println(String("Error: ") + String(ssdv.error));     
+     }	
+	
+     if(c == SSDV_EOI) {
+        //Serial.println("ssdv_enc_get_packet said EOI");
+        break;
+     }	else if(c != SSDV_OK) {
+        //Serial.println(String("ssdv_enc_get_packet failed: ") + String(c));
+        return(-1);
+     }
+			
+      // fwrite(pkt, 1, SSDV_PKT_SIZE, fout);
+        Serial.print("D13:");
+        for(j=0;j<SSDV_PKT_SIZE;j++)
+        {
+            if(pkt[j]<0x10)  Serial.print("0");
+            Serial.print(pkt[j],HEX);           // observe the image through serial port
+            //Serial.print(" ");
+        }
+        Serial.println();
+        
+      // Serial.println(String("Writing packet of length ") + String(SSDV_PKT_SIZE));
+      i++;
+
+    }
+	
+  // Serial.println(String("Wrote ") + String(i) + String(" packets"));  
+  
+  // Finished - close the file handle
+  myFile.close();
+  
+  
 }
