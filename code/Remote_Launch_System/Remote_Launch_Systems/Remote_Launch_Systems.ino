@@ -42,6 +42,7 @@ unsigned long launch_timer   = 0;
 // SD Card and file declarations
 const int chipSelect = 4;
 File myFile;
+File imgFile;
 int sdCardState = 0;  // 0 = uninitialised , -1 = error, 1 = initialised
 
 // Generic declarations
@@ -50,6 +51,7 @@ char noCommand[1];
 char inChar=-1; // Where to store the character read
 char nextChar=-1; // Where we store the peeked character
 byte index = 0; // Index into array; where to store the character
+char hex_code[3];
 
 #define M_PI 3.14159265
 #define RADIANS_TO_DEGREES(radians) ((radians) * (180.0 / M_PI)) 
@@ -400,6 +402,25 @@ void sendPacket(String str, boolean eol) {
   } else {
     Serial2.print(str);
     logString(str, eol);
+  }    
+  
+  // Debug to console, if debugging is enabled
+  if (DEBUGGING == 1) {
+    if (eol) {
+       Serial.println(str);
+    } else {
+       Serial.print(str);
+    }
+  }  
+}
+
+void sendPacket(String str, boolean eol, boolean logging) {
+  if (eol) {
+    Serial2.println(str);
+    if (logging) logString(str);
+  } else {
+    Serial2.print(str);
+    if (logging) logString(str, eol);
   }    
   
   // Debug to console, if debugging is enabled
@@ -1427,7 +1448,7 @@ void takePicture()
 
 int send_image()
 {
-  Serial.println("send_image");
+  sendPacket("send_image");
   
   int c, i;
   //FILE *fin = stdin;   //Use MyFile instead
@@ -1444,7 +1465,7 @@ int send_image()
 	
   callsign[0] = '\0';
 
-  myFile = SD.open("pic6.jpg", FILE_READ);
+  imgFile = SD.open("pic6.jpg", FILE_READ);
     
   ssdv_enc_init(&ssdv, type, callsign, image_id);
   ssdv_enc_set_buffer(&ssdv, pkt);	
@@ -1459,9 +1480,9 @@ int send_image()
         // size_t r = myFile.read(b, 1, 128, fin); // Replaced with loop below.
 	
         int byte_count = 0;
-        while(byte_count < 128 && myFile.available())
+        while(byte_count < 128 && imgFile.available())
         {
-           b[byte_count] = myFile.read();
+           b[byte_count] = imgFile.read();
            byte_count++;   
         }
         size_t r = byte_count;
@@ -1484,7 +1505,7 @@ int send_image()
      // Serial.println("Working on buffer");
      // Serial.println(String("Width: ") + String(ssdv.width));     
      if (ssdv.error) {
-         Serial.println(String("Error: ") + String(ssdv.error));     
+         sendPacket(String("Error: ") + String(ssdv.error));     
      }	
 	
      if(c == SSDV_EOI) {
@@ -1496,14 +1517,23 @@ int send_image()
      }
 			
       // fwrite(pkt, 1, SSDV_PKT_SIZE, fout);
-        Serial.print("D13:");
+        sendPacket("D13:", false, false);
+        // Serial.print("D13:");
         for(j=0;j<SSDV_PKT_SIZE;j++)
         {
-            if(pkt[j]<0x10)  Serial.print("0");
-            Serial.print(pkt[j],HEX);           // observe the image through serial port
+            if(pkt[j]<0x10)  {
+                // sendPacket("0", false);
+                // Serial.print("0");
+            }
+            
+            sprintf(&hex_code[0], "%02X", pkt[j]);
+            sendPacket(&hex_code[0], false, false);
+            // Serial.print(pkt[j],HEX);           // observe the image through serial port
             //Serial.print(" ");
         }
-        Serial.println();
+        sendPacket("", true, false);
+        delay(500); // Else the receiving end gets packets too fast and can't keep up.
+        // Serial.println("");
         
       // Serial.println(String("Writing packet of length ") + String(SSDV_PKT_SIZE));
       i++;
@@ -1513,7 +1543,7 @@ int send_image()
   // Serial.println(String("Wrote ") + String(i) + String(" packets"));  
   
   // Finished - close the file handle
-  myFile.close();
+  imgFile.close();
   
   
 }
