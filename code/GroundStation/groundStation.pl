@@ -35,10 +35,10 @@ my $db_string    = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB f
 my $pg_db_string = "dbi:Pg:dbname=rls";
 
 # SERIAL CONFIG
-# my $serial_port = "/dev/ttyAMA0";
-my $serial_port = "/dev/ttyACM0";
-# my $serial_speed = 57600;
-my $serial_speed = 9600;
+my $serial_port = "/dev/ttyAMA0";
+# my $serial_port = "/dev/ttyACM0";
+my $serial_speed = 57600;
+# my $serial_speed = 9600;
 
 # DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
@@ -421,8 +421,6 @@ sub decode_rx()
     open (my $ssdv_fh, ">>" . $ssdv_file) or die "Cannot create ssdv";
     print $ssdv_fh $val;
     close($ssdv_fh);
-
-    $v_result = "SSDV Data";
   } elsif ($p_line =~ /^E00$/)
   {
     $v_result = "Error initialising microSD Card";
