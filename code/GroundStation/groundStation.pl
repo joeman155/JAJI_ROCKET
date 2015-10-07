@@ -65,6 +65,10 @@ $x_modem_packet_num = $home_dir . "run/x_modem_packet";
 `echo "" > $x_modem_packet_num`;
 `echo 0 > $download_file_status`;
 
+# SSDV
+$ssdv_file = $home_dir . "out/ssdv";
+unlink $ssdv_file;
+
 # PICTURE CONFIGURATIONS
 my $filename = "";  
 my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
@@ -410,6 +414,15 @@ sub decode_rx()
   } elsif ($p_line =~ /^D12$/)
   {
     $v_result = "Finished sending picture";
+  } elsif ($p_line =~ /^D13:(.*)$/)
+  {
+    $ssdv_packet = $1;
+    $val = pack "H*", $ssdv_packet;
+    open (my $ssdv_fh, ">>" . $ssdv_file) or die "Cannot create ssdv";
+    print $ssdv_fh $val;
+    close($ssdv_fh);
+
+    $v_result = "SSDV Data";
   } elsif ($p_line =~ /^E00$/)
   {
     $v_result = "Error initialising microSD Card";
