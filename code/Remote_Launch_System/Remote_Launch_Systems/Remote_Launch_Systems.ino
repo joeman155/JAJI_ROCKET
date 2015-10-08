@@ -39,6 +39,7 @@ const int  launch_countdown_delay = 6000;  // The 5 second countdown.
 int state;
 unsigned long launch_timer   = 0;
 
+
 // SD Card and file declarations
 const int chipSelect = 4;
 File myFile;
@@ -52,6 +53,10 @@ char inChar=-1; // Where to store the character read
 char nextChar=-1; // Where we store the peeked character
 byte index = 0; // Index into array; where to store the character
 char hex_code[3];
+char temp_string[15];
+char temp_string2[3];
+boolean error;
+
 
 #define M_PI 3.14159265
 #define RADIANS_TO_DEGREES(radians) ((radians) * (180.0 / M_PI)) 
@@ -89,6 +94,9 @@ byte incomingbyte;
 long int j=0,k=0,count=0,i=0x0000;
 uint8_t MH,ML;
 boolean camera_EndFlag=0;
+char current_pic_name[15];
+unsigned long picture_timer = 0;   // (note, for pictures we want a long period.....so specified in seconds...not msec)
+
 
 
 // IMU
@@ -139,23 +147,17 @@ void setup() {
   Serial3.begin(115200);
   delay(200);
   SendResetCmd();
-  delay(2000);
-  SetBaudRateCmd(0x1c);  // 2A = 38400, 1C = 57600, 0x0d = 115200
-  /*
-  delay(5);
-    while(Serial3.available()>0)
-    {
-        incomingbyte=Serial3.read();
-        Serial.print(incomingbyte, HEX);
-        Serial.print(" ");
-    }
-    */
-  delay(100);
+  delay(4000);
   
-  Serial3.begin(57600);
+//  SetBaudRateCmd(0x2A);     // 2A = 38400, 1C = 57600, 0x0d = 115200
+//  delay(100);
+//  Serial3.end();
+//  
+//  Serial3.begin(38400);
   delay(100);
-  SetImageSizeCmd(0x1C);    // 0x1c - 1024X768    0x00 - 640/480
+  SetImageSizeCmd(0x00);    // 0x1c - 1024X768    0x00 - 640/480
   delay(100);  
+  
   
   // Radio Modem
   Serial2.begin(57600);
@@ -195,8 +197,8 @@ void setup() {
   }
   
   // DEBUGGING - TESTING
-  takePicture();
-  int result = send_image();  
+  // takePicture();
+  // int result = send_image();  
 }
 
 
@@ -237,6 +239,11 @@ void profile1()
   imu(1000);
   
   launch_systems(500);
+  
+  // Only allow automatic taking pictures IF the launch system is NOT powered.
+  if (! isLaunchSystemPowered()) {
+     takePicture(300); // This figure 60 is in seconds...not milliseconds like other ones.
+  }
 
   delay(LOOP_DELAY);   
 }
@@ -1394,128 +1401,151 @@ void StopTakePhotoCmd()
 }
 
 
+// Take a picture every picture_period milliseconds
+void takePicture(long picture_period)
+{
+ if (millis() - picture_timer > (picture_period * 1000)) { 
+    Serial.println("PRICK!!!!!!!!!!!!!!!");
+    takePicture_internal();
+    picture_timer = millis();
+ }
+}
 
-void takePicture()
+// Take a picture
+void takePicture_internal()
 {
     byte a[32];
     int ii, jj;
- 
-
-//    SendResetCmd();
-//    delay(2000);             // Wait 2-3 second to send take picture command
-    //SetImageSizeCmd(0x1D);   // Set to highest resolution
-    //delay(100);              // Not sure if this delay is needed...put in so that previous command hopefully will work.
-//    Serial.println("Taking photo");
-    SendTakePhotoCmd();
-    delay(1000);
-    
-    while(Serial3.available()>0)
-    {
-        incomingbyte=Serial3.read();
-        /*
-        Serial.print(incomingbyte, HEX);
-        Serial.print(" ");
-        */
-    }
-    
- 
-    // Remove file if it exists
-    if (SD.exists("pic7.jpg")) {
-       SD.remove("pic7.jpg");
-    }
+    camera_EndFlag = 0;
+    i = 0;
     
     // Init handle for file
-    myFile = SD.open("pic7.jpg", FILE_WRITE); //The file name should not be too long
+    myFile = SD.open(&current_pic_name[0], FILE_WRITE); //The file name should not be too long
  
-    int nextPacket = 1;
-    int packetCount = 0;
-    while(!camera_EndFlag)
-    {
-        if (nextPacket == 1) {
-           // Serial.println("Sent READ command");
-           nextPacket = 0;
-           j=0;
-           k=0;
-           count=0;
-           //Serial3.flush();
-           //Serial.println("SR");
-           SendReadDataCmd();
-           delay(5);
-           a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
-        }
-        
-        
-        /*
-        char ack[5];
-        while(Serial3.available()>0)
-        {
-          incomingbyte=Serial3.read();
-          delay(1);
-          ack[k] = incomingbyte;
-          if ((ack[0] == 0x76) && (ack[1] == 0x00) && (ack[2] == 0x32) && (ack[3] == 0x00) && (ack[4] == 0x00)) {
-             break;
-          }
-          k++;
-        }
-        */
-        
-        while(Serial3.available()>0)
-        {
-            incomingbyte=Serial3.read();
-            k++;
-            delay(1); //250 for regular
-            // delayMicroseconds(100); 
-            if((k>5)&&(j<32)&&(!camera_EndFlag))
-            {
-                a[j]=incomingbyte;
-                if((a[j-1]==0xFF)&&(a[j]==0xD9))     //tell if the picture is finished
-                {
-                    camera_EndFlag=1;
-                }
-                
-                // Not sure why, but we sometimes get TWO ack at beginning.
-                if ((a[0] == 0x76) && (a[1] == 0x00) && (a[2] == 0x32) && (a[3] == 0x00) && (a[4] == 0x00)) {
-                   j = j - 5;
-                   a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
-                   count = 0;
-                }                
-                j++;
-                count++;
-            }
-        }
- 
- /*
-        for(jj=0;jj<count;jj++)
-        {
-            if(a[jj]<0x10)  Serial.print("0");
-            Serial.print(a[jj],HEX);           // observe the image through serial port
-            Serial.print(" ");
-        }
- */
- 
-        for(ii=0; ii<count; ii++) {
-           myFile.write(a[ii]);
-        }
-        
-        
-        if (j == 32 ) {
-           packetCount++;
-           nextPacket = 1;
-           // Serial.println();
-           
-           Serial.print(".");
-           
-           if (packetCount % 80 == 0) {
-              Serial.println("");
-           }
-           
-        }
+    error = false;
+    if (! myFile) {
+       sendPacket("E2");
+       error = true;
     }
+    
+    
+    if (!error) 
+    {
+       SendTakePhotoCmd();
+       delay(1000);
+       
+       // Generate file name
+       char *fname = create_pic_fname();
+       strcpy(&current_pic_name[0], fname);
+       sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), false, false);
+    
+       // Consume ack bytes.
+       while(Serial3.available()>0)
+       {
+           incomingbyte=Serial3.read();
+       }       
+    
+       int nextPacket = 1;
+       int packetCount = 0;
+       ulCur = millis();
+       while(!camera_EndFlag)
+       {
+           if (nextPacket == 1) 
+           {
+              nextPacket = 0;
+              j=0;
+              k=0;
+              count=0;
+              SendReadDataCmd();
+              delay(5);
+              a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
+           }
+        
+           // Exit if we can't get pic within 90 seconds...this occurs if a problem with camera
+           // or camera not plugged in properly
+           if((millis() - ulCur) > (unsigned long)(90000)) // 90,000 milli seconds == 90 seconds
+           {
+               Serial.println("E5");
+               break; // took too long, I'm going now
+           }
+        
+           while(Serial3.available()>0)
+           {
+               incomingbyte=Serial3.read();
+               k++;
+               // delay(1); //250 for regular
+               delayMicroseconds(333); 
+               if((k>5)&&(j<32)&&(!camera_EndFlag))
+               {
+                   a[j]=incomingbyte;
+                   if((a[j-1]==0xFF)&&(a[j]==0xD9))     //tell if the picture is finished
+                   {
+                       camera_EndFlag=1;
+                   }
+                
+                   // Not sure why, but we sometimes get TWO ack at beginning.
+                   if ((a[0] == 0x76) && (a[1] == 0x00) && (a[2] == 0x32) && (a[3] == 0x00) && (a[4] == 0x00)) {
+                      j = j - 5;
+                      a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
+                      count = 0;
+                   }                
+                   j++;
+                   count++;
+               }
+           }
+ 
+
+ // DEBUGGING
+           for(jj=0;jj<count;jj++)
+           {
+               if(a[jj]<0x10)  Serial.print("0");
+               Serial.print(a[jj],HEX);           // observe the image through serial port
+               Serial.print(" ");
+           }
+ 
+ 
+           for(ii=0; ii<count; ii++) {
+              myFile.write(a[ii]);
+           }
+        
+        
+           if (j == 32 ) {
+              packetCount++;
+              nextPacket = 1;
+           
+              // DEBUGGING
+              Serial.println();
+              /*
+              Serial.print(".");
+           
+              if (packetCount % 80 == 0) {
+                 Serial.println("");
+              }
+              */
+           }
+       }
    
-    Serial.println("");
-    myFile.close();
-    Serial.println("Finished writing data to file");
-    // while(1);
+       Serial.println("");
+       myFile.close();
+    
+       Serial.println("Sending Stop command");
+       StopTakePhotoCmd();
+    
+       /*
+       // Consume anything that might be in the buffer.
+       while(Serial3.available()>0)
+       {
+           incomingbyte=Serial3.read();
+           Serial.print(incomingbyte, HEX);
+           Serial.print(" ");
+       }    
+       Serial.println("");
+       */
+    
+       // DEBUGGING
+       Serial.println("Finished writing data to file");
+    }
+
 }
 
 
@@ -1576,7 +1606,7 @@ int send_image()
             sendPacket(&hex_code[0], false, false);
         }
         sendPacket("", true, false);
-        delay(500); // Else the receiving end gets packets too fast and can't keep up. 
+        delay(400); // Else the receiving end gets packets too fast and can't keep up. 
       i++;
     }
 
@@ -1584,3 +1614,41 @@ int send_image()
   // Finished - close the file handle
   imgFile.close();
 }
+
+
+// Create a uniqut filename
+char *create_pic_fname()
+{
+    byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
+    
+    // Derive full path from date/time  - format is MMDDHHMM
+    // This means we comply with nothing longer than 8 characters... DOS restriction 
+    readDS3232time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month, &year);
+    
+    // Start of file (date)
+    if (month < 10) {
+      strcpy(temp_string, "0");
+      strcat(temp_string, itoa(month, temp_string2, 10));
+    } else {
+      strcpy(temp_string, itoa(month, temp_string2, 10));
+    }
+    
+    if (dayOfMonth < 10) {
+      strcat(temp_string, "0");
+    }
+    strcat(temp_string, itoa(dayOfMonth, temp_string2, 10));
+   
+    
+    // Second part of filename (time)
+    if (hour < 10) {
+      strcat(temp_string, "0");
+    }
+    strcat(temp_string, itoa(hour, temp_string2, 10)); 
+    
+    if (minute < 10) {
+      strcat(temp_string, "0");
+    } 
+    strcat(temp_string, itoa(minute, temp_string2, 10));
+    
+    return &temp_string[0];
+}  
