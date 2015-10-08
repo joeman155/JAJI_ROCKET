@@ -1496,13 +1496,14 @@ void takePicture_internal()
  
 
  // DEBUGGING
+ /*
            for(jj=0;jj<count;jj++)
            {
                if(a[jj]<0x10)  Serial.print("0");
                Serial.print(a[jj],HEX);           // observe the image through serial port
                Serial.print(" ");
            }
- 
+*/
  
            for(ii=0; ii<count; ii++) {
               myFile.write(a[ii]);
@@ -1514,14 +1515,14 @@ void takePicture_internal()
               nextPacket = 1;
            
               // DEBUGGING
-              Serial.println();
-              /*
+              // Serial.println();
+              
               Serial.print(".");
            
               if (packetCount % 80 == 0) {
                  Serial.println("");
               }
-              */
+              
            }
        }
    
