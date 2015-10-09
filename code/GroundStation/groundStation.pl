@@ -68,6 +68,8 @@ $x_modem_packet_num = $home_dir . "run/x_modem_packet";
 # SSDV
 $ssdv_file = $home_dir . "out/ssdv";
 unlink $ssdv_file;
+$SSDV_EXEC = $home_dir . "ssdv";
+$ssdv_transfer = 0;   # 1 = transferring, 0 = not transferring
 
 # PICTURE CONFIGURATIONS
 my $filename = "";  
@@ -75,6 +77,8 @@ my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket La
 $pic_download_offered = 0;   # How many times the Launch System has offered a picture for download
 $pic_dl_freq = 5;            # How often to download a pic.i.e. download every 'pic_dl_freq'th pic offered
 $image_error = 0;            # Indicates if an issue with images
+$image_dir   = $home_dir . "out/images/";
+$image_seq = 1;
 
 
 # INITIALISATIONS
@@ -413,9 +417,14 @@ sub decode_rx()
     $v_result = "Finished writing picture to microSD";
   } elsif ($p_line =~ /^D12$/)
   {
+    $ssdv_transfer = 0;
+    $out_image_file = $image_dir . $image_seq . ".jpg";
+    $image_seq++;
+    `$SSDV_EXEC -d $ssdv_file > $out_image_file`;
     $v_result = "Finished sending picture";
   } elsif ($p_line =~ /^D13:(.*)$/)
   {
+    $ssdv_transfer = 1;
     $ssdv_packet = $1;
     $val = pack "H*", $ssdv_packet;
     open (my $ssdv_fh, ">>" . $ssdv_file) or die "Cannot create ssdv";
@@ -622,7 +631,6 @@ sub insert_measurements()
  $sth = $dbh->prepare($query);
  $sth->execute();
 
- #joe
  ($v_group_id) = $sth->fetchrow_array();
 
  # Insert Measurements

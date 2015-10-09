@@ -9,11 +9,11 @@
 echo Creating GS directories
 [ -d /data/web ] || mkdir /data/web
 [ -d /data/web/out ] || mkdir /data/web/out
-[ -d /data/web/out/images ] || mkdir /data/web/out/images
 [ -d /data/gs ] || mkdir /data/gs
 [ -d /data/gs/db ] || mkdir /data/gs/db
 [ -d /data/gs/run ] || mkdir /data/gs/run
 [ -d /data/gs/uploads ] || mkdir /data/gs/uploads
+[ -d /data/gs/out/images ] || mkdir /data/gs/out/images
 
 echo Permissions on files
 touch /data/gs/run/download_file_status
@@ -25,13 +25,21 @@ chmod 777 /data/gs/run/download_file_status
 
 # Compile files
 gcc -o Voltage_Reader_Master  Voltage_Reader/Master/Voltage_Reader_Master.c
+cd ssdv
+gcc -o ssdv main.c ssdv.c rs8.c
+cd ../
+
 
 echo Copying across files
 cp -pr web/* /data/web/
 cp air_data.txt /data/gs/
 cp groundStation.pl /data/gs/
+cp ssdv/ssdv /data/gs/
 cp gs.sh /data/gs/
 cp Voltage_Reader_Master /data/gs/
+
+# DB Links
+ln -s /data/gs/out/images /data/web/out/images
 
 
 echo Initialising the database...
