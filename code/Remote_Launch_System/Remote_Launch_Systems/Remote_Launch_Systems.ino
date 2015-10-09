@@ -258,7 +258,10 @@ void profile1()
   
   // If a picture was taken, send it down.
   if (picture_ready) {
-     long result = send_image(400);
+     boolean result = send_image(400);
+     if (result) {
+        sendPacket("D12");  // Indicates to ground station that image transfer has finished. 
+     }
   }
 
   delay(LOOP_DELAY);   
@@ -1573,9 +1576,9 @@ void takePicture_internal()
 
 
 // Take a picture every picture_period milliseconds
-long send_image(long picture_period)
+boolean send_image(long picture_period)
 {
-  long result = 0;
+  boolean result = false;
   
   if (millis() - picture_timer > picture_period) { 
      result = send_image_internal();
@@ -1591,12 +1594,13 @@ long send_image(long picture_period)
 //
 // Returns number of bytes processed.
 //
-long send_image_internal()
+boolean send_image_internal()
 {  
   int c, i;
   uint8_t  b[128];
   i = 0;
   int r;
+  boolean finished = false;
   
   // size_t jpeg_length;	
   
@@ -1666,6 +1670,7 @@ long send_image_internal()
   // See if we are at end of file
   if (! picture_ready) {
      imgFile.close();
+     finished = true;
   }
   
   /*
@@ -1675,7 +1680,7 @@ long send_image_internal()
   */
         
   // Return # of bytes we are into the file
-  return imgFile.position();
+  return finished;
 }
 
 
