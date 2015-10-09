@@ -1405,7 +1405,6 @@ void StopTakePhotoCmd()
 void takePicture(long picture_period)
 {
  if (millis() - picture_timer > (picture_period * 1000)) { 
-    Serial.println("PRICK!!!!!!!!!!!!!!!");
     takePicture_internal();
     picture_timer = millis();
  }
