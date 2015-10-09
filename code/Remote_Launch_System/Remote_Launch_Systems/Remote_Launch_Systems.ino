@@ -381,7 +381,7 @@ int processRxSerial(char *rxString)
       sendPacket(String("A05"));
    } else 
    {
-      sendPacket("-9999");
+      sendPacket("E10");
    }
  }  
   
@@ -745,6 +745,7 @@ void logString(String str) {
        myFile.close();
      } else {
       sdCardState = -1; // Error occured
+      sendPacket("E09", true, false);
      }
   } 
 }
@@ -1423,11 +1424,12 @@ void takePicture_internal()
  
     error = false;
     if (! myFile) {
-       sendPacket("E2");
+       sendPacket("E03");
        error = true;
     }
     
     
+    // Only continue on if we can save the picture somewhere...the microSD card.
     if (!error) 
     {
        SendTakePhotoCmd();
@@ -1464,7 +1466,7 @@ void takePicture_internal()
            // or camera not plugged in properly
            if((millis() - ulCur) > (unsigned long)(90000)) // 90,000 milli seconds == 90 seconds
            {
-               Serial.println("E5");
+               Serial.println("E04");
                break; // took too long, I'm going now
            }
         
@@ -1588,7 +1590,7 @@ int send_image()
      }
       
      if (ssdv.error) {
-         sendPacket(String("Error: ") + String(ssdv.error));     
+         sendPacket(String("E02: ") + String(ssdv.error));     
      }	
 	
      if(c == SSDV_EOI) {
