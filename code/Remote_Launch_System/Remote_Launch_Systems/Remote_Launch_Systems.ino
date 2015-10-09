@@ -104,7 +104,6 @@ char type = SSDV_TYPE_NORMAL;
 char callsign[7];
 uint8_t image_id = 0;
 ssdv_t ssdv;
-long image_file_position = 0;
 uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
 unsigned long ssdv_timer   = 0;
 
@@ -258,10 +257,17 @@ void profile1()
   
   // If a picture was taken, send it down.
   if (picture_ready) {
+    int result = send_image_orig();
+    picture_ready = false;
+    /*
+    Serial2.flush();
+    delay(500);
      boolean result = send_image(400);
      if (result) {
         sendPacket("D12");  // Indicates to ground station that image transfer has finished. 
+        delay(100);
      }
+     */
   }
 
   delay(LOOP_DELAY);   
@@ -1459,7 +1465,8 @@ void takePicture_internal()
        delay(1000);
        
        // Just a bit of helpful information
-       sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), false, false);
+       // DEBUGGING
+       // sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), false, false);
     
        // Consume ack bytes.
        while(Serial3.available()>0)
@@ -1608,7 +1615,6 @@ boolean send_image_internal()
   if (!imgFile) {
      callsign[0] = '\0';
      imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
-     
      ssdv_enc_init(&ssdv, type, callsign, image_id);
      ssdv_enc_set_buffer(&ssdv, pkt);
   }
@@ -1720,3 +1726,89 @@ char *create_pic_fname()
     
     return &temp_string[0];
 }  
+
+
+
+// Send image using SSDV. 
+// Parmaeters:-
+// Nil
+//
+// Returns number of bytes processed.
+//
+int send_image_orig()
+{  
+  int c, i;
+  uint8_t  b[128];
+  i = 0;
+  int r;
+  
+  // size_t jpeg_length;	
+  
+  // If Image file not opened, this means we need to initialise things
+  if (!imgFile) {
+     callsign[0] = '\0';
+     imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
+     
+     ssdv_enc_init(&ssdv, type, callsign, image_id);
+     ssdv_enc_set_buffer(&ssdv, pkt);
+  }
+
+  
+  while(1)
+  {
+     while((c = ssdv_enc_get_packet(&ssdv)) == SSDV_FEED_ME)
+     {
+        int byte_count = 0;
+        while(byte_count < 128 && imgFile.available())
+        {
+           b[byte_count] = imgFile.read();
+           byte_count++;   
+        }
+        // size_t r = byte_count;
+        r = byte_count;
+
+	if(r <= 0) {
+           sendPacket("Premature end of file\n");
+	   break;
+	}
+
+	ssdv_enc_feed(&ssdv, b, r);
+     }
+      
+     if (ssdv.error) {
+         sendPacket(String("E02: ") + String(ssdv.error));     
+     }	
+	
+     if(c == SSDV_EOI) {
+        //Serial.println("ssdv_enc_get_packet said EOI");
+        break;
+     }	else if(c != SSDV_OK) {
+        sendPacket(String("ssdv_enc_get_packet failed: ") + String(c));
+        return(-1);
+     }
+			
+     sendPacket("D13:", false, false);
+     for(j=0;j<SSDV_PKT_SIZE;j++)
+     {  
+         sprintf(&hex_code[0], "%02X", pkt[j]);
+         sendPacket(&hex_code[0], false, false);
+     }
+     sendPacket("", true, false);
+     delay(400); // Else the receiving end gets packets too fast and can't keep up. 
+     // Delay incorporated in routines that ultimately call this.
+     i++;
+   }
+   
+  // See if we are at end of file
+  imgFile.close();
+
+  
+  /*
+  // DEBUGGING
+  int fs  = imgFile.size();
+  Serial.print("POSITION: "); Serial.print(imgFile.position()); Serial.print("  "); Serial.println(fs);
+  */
+        
+  // Return # of bytes we are into the file
+  return 1;
+}
