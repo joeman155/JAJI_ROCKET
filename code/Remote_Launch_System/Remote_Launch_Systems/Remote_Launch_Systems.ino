@@ -168,7 +168,9 @@ void setup() {
 //  
 //  Serial3.begin(38400);
   delay(100);
-  SetImageSizeCmd(0x00);    // 0x1c - 1024X768    0x00 - 640/480
+  SetImageSizeCmd(0x00);    // 0x1b - 1280*960,  0x1c - 1024X768,    0x00 - 640/480
+                            // NOTE: Because we are using SSDV, we can't transmit images where the dimensions
+                            //       are whole multiple of 32.
   delay(100);  
   
   
@@ -209,9 +211,6 @@ void setup() {
     sdCardState = 1;
   }
   
-  // DEBUGGING - TESTING
-  // takePicture();
-  // int result = send_image();  
 }
 
 
@@ -256,7 +255,7 @@ void profile1()
   // Only allow automatic taking pictures IF the launch system is NOT powered.
   if (! isLaunchSystemPowered()) {
      if(!picture_ready) {  
-        picture_ready = takePicture(10); // This figure 60 is in seconds...not milliseconds like other ones.
+        picture_ready = takePicture(300); // This figure 60 is in seconds...not milliseconds like other ones.
      }
   }
   
@@ -1596,6 +1595,9 @@ boolean takePicture_internal()
 
 
 // Take a picture every picture_period milliseconds
+//
+// NOTE: This routine not used, but kept here for future reference.
+//
 boolean send_image(long picture_period)
 {
   boolean result = false;
@@ -1609,8 +1611,8 @@ boolean send_image(long picture_period)
 }
 
 // Send image using SSDV. 
-// Parmaeters:-
-// Nil
+//
+// NOTE: This routine not used, but kept here for future reference.
 //
 // Returns boolean - SUCCESS/FAILURE.
 //
@@ -1732,9 +1734,9 @@ char *create_pic_fname()
 
 
 
-// Send image using SSDV. 
-// Parmaeters:-
-// Nil
+// Send image using SSDV - Does not exit UNTIL it is finished.
+//
+// NOTE: This routine not used, but kept here for future reference.
 //
 // Returns number of bytes processed.
 //
@@ -1753,7 +1755,6 @@ int send_image_orig()
      ssdv_enc_init(&ssdv, type, callsign, image_id);
      ssdv_enc_set_buffer(&ssdv, pkt);
   }
-
   
   while(1)
   {
@@ -1795,7 +1796,6 @@ int send_image_orig()
      }
      sendPacket("", true, false);
      delay(400); // Else the receiving end gets packets too fast and can't keep up. 
-     // Delay incorporated in routines that ultimately call this.
      i++;
    }
    
@@ -1808,9 +1808,7 @@ int send_image_orig()
 
 
 
-// Create file with SSDV packets. Doing this because difficult to create packets over profile...running. 
-// Parmaeters:-
-// Nil
+// Create file with SSDV packets. Doing this because difficult to create and send packets as required.
 //
 // Returns boolean - SUCCESS/FAILURE
 //
@@ -1820,9 +1818,6 @@ boolean create_image_ssdv_file()
   uint8_t  b[128];
   i = 0;
   int r;
-  Serial.println("START create_image_ssdv_packets");
-  
-  // size_t jpeg_length;	
   
   // If Image file not opened, this means we need to initialise things
   if (!imgFile) {
@@ -1840,7 +1835,6 @@ boolean create_image_ssdv_file()
      ssdv_enc_set_buffer(&ssdv, pkt);
   }
 
-  
   while(1)
   {
      while((c = ssdv_enc_get_packet(&ssdv)) == SSDV_FEED_ME)
@@ -1894,8 +1888,6 @@ boolean create_image_ssdv_file()
   // See if we are at end of file
   imgFile.close();
   ssdvFile.close();
-
-  Serial.println("END create_image_ssdv_packets");  
         
   // Return true (i.e. successful!)
   return true;
@@ -1916,34 +1908,27 @@ boolean send_ssdv_file()
   if (!ssdvFile) {
      ssdvFile = SD.open("ssdv", FILE_READ);
   }
-  
-  // Serial.println("STARTING TO SEND SSDV FILE");
-  //while (ssdvFile.available()) {
-     byte_count = 0;     
-     while(byte_count < 256 && ssdvFile.available()) {
-         b[byte_count] = ssdvFile.read();
-         byte_count++;
-     }
-     
-     
-     sendPacket("D13:", false, false);
-     for(j=0;j<256;j++)
-     {  
-         sprintf(&hex_code[0], "%02X", b[j]);
-         sendPacket(&hex_code[0], false, false);
-     }  
-     sendPacket("", true, false);   
-     delay(500);
-   //  break;
-  //}
+
+  byte_count = 0;     
+  while(byte_count < 256 && ssdvFile.available()) {
+      b[byte_count] = ssdvFile.read();
+      byte_count++;
+  }
+          
+  sendPacket("D13:", false, false);
+  for(j=0;j<256;j++)
+  {  
+      sprintf(&hex_code[0], "%02X", b[j]);
+      sendPacket(&hex_code[0], false, false);
+  }  
+  sendPacket("", true, false);   
+  delay(50);
   
   // If nothing else available, then close
   if (! ssdvFile.available()) {
      ssdvFile.close();
      finish = true;
   }
-  
-  // Serial.println("FINISHED SENDING SSDV FILE");
 
   return finish;
 }
@@ -1953,6 +1938,8 @@ boolean send_ssdv_file()
 // Sends file containing all the SSDV packets
 // Sends at 256bytes at a time (each of these is a packet)
 // 
+// NOTE: This routine not used, but kept here for future reference.
+//
 // Returns number of packets sent.
 int send_ssdv_file_orig()
 {  
