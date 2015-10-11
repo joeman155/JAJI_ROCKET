@@ -23,8 +23,10 @@ short int profile = 1;              // Tells what 'profile' we follow ...e.g. ju
                                     // 2 = IMU      (lots of IMU data for orientation tab)
 
 
+// Profiles configuration
 unsigned long profile2_timer = 0;   // Track how long we are in profile2 state.
 unsigned long profile_timer;        // Used to ensure we only show profile setting every few seconds.
+
 
 // Pins
 const int  continuitySensePin = 8;  // This is the pin number...not direct access
@@ -42,8 +44,9 @@ unsigned long launch_timer   = 0;
 
 // SD Card and file declarations
 const int chipSelect = 4;
-File myFile;
-File imgFile;
+File imgFile;   // Just for images
+File ssdvFile;  // Holds SSDV data
+File myFile;    // For other files
 int sdCardState = 0;  // 0 = uninitialised , -1 = error, 1 = initialised
 
 // Generic declarations
@@ -97,7 +100,7 @@ boolean camera_EndFlag=0;
 char current_pic_name[15];
 unsigned long picture_timer = 0;   // (note, for pictures we want a long period.....so specified in seconds...not msec)
 boolean picture_ready = false;     // Used to indicate if file is present to send to groundstation
-
+boolean create_ssdv_successful = false; // Used to determine if SSDV file created or not.
 
 // SSDV
 char type = SSDV_TYPE_NORMAL;
@@ -252,24 +255,33 @@ void profile1()
   
   // Only allow automatic taking pictures IF the launch system is NOT powered.
   if (! isLaunchSystemPowered()) {
-     if(!picture_ready) takePicture(10); // This figure 60 is in seconds...not milliseconds like other ones.
+     if(!picture_ready) {  
+        picture_ready = takePicture(10); // This figure 60 is in seconds...not milliseconds like other ones.
+     }
   }
   
   // If a picture was taken, send it down.
-  if (picture_ready) {
-    int result = send_image_orig();
-    picture_ready = false;
-    /*
-    Serial2.flush();
-    delay(500);
-     boolean result = send_image(400);
-     if (result) {
-        sendPacket("D12");  // Indicates to ground station that image transfer has finished. 
-        delay(100);
+  if (picture_ready && !create_ssdv_successful) {
+     create_ssdv_successful = create_image_ssdv_file();
+     
+     if (!create_ssdv_successful) {
+        picture_ready = false; // Something bad happened...let's not try sending...
      }
-     */
   }
-
+  
+  // If we were able to create the ssdv file successfully, then we try sending
+  if (picture_ready && create_ssdv_successful) {
+     boolean send_ssdv_successful = send_ssdv_file();
+        
+     // If we were able to send file successfully, then we send finish packet (D12)        
+     if (send_ssdv_successful) {
+         sendPacket("D12");  // Indicates to ground station that image transfer has finished. 
+         delay(100);
+         picture_ready = false;           // Allow taking of photos again
+         create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
+     } 
+  }
+    
   delay(LOOP_DELAY);   
 }
 
@@ -1428,16 +1440,20 @@ void StopTakePhotoCmd()
 
 
 // Take a picture every picture_period milliseconds
-void takePicture(long picture_period)
+boolean takePicture(long picture_period)
 {
- if (millis() - picture_timer > (picture_period * 1000)) { 
-    takePicture_internal();
-    picture_timer = millis();
- }
+  boolean result = false;
+  
+  if (millis() - picture_timer > (picture_period * 1000)) { 
+     result = takePicture_internal();
+     picture_timer = millis();
+  }
+  
+  return result;
 }
 
 // Take a picture
-void takePicture_internal()
+boolean takePicture_internal()
 {
     byte a[32];
     int ii, jj;
@@ -1455,130 +1471,127 @@ void takePicture_internal()
     if (! imgFile) {
        sendPacket("E03");
        error = true;
+       return false;
     }
     
     
     // Only continue on if we can save the picture somewhere...the microSD card.
-    if (!error) 
-    {
-       SendTakePhotoCmd();
-       delay(1000);
+    SendTakePhotoCmd();
+    delay(1000);
        
-       // Just a bit of helpful information
-       // DEBUGGING
-       // sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), false, false);
+    // Just a bit of helpful information
+    // DEBUGGING
+    sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), true, false);
     
-       // Consume ack bytes.
-       while(Serial3.available()>0)
-       {
-           incomingbyte=Serial3.read();
-       }       
+    // Consume ack bytes.
+    while(Serial3.available()>0)
+    {
+        incomingbyte=Serial3.read();
+    }       
     
-       int nextPacket = 1;
-       int packetCount = 0;
-       ulCur = millis();
-       while(!camera_EndFlag)
-       {
-           if (nextPacket == 1) 
-           {
-              nextPacket = 0;
-              j=0;
-              k=0;
-              count=0;
-              SendReadDataCmd();
-              delay(5);
-              a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
-           }
+    int nextPacket = 1;
+    int packetCount = 0;
+    ulCur = millis();
+    while(!camera_EndFlag)
+    {
+        if (nextPacket == 1) 
+        {
+           nextPacket = 0;
+           j=0;
+           k=0;
+           count=0;
+           SendReadDataCmd();
+           delay(5);
+           a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
+        }
         
-           // Exit if we can't get pic within 90 seconds...this occurs if a problem with camera
-           // or camera not plugged in properly
-           if((millis() - ulCur) > (unsigned long)(90000)) // 90,000 milli seconds == 90 seconds
-           {
-               Serial.println("E04");
-               break; // took too long, I'm going now
-           }
+        // Exit if we can't get pic within 90 seconds...this occurs if a problem with camera
+        // or camera not plugged in properly
+        if((millis() - ulCur) > (unsigned long)(90000)) // 90,000 milli seconds == 90 seconds
+        {
+            Serial.println("E04");
+            return false;
+        }
         
-           while(Serial3.available()>0)
-           {
-               incomingbyte=Serial3.read();
-               k++;
-               // delay(1); //250 for regular
-               delayMicroseconds(333); 
-               if((k>5)&&(j<32)&&(!camera_EndFlag))
-               {
-                   a[j]=incomingbyte;
-                   if((a[j-1]==0xFF)&&(a[j]==0xD9))     //tell if the picture is finished
-                   {
-                       camera_EndFlag=1;
-                   }
+        while(Serial3.available()>0)
+        {
+            incomingbyte=Serial3.read();
+            k++;
+            // delay(1); //250 for regular
+            delayMicroseconds(333); 
+            if((k>5)&&(j<32)&&(!camera_EndFlag))
+            {
+                a[j]=incomingbyte;
+                if((a[j-1]==0xFF)&&(a[j]==0xD9))     //tell if the picture is finished
+                {
+                    camera_EndFlag=1;
+                }
                 
-                   // Not sure why, but we sometimes get TWO ack at beginning.
-                   if ((a[0] == 0x76) && (a[1] == 0x00) && (a[2] == 0x32) && (a[3] == 0x00) && (a[4] == 0x00)) {
-                      j = j - 5;
-                      a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
-                      count = 0;
-                   }                
-                   j++;
-                   count++;
-               }
-           }
+                // Not sure why, but we sometimes get TWO ack at beginning.
+                if ((a[0] == 0x76) && (a[1] == 0x00) && (a[2] == 0x32) && (a[3] == 0x00) && (a[4] == 0x00)) {
+                   j = j - 5;
+                   a[0] =  a[1] = a[2] = a[3] = a[4] = 0x0;
+                   count = 0;
+                }                
+                j++;
+                count++;
+            }
+        }
  
 
  // DEBUGGING
  /*
-           for(jj=0;jj<count;jj++)
-           {
-               if(a[jj]<0x10)  Serial.print("0");
-               Serial.print(a[jj],HEX);           // observe the image through serial port
-               Serial.print(" ");
-           }
+        for(jj=0;jj<count;jj++)
+        {
+            if(a[jj]<0x10)  Serial.print("0");
+            Serial.print(a[jj],HEX);           // observe the image through serial port
+            Serial.print(" ");
+        }
 */
  
-           for(ii=0; ii<count; ii++) {
-              imgFile.write(a[ii]);
-           }
+        for(ii=0; ii<count; ii++) {
+           imgFile.write(a[ii]);
+        }
         
         
-           if (j == 32 ) {
-              packetCount++;
-              nextPacket = 1;
-           
-              // DEBUGGING
-              // Serial.println();
+        if (j == 32 ) {
+           packetCount++;
+           nextPacket = 1;
+        
+           // DEBUGGING
+           // Serial.println();
               
-              Serial.print(".");
-           
-              if (packetCount % 80 == 0) {
-                 Serial.println("");
-              }
-              
+           Serial.print(".");
+        
+           if (packetCount % 80 == 0) {
+              Serial.println("");
            }
-       }
-   
-       Serial.println("");
-       imgFile.close();
-    
-       Serial.println("Sending Stop command");
-       StopTakePhotoCmd();
-    
-       /*
-       // Consume anything that might be in the buffer.
-       while(Serial3.available()>0)
-       {
-           incomingbyte=Serial3.read();
-           Serial.print(incomingbyte, HEX);
-           Serial.print(" ");
-       }    
-       Serial.println("");
-       */
-    
-       // DEBUGGING
-       Serial.println("Finished writing data to file");
-       
-       // Set flag to indicate that image is ready for sending
-       picture_ready = true;
+             
+        }
     }
+ 
+    Serial.println("");
+    imgFile.close();
+    
+    Serial.println("Sending Stop command");
+    StopTakePhotoCmd();
+    
+    /*
+    // Consume anything that might be in the buffer.
+    while(Serial3.available()>0)
+    {
+        incomingbyte=Serial3.read();
+        Serial.print(incomingbyte, HEX);
+        Serial.print(" ");
+    }    
+    Serial.println("");
+    */
+    
+    // DEBUGGING
+    Serial.println("Finished writing data to file");
+       
 
+ return true;
 }
 
 
@@ -1599,7 +1612,7 @@ boolean send_image(long picture_period)
 // Parmaeters:-
 // Nil
 //
-// Returns number of bytes processed.
+// Returns boolean - SUCCESS/FAILURE.
 //
 boolean send_image_internal()
 {  
@@ -1614,14 +1627,11 @@ boolean send_image_internal()
   // If Image file not opened, this means we need to initialise things
   if (!imgFile) {
      callsign[0] = '\0';
-     imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
+     // imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
+     imgFile = SD.open("10100656", FILE_READ); //The file name should not be too long
      ssdv_enc_init(&ssdv, type, callsign, image_id);
      ssdv_enc_set_buffer(&ssdv, pkt);
   }
-    
-
- 
-
   
   while(1)
   {
@@ -1638,26 +1648,26 @@ boolean send_image_internal()
 
 	if(r <= 0) {
            sendPacket("Premature end of file\n");
-           picture_ready = false;
 	   break;
 	}
 
 	ssdv_enc_feed(&ssdv, b, r);
+
      }
       
      if (ssdv.error) {
-         picture_ready = false;
          sendPacket(String("E02: ") + String(ssdv.error));     
+         return false;
      }	
 	
      if(c == SSDV_EOI) {
         //Serial.println("ssdv_enc_get_packet said EOI");
-        picture_ready = false;
         break;
      }	else if(c != SSDV_OK) {
         sendPacket(String("ssdv_enc_get_packet failed: ") + String(c));
-        picture_ready = false;
-        return(-1);
+        finished = false;
+        imgFile.close();
+        return finished;
      }
 			
      sendPacket("D13:", false, false);
@@ -1673,19 +1683,12 @@ boolean send_image_internal()
      break;  // Going through file file o 128 bytes at a time.
    }
    
-  // See if we are at end of file
-  if (! picture_ready) {
-     imgFile.close();
-     finished = true;
-  }
-  
-  /*
-  // DEBUGGING
-  int fs  = imgFile.size();
-  Serial.print("POSITION: "); Serial.print(imgFile.position()); Serial.print("  "); Serial.println(fs);
-  */
+  // If we got here, we have finished successfully.
+  imgFile.close();
+  finished = true;
+
         
-  // Return # of bytes we are into the file
+  // Return success/failure
   return finished;
 }
 
@@ -1741,9 +1744,7 @@ int send_image_orig()
   uint8_t  b[128];
   i = 0;
   int r;
-  
-  // size_t jpeg_length;	
-  
+    
   // If Image file not opened, this means we need to initialise things
   if (!imgFile) {
      callsign[0] = '\0';
@@ -1764,7 +1765,6 @@ int send_image_orig()
            b[byte_count] = imgFile.read();
            byte_count++;   
         }
-        // size_t r = byte_count;
         r = byte_count;
 
 	if(r <= 0) {
@@ -1801,14 +1801,189 @@ int send_image_orig()
    
   // See if we are at end of file
   imgFile.close();
-
-  
-  /*
-  // DEBUGGING
-  int fs  = imgFile.size();
-  Serial.print("POSITION: "); Serial.print(imgFile.position()); Serial.print("  "); Serial.println(fs);
-  */
         
   // Return # of bytes we are into the file
   return 1;
+}
+
+
+
+// Create file with SSDV packets. Doing this because difficult to create packets over profile...running. 
+// Parmaeters:-
+// Nil
+//
+// Returns boolean - SUCCESS/FAILURE
+//
+boolean create_image_ssdv_file()
+{  
+  int c, i;
+  uint8_t  b[128];
+  i = 0;
+  int r;
+  Serial.println("START create_image_ssdv_packets");
+  
+  // size_t jpeg_length;	
+  
+  // If Image file not opened, this means we need to initialise things
+  if (!imgFile) {
+     // Remove ssdv file if already there
+     if (SD.exists("ssdv")) {
+        SD.remove("ssdv");  
+     }
+     
+     callsign[0] = '\0';
+     imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
+     // imgFile = SD.open("10100656", FILE_READ); //The file name should not be too long
+     ssdvFile = SD.open("ssdv", FILE_WRITE);
+     
+     ssdv_enc_init(&ssdv, type, callsign, image_id);
+     ssdv_enc_set_buffer(&ssdv, pkt);
+  }
+
+  
+  while(1)
+  {
+     while((c = ssdv_enc_get_packet(&ssdv)) == SSDV_FEED_ME)
+     {
+        int byte_count = 0;
+        while(byte_count < 128 && imgFile.available())
+        {
+           b[byte_count] = imgFile.read();
+           byte_count++;   
+        }
+        // size_t r = byte_count;
+        r = byte_count;
+
+	if(r <= 0) {
+           sendPacket("Premature end of file\n");
+	   break;
+	}
+
+	ssdv_enc_feed(&ssdv, b, r);
+     }
+      
+     if (ssdv.error) {
+         sendPacket(String("E02: ") + String(ssdv.error));    
+         return false; 
+     }	
+	
+     if(c == SSDV_EOI) {
+        //Serial.println("ssdv_enc_get_packet said EOI");
+        break;
+     }	else if(c != SSDV_OK) {
+        sendPacket(String("ssdv_enc_get_packet failed: ") + String(c));
+        return false;
+     }
+	
+     for(j=0;j<SSDV_PKT_SIZE;j++)
+     {
+        ssdvFile.write(pkt[j]);
+     }	
+     //sendPacket("D13:", false, false);
+     //for(j=0;j<SSDV_PKT_SIZE;j++)
+     //{  
+     //    sprintf(&hex_code[0], "%02X", pkt[j]);
+     //    sendPacket(&hex_code[0], false, false);
+     //}
+     // sendPacket("", true, false);
+     // delay(400); // Else the receiving end gets packets too fast and can't keep up. 
+     // Delay incorporated in routines that ultimately call this.
+     i++;
+   }
+   
+  // See if we are at end of file
+  imgFile.close();
+  ssdvFile.close();
+
+  Serial.println("END create_image_ssdv_packets");  
+        
+  // Return true (i.e. successful!)
+  return true;
+}
+
+
+// Sends file containing all the SSDV packets
+// Sends at 256bytes at a time (each of these is a packet)
+// 
+// Returns boolean - TRUE if finished, FALSE if not finished
+boolean send_ssdv_file()
+{  
+  byte b[256];
+  int byte_count, j, i;
+  byte_count = 0;
+  boolean finish = false;
+  
+  if (!ssdvFile) {
+     ssdvFile = SD.open("ssdv", FILE_READ);
+  }
+  
+  // Serial.println("STARTING TO SEND SSDV FILE");
+  //while (ssdvFile.available()) {
+     byte_count = 0;     
+     while(byte_count < 256 && ssdvFile.available()) {
+         b[byte_count] = ssdvFile.read();
+         byte_count++;
+     }
+     
+     
+     sendPacket("D13:", false, false);
+     for(j=0;j<256;j++)
+     {  
+         sprintf(&hex_code[0], "%02X", b[j]);
+         sendPacket(&hex_code[0], false, false);
+     }  
+     sendPacket("", true, false);   
+     delay(500);
+   //  break;
+  //}
+  
+  // If nothing else available, then close
+  if (! ssdvFile.available()) {
+     ssdvFile.close();
+     finish = true;
+  }
+  
+  // Serial.println("FINISHED SENDING SSDV FILE");
+
+  return finish;
+}
+
+
+
+// Sends file containing all the SSDV packets
+// Sends at 256bytes at a time (each of these is a packet)
+// 
+// Returns number of packets sent.
+int send_ssdv_file_orig()
+{  
+  byte b[256];
+  int byte_count, j, i;
+  byte_count = 0;
+  
+  ssdvFile = SD.open("ssdv", FILE_READ);
+  
+  // Serial.println("STARTING TO SEND SSDV FILE");
+  while (ssdvFile.available()) {
+     byte_count = 0;     
+     while(byte_count < 256) {
+         b[byte_count] = ssdvFile.read();
+         byte_count++;
+     }
+     
+     
+     sendPacket("D13:", false, false);
+     for(j=0;j<256;j++)
+     {  
+         sprintf(&hex_code[0], "%02X", b[j]);
+         sendPacket(&hex_code[0], false, false);
+     }  
+     sendPacket("", true, false);   
+     delay(500);
+     i++;
+  }
+  
+  ssdvFile.close();
+  // Serial.println("FINISHED SENDING SSDV FILE");
+
+  return i;
 }
