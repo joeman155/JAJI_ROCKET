@@ -421,6 +421,7 @@ sub decode_rx()
     $out_image_file = $image_dir . $image_seq . ".jpg";
     $image_seq++;
     `$SSDV_EXEC -d $ssdv_file > $out_image_file`;
+    unlink $ssdv_file;
     $v_result = "Finished sending picture";
   } elsif ($p_line =~ /^D13:(.*)$/)
   {
@@ -1156,21 +1157,21 @@ sub sendModemRequest($$$)
     $gotit = $port->lookfor;       # poll until data ready
 
     # Make sure what we got resembles what we are after.
-    if ($gotit =~ qr/(${p_response_string})(.*)/) {
+    if ($gotit =~ qr/^(${p_response_string})(.*)/) {
        $ismatch = 1;
     } else {
-       # print "DAMN. NOT A MATCH - " . $gotit . "\n";
+       print "DAMN. NOT A MATCH - " . $gotit . "\n";
     }
  
     # Allow a MAX of 2 seconds to get what we expect.
     if (time > $start_time + 2) {
        $timeout = 1;
-       # print "TIMED OUT!!!!!!!!!!!!!!!!!11\n";
+       print "TIMED OUT!!!!!!!!!!!!!!!!!11\n";
     }
     select(undef,undef,undef,0.1);
     die "Aborted without match\n" unless (defined $gotit);
  }
- if ($gotit =~ qr/(${p_response_string})(.*)/) {
+ if ($gotit =~ qr/^(${p_response_string})(.*)/) {
     $data_component = $2;
     if ($data_component !~ /^$/) {
        $data_component =~ /(:)(.*)/;
