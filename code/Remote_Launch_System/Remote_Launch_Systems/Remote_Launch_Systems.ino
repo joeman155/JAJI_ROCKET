@@ -13,7 +13,7 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 1;
+unsigned short int DEBUGGING = 0;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -255,7 +255,7 @@ void profile1()
   // Only allow automatic taking pictures IF the launch system is NOT powered.
   if (! isLaunchSystemPowered()) {
      if(!picture_ready) {  
-        picture_ready = takePicture(300); // This figure 60 is in seconds...not milliseconds like other ones.
+        picture_ready = takePicture(30); // This figure 60 is in seconds...not milliseconds like other ones.
      }
   }
   
@@ -274,7 +274,7 @@ void profile1()
         
      // If we were able to send file successfully, then we send finish packet (D12)        
      if (send_ssdv_successful) {
-         sendPacket("D12");  // Indicates to ground station that image transfer has finished. 
+         sendPacket(String("D12:") + String(&current_pic_name[0]));  // Indicates to ground station that image transfer has finished. 
          delay(100);
          picture_ready = false;           // Allow taking of photos again
          create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
@@ -1922,7 +1922,7 @@ boolean send_ssdv_file()
       sendPacket(&hex_code[0], false, false);
   }  
   sendPacket("", true, false);   
-  delay(50);
+  delay(500);  // Plenty of delay, to allow ground station to process the packet
   
   // If nothing else available, then close
   if (! ssdvFile.available()) {
