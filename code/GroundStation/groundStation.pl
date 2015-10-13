@@ -55,7 +55,6 @@ $gps_file = $home_dir . "out/gps_data" . $rrmmdd . ".txt";
 $RLS_SOURCE = "RLS";
 $GS_SOURCE  = "GS";
 
-# X-MODEM
 # X-Modem packet file
 $download_file_status = $home_dir . "run/download_file_status";
 $x_modem_packet_num = $home_dir . "run/x_modem_packet";
@@ -67,6 +66,7 @@ $ssdv_file = $home_dir . "out/ssdv";
 unlink $ssdv_file;
 $SSDV_EXEC = $home_dir . "ssdv";
 $ssdv_transfer = 0;   # 1 = transferring, 0 = not transferring
+$ssdv_packet_num = 0; # To keep track of how many packets we have received.
 
 # PICTURE CONFIGURATIONS
 my $filename = "";  
@@ -369,6 +369,7 @@ sub decode_rx()
 
     # Signify that transfer has finished
     $ssdv_transfer = 0;
+    $ssdv_packet_num = 0;
 
     # Generate new file name
     $out_image_file = $image_dir . $v_file . ".jpg";
@@ -386,6 +387,7 @@ sub decode_rx()
   } elsif ($p_line =~ /^D13:(.*)$/)
   {
     $ssdv_transfer = 1;
+    $ssdv_packet_num++;
     $ssdv_packet = $1;
     $val = pack "H*", $ssdv_packet;
     open (my $ssdv_fh, ">>" . $ssdv_file) or die "Cannot create ssdv";
