@@ -14,7 +14,7 @@ CREATE TABLE imu_t (id integer primary key default nextval('imu_id_seq'),
                     accx      float,
                     accy      float,
                     accz      float,
-                    timer     integer,
+                    timer     bigint,
                     creation_date timestamp);
 
 ALTER TABLE imu_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;

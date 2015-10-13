@@ -41,6 +41,7 @@ cp gs.sh /data/gs/
 cp Voltage_Reader_Master /data/gs/
 
 # DB Links
+rm /data/web/out/images
 ln -s /data/gs/out/images /data/web/out/images
 
 

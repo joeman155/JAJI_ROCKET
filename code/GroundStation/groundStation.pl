@@ -16,9 +16,6 @@ use IO::Socket;
 use threads;
 use Thread::Queue;
 use Device::SerialPort qw( :PARAM :STAT 0.07 );
-#use Device::SerialPort::Xmodem;
-#use Device::Modem;
-#use Device::Modem::Protocol::Xmodem;
 use DBI;
 use POSIX;
 use Switch;
@@ -75,7 +72,6 @@ $ssdv_transfer = 0;   # 1 = transferring, 0 = not transferring
 my $filename = "";  
 my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
 $pic_download_offered = 0;   # How many times the Launch System has offered a picture for download
-$pic_dl_freq = 5;            # How often to download a pic.i.e. download every 'pic_dl_freq'th pic offered
 $image_error = 0;            # Indicates if an issue with images
 $image_dir   = $home_dir . "out/images/";
 
@@ -225,60 +221,7 @@ while (1 == 1)
         # ALSO... we only want to process other requests IF no request was 
         # processed above
         if ($v_request_processed == 0) {
-           # We only want to download an image when the following conditions apply
-           # - Image Menu is presented
-           # - We are up to multiple of pic_dl_freq offering
-           # - There were no image errors
-           # - Photo downloading is enabled
-           # - The Power is not on
-           if ($result =~ /Menu_Image/ && 
-               $pic_download_offered % $pic_dl_freq == 0 
-               && $image_error == 0 && 
-               is_photo_downloads_enabled() == 1 && 1 == 2 &&
-               $v_power_status == 0)
-           {
 
-              $v_result = sendModemRequest("R05", "A05", 0);
-              if ($v_result == 1) {
-                 $v_file = $rrmmdd . "_" . $filename . '_image' . $file_num . '.jpg';
-                 $str = "Starting download in 5 seconds to $v_file....\n";
-                 log_message($str);
-                 print "** " . $str if $DEBUG;
- 
-# COMMENTED OUT 15-JUL-2015 - STILL IN DEVEL ... will sort out later
-#                 sleep 5;
-#                 $str = "Download started.\n";
-#                 `echo 1 > $download_file_status`;
-#                 log_message($str);
-#                 print "** " . $str if $DEBUG;
-# 
-#                 my $receive = Device::SerialPort::Xmodem::Receive->new(
-#                       port     => $port,
-#                       filename => $home_dir . 'out/images/' . $v_file,
-#                       DEBUG    => 1
-#                 );
-# 
-#                 $receive->start();
-#                 $file_num++;
-#                 $str = "Finished Transmission\n";
-#                 `echo 0 > $download_file_status`;
-#                 `echo "" > $x_modem_packet_num`;
-#                 log_message($str);
-#                 print "** " . $str if $DEBUG;
-              }
-
-            }
-            else
-            {
-               print "** No Requests, so exit the menu...\n" if $DEBUG;
-               # sendModemRequest("R00", "A00", 0);
-               sendModemRequest("R00", "", 0);
-            }
-
-            # If no error...then imcrement count.
-            if ($image_error == 0 && $result =~ /Menu_Image/) {
-               $pic_download_offered++;
-            }
 
 
             # We have 3 second delay after getting heartbeat.... so we quickly get
@@ -294,6 +237,12 @@ while (1 == 1)
                    ++$radio_stats_count;
                }
             }
+
+           # Got to the end, so we want to exit
+           print "** No Requests, so exit the menu...\n" if $DEBUG;
+           # sendModemRequest("R00", "A00", 0);
+           sendModemRequest("R00", "", 0);
+
          }
        }
     }
