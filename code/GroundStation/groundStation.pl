@@ -78,7 +78,6 @@ $pic_download_offered = 0;   # How many times the Launch System has offered a pi
 $pic_dl_freq = 5;            # How often to download a pic.i.e. download every 'pic_dl_freq'th pic offered
 $image_error = 0;            # Indicates if an issue with images
 $image_dir   = $home_dir . "out/images/";
-$image_seq = 1;
 
 
 # INITIALISATIONS
@@ -415,12 +414,24 @@ sub decode_rx()
   } elsif ($p_line =~ /^D11$/)
   {
     $v_result = "Finished writing picture to microSD";
-  } elsif ($p_line =~ /^D12$/)
+  } elsif ($p_line =~ /^D12:(.*)$/)
   {
+    $v_file = $1;
+
+    # Signify that transfer has finished
     $ssdv_transfer = 0;
-    $out_image_file = $image_dir . $image_seq . ".jpg";
-    $image_seq++;
+
+    # Generate new file name
+    $out_image_file = $image_dir . $v_file . ".jpg";
+
+    # Convert ssdv file to iamge file
     `$SSDV_EXEC -d $ssdv_file > $out_image_file`;
+    $ssdv_file_bk = $ssdv_file . "_" . $v_file;
+
+    # Back up SSDV file incase we want to do some analysis on it later
+    `cp $ssdv_file $ssdv_file_bk`;
+
+    # Remove SSDV temp file so it is ready for next file
     unlink $ssdv_file;
     $v_result = "Finished sending picture";
   } elsif ($p_line =~ /^D13:(.*)$/)

@@ -14,6 +14,7 @@ echo Creating GS directories
 [ -d /data/gs/run ] || mkdir /data/gs/run
 [ -d /data/gs/uploads ] || mkdir /data/gs/uploads
 [ -d /data/gs/out/images ] || mkdir /data/gs/out/images
+[ -d /data/gs/out/images/thumbnails ] || mkdir /data/gs/out/images/thumbnails
 
 echo Permissions on files
 touch /data/gs/run/download_file_status
@@ -21,6 +22,7 @@ chmod 777 /data/gs/db
 chmod 777 /data/gs/run
 chmod 777 /data/gs/uploads
 chmod 777 /data/gs/run/download_file_status
+chmod -R 777 /data/gs/out/images 
 
 
 # Compile files
