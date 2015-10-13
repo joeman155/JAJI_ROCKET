@@ -234,7 +234,7 @@ while (1 == 1)
            if ($result =~ /Menu_Image/ && 
                $pic_download_offered % $pic_dl_freq == 0 
                && $image_error == 0 && 
-               is_photo_downloads_enabled() == 1 &&
+               is_photo_downloads_enabled() == 1 && 1 == 2 &&
                $v_power_status == 0)
            {
 
@@ -271,8 +271,8 @@ while (1 == 1)
             else
             {
                print "** No Requests, so exit the menu...\n" if $DEBUG;
-               sendModemRequest("R00", "A00", 0);
-               # sendModemRequest("R00", "", 0);
+               # sendModemRequest("R00", "A00", 0);
+               sendModemRequest("R00", "", 0);
             }
 
             # If no error...then imcrement count.
