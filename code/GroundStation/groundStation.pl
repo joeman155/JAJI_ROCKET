@@ -327,6 +327,11 @@ sub decode_rx()
   {
     set_lc_profile_status($1);
     $v_result = "Profile setting: " . $1;
+  } elsif ($p_line =~ /^D14:(.*$)/)
+  {
+    set_launch_console_attribute("N", 1, "Download photos");
+    set_lc_photos_enabled_status($1);
+    $v_result = "Photos Enabled setting: " . $1;
   } elsif ($p_line =~ /^D06:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
     my %imu;
@@ -1041,12 +1046,13 @@ sub process_requests()
        print "** Photos on/off request...\n" if $DEBUG;
 
        set_launch_console_attribute("N", -1, "Pending");
+       $v_result = sendModemRequest("R11", "A11", $v_req_id);
 
-       $v_photos_status = get_last_status("N", 1);
-       if ($v_photos_status == 1) {
-          set_launch_console_attribute("N", 0, "No photos");
-       } else {
+       # $v_photos_status = get_last_status("N", 1);
+       if ($v_result == 1) {
           set_launch_console_attribute("N", 1, "Download photos");
+       } else {
+          set_launch_console_attribute("N", 0, "No photos");
        }
 
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
@@ -1280,9 +1286,22 @@ sub set_lc_profile_status($)
  } else {
     $v_notes = "Unknown";
  }
-
  set_launch_console_attribute("I", $p_status, $v_notes);
+}
 
+
+# Set Photo Setting
+sub set_lc_photos_enabled_status($)
+{
+ local ($p_status) = @_;
+ if ($p_status == 1) {
+    $v_notes = "Photos Enabled";
+ } elsif ($p_status == 0) {
+    $v_notes = "No Photos";
+ } else {
+    $v_notes = "Unknown";
+ }
+ set_launch_console_attribute("N", $p_status, $v_notes);
 }
 
 

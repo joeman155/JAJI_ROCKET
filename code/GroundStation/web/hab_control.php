@@ -180,8 +180,8 @@ if ($rls_cutdown_status != 1) {
            </div>
       </li>
       <li>
-         <h2>Enable/Disable Photo Downloads</h2>
-         <a id="nophotos" class="styled-button-<?= $rls_nophotos_status_css?>"><?=$nophotos_button_msg?> Photos Download</a> 
+         <h2>Enable/Disable Photo Taking</h2>
+         <a id="nophotos" class="styled-button-<?= $rls_nophotos_status_css?>"><?=$nophotos_button_msg?> Photos Taking</a> 
          <div>
            (Currently <?=$nophotos_msg?>)
          </div>
