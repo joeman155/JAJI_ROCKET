@@ -57,8 +57,8 @@ $GS_SOURCE  = "GS";
 
 # X-Modem packet file
 $download_file_status = $home_dir . "run/download_file_status";
-$x_modem_packet_num = $home_dir . "run/x_modem_packet";
-`echo "" > $x_modem_packet_num`;
+$picture_packet_num = $home_dir . "run/picture_packet";
+`echo "" > $picture_packet_num`;
 `echo 0 > $download_file_status`;
 
 # SSDV
@@ -69,8 +69,7 @@ $ssdv_transfer = 0;   # 1 = transferring, 0 = not transferring
 $ssdv_packet_num = 0; # To keep track of how many packets we have received.
 
 # PICTURE CONFIGURATIONS
-my $filename = "";  
-my $taking_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
+my $saving_picture = 0;      # Indicates if we are taking a picture at Rocket Launch System
 $pic_download_offered = 0;   # How many times the Launch System has offered a picture for download
 $image_error = 0;            # Indicates if an issue with images
 $image_dir   = $home_dir . "out/images/";
@@ -261,10 +260,7 @@ sub decode_rx()
   # See what data we have and respond to it
   if ($p_line =~ /^M$/)
   {
-    $v_result = "Menu_Image";
-  } elsif ($p_line =~ /^MNI$/)
-  {
-    $v_result = "Menu_NoImage";
+    $v_result = "Menu";
   } elsif ($p_line =~ /^H:([0-9]+)$/)
   {
     $v_result = "Heartbeat Count: " . $1;
@@ -363,6 +359,7 @@ sub decode_rx()
   } elsif ($p_line =~ /^D11$/)
   {
     $v_result = "Finished writing picture to microSD";
+    $saving_picture = 0;
   } elsif ($p_line =~ /^D12:(.*)$/)
   {
     $v_file = $1 . "-" . time();
@@ -370,6 +367,11 @@ sub decode_rx()
     # Signify that transfer has finished
     $ssdv_transfer = 0;
     $ssdv_packet_num = 0;
+
+    # update external file...which webpage relies upon to advise user of 
+    # status
+    `echo "" > $picture_packet_num`;
+    `echo 0 > $download_file_status`;
 
     # Generate new file name
     $out_image_file = $image_dir . $v_file . ".jpg";
@@ -388,6 +390,12 @@ sub decode_rx()
   {
     $ssdv_transfer = 1;
     $ssdv_packet_num++;
+
+    # update external file...which webpage relies upon to advise user of 
+    # status
+    `echo $ssdv_packet_num > $picture_packet_num`;
+    `echo $ssdv_transfer > $download_file_status`;
+
     $ssdv_packet = $1;
     $val = pack "H*", $ssdv_packet;
     open (my $ssdv_fh, ">>" . $ssdv_file) or die "Cannot create ssdv";
@@ -422,13 +430,6 @@ sub decode_rx()
   } elsif ($p_line =~ /^B$/)
   {
     $v_result = "Reached Max Altitude - Cutdown initiated";
-  } elsif ($p_line =~ /^Z$/)
-  {
-    $v_result = "Failed to send picture.";
-  } elsif ($p_line =~ m/^F:(.*)$/)
-  {
-    $filename = $1;
-    $v_result = "File $filename being saved to SD";
   } elsif ($p_line =~ m/^T:(.*)$/)
   {
     $v_seconds = $1/1000;
@@ -438,15 +439,15 @@ sub decode_rx()
     $v_minutes_rounded = floor(60 * ($v_hours - $v_hours_rounded));
     $v_seconds_rounded = floor($v_seconds - (3600 * $v_hours + 60 * $v_minutes_rounded));
     $v_result = "Time since power turned on is " . $v_hours_rounded . "hours and " . $v_minutes_rounded . "minutes and " . $v_seconds_rounded . "seconds.\n";
-  } elsif ($p_line =~ /^\.$/)
+  } elsif ($p_line =~ /^(\.)+$/)
   {
-    if ($taking_picture == 1)
+    if ($saving_picture == 1)
     {
       return "";
     }
     else
     {
-      $taking_picture = 1;
+      $saving_picture = 1;
       return "Saving pic.";
     }
   }
