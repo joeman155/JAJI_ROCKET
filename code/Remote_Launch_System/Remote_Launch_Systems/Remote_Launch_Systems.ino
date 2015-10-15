@@ -79,8 +79,8 @@ unsigned long timing_timer   = 0;
 
 // Menu
 unsigned int  menutime;                   // Menu time.
-unsigned int  menutime_initial = 250;    // Initial time we wait
-unsigned int  menutime_final   = 1000;   // The time we wait if we suddenly find we have commands being sent.
+unsigned int  menutime_initial = 1000;    // Initial time we wait
+unsigned int  menutime_final   = 2000;   // The time we wait if we suddenly find we have commands being sent.
 unsigned long menu_timer       = 0;      
 int EndFlag = 0;                         // Means end of menu
 char param[10];  // Parameter for functions called when requests sent.
@@ -259,28 +259,32 @@ void profile1()
      }
   }
   
-  // If a picture was taken, send it down.
-  if (picture_ready && !create_ssdv_successful) {
-     create_ssdv_successful = create_image_ssdv_file();
+  
+  // Only allow download of pictures if the launch system is NOT powered
+  if (! isLaunchSystemPowered()) {
+     // If a picture was taken, send it down.
+     if (picture_ready && !create_ssdv_successful) {
+        create_ssdv_successful = create_image_ssdv_file();
      
-     if (!create_ssdv_successful) {
-        picture_ready = false; // Something bad happened...let's not try sending...
+        if (!create_ssdv_successful) {
+           picture_ready = false; // Something bad happened...let's not try sending...
+        }
+     }
+  
+     // If we were able to create the ssdv file successfully, then we try sending
+     if (picture_ready && create_ssdv_successful) {
+        boolean send_ssdv_successful = send_ssdv_file();
+        
+        // If we were able to send file successfully, then we send finish packet (D12)        
+        if (send_ssdv_successful) {
+            sendPacket(String("D12:") + String(&current_pic_name[0]));  // Indicates to ground station that image transfer has finished. 
+            delay(100);
+            picture_ready = false;           // Allow taking of photos again
+            create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
+        } 
      }
   }
   
-  // If we were able to create the ssdv file successfully, then we try sending
-  if (picture_ready && create_ssdv_successful) {
-     boolean send_ssdv_successful = send_ssdv_file();
-        
-     // If we were able to send file successfully, then we send finish packet (D12)        
-     if (send_ssdv_successful) {
-         sendPacket(String("D12:") + String(&current_pic_name[0]));  // Indicates to ground station that image transfer has finished. 
-         delay(100);
-         picture_ready = false;           // Allow taking of photos again
-         create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
-     } 
-  }
-    
   delay(LOOP_DELAY);   
 }
 
@@ -1473,11 +1477,14 @@ boolean takePicture_internal()
        return false;
     }
     
+    sendPacket("D03");  // Indicates to groundstation that we are starting to take picture
     
     // Only continue on if we can save the picture somewhere...the microSD card.
     SendTakePhotoCmd();
     delay(1000);
-       
+    
+    sendPacket("D10");  // Indicates to groundstation that we have finished taking picture
+    
     // Just a bit of helpful information
     // DEBUGGING
     sendPacket(String("Taking picture and saving to ") + String(&current_pic_name[0]), true, false);
@@ -1560,19 +1567,21 @@ boolean takePicture_internal()
            // DEBUGGING
            // Serial.println();
               
-           Serial.print(".");
+           sendPacket(".", false, false);
         
            if (packetCount % 80 == 0) {
-              Serial.println("");
+              sendPacket("");
            }
              
         }
     }
  
-    Serial.println("");
+    sendPacket("");
     imgFile.close();
     
-    Serial.println("Sending Stop command");
+    // Indicates to groundstation that we have finished saving picture to microSD
+    sendPacket("D11");  
+    
     StopTakePhotoCmd();
     
     /*
@@ -1586,8 +1595,6 @@ boolean takePicture_internal()
     Serial.println("");
     */
     
-    // DEBUGGING
-    Serial.println("Finished writing data to file");
        
 
  return true;
