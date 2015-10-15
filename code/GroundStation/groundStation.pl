@@ -365,7 +365,7 @@ sub decode_rx()
     $v_result = "Finished writing picture to microSD";
   } elsif ($p_line =~ /^D12:(.*)$/)
   {
-    $v_file = $1;
+    $v_file = $1 . "-" . time();
 
     # Signify that transfer has finished
     $ssdv_transfer = 0;
@@ -1048,14 +1048,6 @@ sub process_requests()
           set_launch_console_attribute("N", 1, "Download photos");
        }
 
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
-    } elsif ($v_request_code =~ /^X/) {
-       print "** Download Photo request...\n" if $DEBUG;
-       sendModemRequest("R05", "A05", $v_req_id);
-       setRequestStatus  ($v_req_id, "F");  # Set status to finished
-    } elsif ($v_request_code =~ /^S/) {
-       print "** Skip Photo download request...\n" if $DEBUG;
-       sendModemRequest("R06", "A06", $v_req_id);
        setRequestStatus  ($v_req_id, "F");  # Set status to finished
     } elsif ($v_request_code =~ /^K/) {
        print "** Cutdown request...\n" if $DEBUG;
