@@ -101,6 +101,8 @@ char current_pic_name[15];
 unsigned long picture_timer = 0;   // (note, for pictures we want a long period.....so specified in seconds...not msec)
 boolean picture_ready = false;     // Used to indicate if file is present to send to groundstation
 boolean create_ssdv_successful = false; // Used to determine if SSDV file created or not.
+int photos_enabled = 1;     // Whether photos is completely enabled or completely disabled 0 = Disabled, 1 = enabled
+unsigned long show_photo_enabled_timer = 0;
 
 // SSDV
 char type = SSDV_TYPE_NORMAL;
@@ -240,6 +242,8 @@ void profile1()
 
   show_profile(3000);
   
+  show_photo_enabled_status(3000);
+  
   send_heartbeat(5000);
 
   physical_measurements(5000);
@@ -252,36 +256,39 @@ void profile1()
   
   launch_systems(500);
   
-  // Only allow automatic taking pictures IF the launch system is NOT powered.
-  if (! isLaunchSystemPowered()) {
-     if(!picture_ready) {  
-        picture_ready = takePicture(30); // This figure 60 is in seconds...not milliseconds like other ones.
-     }
-  }
   
-  
-  // Only allow download of pictures if the launch system is NOT powered
-  if (! isLaunchSystemPowered()) {
-     // If a picture was taken, send it down.
-     if (picture_ready && !create_ssdv_successful) {
-        create_ssdv_successful = create_image_ssdv_file();
-     
-        if (!create_ssdv_successful) {
-           picture_ready = false; // Something bad happened...let's not try sending...
+  if (photos_enabled == 1) {
+     // Only allow automatic taking pictures IF the launch system is NOT powered.
+     if (! isLaunchSystemPowered()) {
+        if(!picture_ready) {  
+           picture_ready = takePicture(30); // This figure 60 is in seconds...not milliseconds like other ones.
         }
      }
   
-     // If we were able to create the ssdv file successfully, then we try sending
-     if (picture_ready && create_ssdv_successful) {
-        boolean send_ssdv_successful = send_ssdv_file();
+  
+     // Only allow download of pictures if the launch system is NOT powered
+     if (! isLaunchSystemPowered()) {
+        // If a picture was taken, send it down.
+        if (picture_ready && !create_ssdv_successful) {
+           create_ssdv_successful = create_image_ssdv_file();
+     
+           if (!create_ssdv_successful) {
+              picture_ready = false; // Something bad happened...let's not try sending...
+           }
+        }
+  
+        // If we were able to create the ssdv file successfully, then we try sending
+        if (picture_ready && create_ssdv_successful) {
+           boolean send_ssdv_successful = send_ssdv_file();
         
-        // If we were able to send file successfully, then we send finish packet (D12)        
-        if (send_ssdv_successful) {
-            sendPacket(String("D12:") + String(&current_pic_name[0]));  // Indicates to ground station that image transfer has finished. 
-            delay(100);
-            picture_ready = false;           // Allow taking of photos again
-            create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
-        } 
+           // If we were able to send file successfully, then we send finish packet (D12)        
+           if (send_ssdv_successful) {
+               sendPacket(String("D12:") + String(&current_pic_name[0]));  // Indicates to ground station that image transfer has finished. 
+               delay(100);
+               picture_ready = false;           // Allow taking of photos again
+               create_ssdv_successful = false;  // Reset back....ALL READY to take new pictures
+           } 
+        }
      }
   }
   
@@ -403,6 +410,17 @@ int processRxSerial(char *rxString)
       } 
       
       sendPacket(String("A10:") + String(profile));
+   }    
+   else if (strcmp(rxString, "R11") == 0) 
+   {
+      // Toggle the photos_enabled value.
+      if (photos_enabled == 1) {
+         photos_enabled = 0;
+      } else if (photos_enabled == 0) {
+         photos_enabled = 1;
+      } 
+      
+      sendPacket(String("A11:") + String(photos_enabled));
    }    
    else if (strcmp(rxString, "R04") == 0) 
    {
@@ -1327,6 +1345,18 @@ void show_profile(int profile_period)
      profile_timer = millis();
   }
 } 
+
+
+void show_photo_enabled_status(int show_photo_enabled_period)
+{
+  // Prefix: D04
+  if (millis() - show_photo_enabled_timer > show_photo_enabled_period) { 
+     sendPacket(String("D14:") + String(photos_enabled));
+     show_photo_enabled_timer = millis();
+  }
+} 
+
+
 
 void imu(int imu_period)
 {
