@@ -78,9 +78,6 @@ uint32_t ulCur;
 unsigned long timing_timer   = 0;
 
 // Menu
-unsigned int  menutime;                   // Menu time.
-unsigned int  menutime_initial = 1000;    // Initial time we wait
-unsigned int  menutime_final   = 2000;   // The time we wait if we suddenly find we have commands being sent.
 unsigned long menu_timer       = 0;      
 int EndFlag = 0;                         // Means end of menu
 char param[10];  // Parameter for functions called when requests sent.
@@ -238,7 +235,7 @@ void loop() {
 // - The Period - in Milliseconds.
 void profile1()
 {
-  show_menu(1000);
+  show_menu(1000, 1000, 2000);
 
   show_profile(3000);
   
@@ -301,7 +298,7 @@ void profile1()
 // - The Period - in Milliseconds.
 void profile2()
 {
-  show_menu(30000); // Don't really need this, but keeping in here for safety measure.
+  show_menu(30000, 1000, 2000); // Don't really need this, but keeping in here for safety measure.
   
   show_profile(3000);
   
@@ -511,7 +508,7 @@ void sendPacket(String str, boolean eol, boolean logging) {
 
 
 // Send Menu to groundstation and wait for a response.
-void pollSerial(HardwareSerial &serial_device) 
+void pollSerial(HardwareSerial &serial_device, unsigned int  menutime_initial, unsigned int  menutime_final) 
 {  
  // Make sure all prior data sent is REALLY sent and wait a little for it to be processed by groundstation.  
  serial_device.flush();
@@ -524,7 +521,7 @@ void pollSerial(HardwareSerial &serial_device)
  inData[0]    = '\0';
  EndFlag = 0;
  index = 0;
- menutime = menutime_initial; // Initial menu time length
+ unsigned int menutime = menutime_initial; // Initial menu time length
  getting_data = false;
 
  
@@ -1256,15 +1253,15 @@ byte bcdToDec(byte val)
 
 
 
-void show_menu(int menu_period)
+void show_menu(int menu_period, unsigned int menutime_initial, unsigned int menutime_final)
 {
  // Get Serial Input (menu) 
  if (millis() - menu_timer > menu_period) {
     if (menu_enabled) {
       if (RECEIVEPORT == 0) {
-         pollSerial(Serial);
+         pollSerial(Serial, menutime_initial, menutime_final);
       } else if (RECEIVEPORT == 2) {
-         pollSerial(Serial2);
+         pollSerial(Serial2, menutime_initial, menutime_final);
       }
     }
     menu_timer = millis();
