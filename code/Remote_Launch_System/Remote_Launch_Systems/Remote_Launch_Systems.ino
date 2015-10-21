@@ -13,7 +13,7 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 0;
+unsigned short int DEBUGGING = 1;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -108,6 +108,7 @@ uint8_t image_id = 0;
 ssdv_t ssdv;
 uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
 unsigned long ssdv_timer   = 0;
+unsigned int ssdv_packet_size = 64;
 
 
 
@@ -1849,7 +1850,7 @@ int send_image_orig()
 boolean create_image_ssdv_file()
 {  
   int c, i;
-  uint8_t  b[128];
+  uint8_t  b[ssdv_packet_size/2];
   i = 0;
   int r;
   
@@ -1874,7 +1875,7 @@ boolean create_image_ssdv_file()
      while((c = ssdv_enc_get_packet(&ssdv)) == SSDV_FEED_ME)
      {
         int byte_count = 0;
-        while(byte_count < 128 && imgFile.available())
+        while(byte_count < ssdv_packet_size/2 && imgFile.available())
         {
            b[byte_count] = imgFile.read();
            byte_count++;   
@@ -1929,12 +1930,12 @@ boolean create_image_ssdv_file()
 
 
 // Sends file containing all the SSDV packets
-// Sends at 256bytes at a time (each of these is a packet)
+// Sends at ssdv_packet_size bytes at a time (each of these is a packet)
 // 
 // Returns boolean - TRUE if finished, FALSE if not finished
 boolean send_ssdv_file()
 {  
-  byte b[256];
+  byte b[ssdv_packet_size];
   int byte_count, j, i;
   byte_count = 0;
   boolean finish = false;
@@ -1944,13 +1945,13 @@ boolean send_ssdv_file()
   }
 
   byte_count = 0;     
-  while(byte_count < 256 && ssdvFile.available()) {
+  while(byte_count < ssdv_packet_size && ssdvFile.available()) {
       b[byte_count] = ssdvFile.read();
       byte_count++;
   }
           
   sendPacket("D13:", false, false);
-  for(j=0;j<256;j++)
+  for(j=0;j<ssdv_packet_size;j++)
   {  
       sprintf(&hex_code[0], "%02X", b[j]);
       sendPacket(&hex_code[0], false, false);
