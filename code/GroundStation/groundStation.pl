@@ -122,6 +122,8 @@ if (my $e = $@)
   }
 
 
+$port->purge_tx;
+$port->purge_rx;
 print "Connected to Serial Port and Listening...\n";
 
 
@@ -190,7 +192,7 @@ while (1 == 1)
 
 
     # Clean out any non-printable characters...just remove them.
-    $serial_rx =~ s/[^[:print:]]//g;
+    # $serial_rx =~ s/[^[:print:]]//g;
 
     $str = "** Decoding Serial RX: '" . $serial_rx . "'\n" if $DEBUG;
     print $str if $DEBUG;
@@ -229,7 +231,7 @@ while (1 == 1)
             # NOTE: We only want to get status IF the power is not on...
             # stats gather is to time consuming and unnecessary during launches
             if ($v_power_status == 0) {
-               if ($radio_stats_count > 660) {
+               if ($radio_stats_count > 50) {
                    get_radio_stats();
                    $radio_stats_count = 0;
                } else {

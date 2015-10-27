@@ -35,6 +35,7 @@ cd ../
 echo Copying across files
 cp -pr web/* /data/web/
 cp air_data.txt /data/gs/
+cp groundStation.sh /data/gs/
 cp groundStation.pl /data/gs/
 cp ssdv/ssdv /data/gs/
 cp gs.sh /data/gs/
