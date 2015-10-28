@@ -59,4 +59,4 @@ echo Finished
 
 echo May need to update /data/web/config.inc
 echo
-echo Copy gs.sh to /etc/init.d/gs manually \(as user root\)
+echo Copy gs.sh to /etc/init.d/gs manually \(as user root\) 

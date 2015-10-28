@@ -5,10 +5,6 @@
 #           Launcher System and the end user with their tablet/phone device.
 #
 
-# use lib '/home/root/hope/modules/lib/perl/5.14.2';
-# use lib '/home/root/hope/modules/share/perl/5.14.2';
-
-
 # LOAD MODULES
 # use strict;
 use warnings;
@@ -19,7 +15,6 @@ use Device::SerialPort qw( :PARAM :STAT 0.07 );
 use DBI;
 use POSIX;
 use Switch;
-
 
 
 
@@ -35,7 +30,6 @@ my $dbh = initialise_db();
 # SERIAL CONFIG
 my $serial_port = "/dev/ttyAMA0";
 # my $serial_port = "/dev/ttyACM0";
-# my $serial_speed = 57600;
 my $serial_speed = 9600;
 
 # DATE/TIME FORMAT
