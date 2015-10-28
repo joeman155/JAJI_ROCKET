@@ -35,8 +35,8 @@ my $dbh = initialise_db();
 # SERIAL CONFIG
 my $serial_port = "/dev/ttyAMA0";
 # my $serial_port = "/dev/ttyACM0";
-my $serial_speed = 57600;
-# my $serial_speed = 9600;
+# my $serial_speed = 57600;
+my $serial_speed = 9600;
 
 # DATE/TIME FORMAT
 my($day, $month, $year) = (localtime)[3,4,5];
