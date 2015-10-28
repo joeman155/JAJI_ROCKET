@@ -546,16 +546,12 @@ sub log_radio_stats($$)
 {
  local ($p_place, $p_stats) = @_;
 
-    # Initialise DB connection
-    # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
     # Put in DB
     $query = "INSERT INTO radio_stats_t (place, stats) values (?,?)";
 
     $sth = $dbh->prepare($query);
     $sth->execute($p_place, $p_stats);
 
-    # $dbh->disconnect();
 }
 
 
@@ -567,9 +563,6 @@ sub log_message($)
   # Only insert message, if one was provided
   if ($message)
   {
-    # Initialise DB connection
-    # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
     # Put in DB
     $query = "INSERT INTO messages_t (message) values (?)";
 
@@ -577,7 +570,6 @@ sub log_message($)
     $sth->execute($message);
 
     $sth->finish();
-    # $dbh->disconnect();
 
   }
 }
@@ -590,8 +582,6 @@ sub insert_measurements()
  local ($group_name, $source, $measurements_hash) = @_;
 
  %measurements = %$measurements_hash;
-
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Insert a Group measurement record
  $query = "INSERT INTO measurement_group_t (group_name, source)
@@ -614,7 +604,6 @@ sub insert_measurements()
    insert_measurement($v_group_id, $measurement, $measurements{$measurement});
  }
 
- # $dbh->disconnect();
 }
 
 
@@ -622,9 +611,6 @@ sub insert_measurements()
 sub insert_measurement()
 {
  local($group_id, $measurement_name, $measurement_value) = @_;
-
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "INSERT INTO measurement_t (group_id, name, value)
@@ -634,17 +620,12 @@ sub insert_measurement()
  $sth->execute($group_id, $measurement_name, $measurement_value);
  
  $sth->finish();
- # $dbh->disconnect();
 }
 
 
 sub insert_heartbeat()
 {
  local($heartbeat) = @_;
-
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
 
  $query = "INSERT INTO heartbeat_t (heartbeat)
  	values (?)";
@@ -653,16 +634,12 @@ sub insert_heartbeat()
  $sth->execute($heartbeat);
  
  $sth->finish();
- # $dbh->disconnect();
 }
 
 
 sub insert_gps()
 {
  local($latitude, $longitude, $height, $gps_date, $gps_time, $gps_speed, $gps_course, $satellites) = @_;
-
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "INSERT INTO gps_t (latitude, longitude, height, speed, course, satellites, gps_date, gps_time)
@@ -672,7 +649,6 @@ sub insert_gps()
  $sth->execute($latitude, $longitude, $height, $gps_speed, $gps_course, $satellites, $gps_date, $gps_time);
  
  $sth->finish();
- # $dbh->disconnect();
 }
 
 
@@ -698,9 +674,6 @@ sub insert_gs_psu_voltage($$)
 {
  local($p_psu_id, $p_voltage) = @_;
 
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
  # Put in DB
  $query = "INSERT INTO gs_psu_voltage_t (voltage, psu_id)
            values (?,?)";
@@ -709,7 +682,6 @@ sub insert_gs_psu_voltage($$)
  $sth->execute($p_voltage, $p_psu_id);
 
  $sth->finish();
- # $dbh->disconnect(); 
 }
 
 
@@ -847,9 +819,6 @@ sub dequeue_request()
 {
  $v_id = 0;
 
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
  # Get the earliest request (FIFO)
  $query = "SELECT min(id)
            FROM   requests_t
@@ -871,7 +840,6 @@ sub dequeue_request()
     }
  }
 
- # $dbh->disconnect();
 
  return $v_id;
 }
@@ -882,9 +850,6 @@ sub dequeue_request()
 sub get_request_code($)
 {
  local ($p_request_id) = @_;
-
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Get request_code for given request ID
  $query = "SELECT request_code
@@ -897,8 +862,6 @@ sub get_request_code($)
 
  ($v_request_code) = $sth->fetchrow_array();
  $sth->finish();
-
- # $dbh->disconnect();
 
  return $v_request_code;
 
@@ -1204,9 +1167,6 @@ sub updateRequestDetails($$)
    return;
  }
 
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
  # Put in DB
  $query = "UPDATE requests_t
                   SET notes = '" . $p_notes . "'
@@ -1217,8 +1177,6 @@ sub updateRequestDetails($$)
  $sth->execute();
  $sth->finish();
 
- # $dbh->disconnect();
-
 }
 
 
@@ -1226,9 +1184,6 @@ sub updateRequestDetails($$)
 sub setRequestStatus($$)
 {
  local ($p_request_id, $p_status_code) = @_;
-
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
  # Put in DB
  $query = "UPDATE requests_t
@@ -1240,8 +1195,6 @@ sub setRequestStatus($$)
  $sth->execute();
  $sth->finish();
 
- # $dbh->disconnect();
-
 }
 
 
@@ -1250,9 +1203,6 @@ sub setRequestStatus($$)
 sub set_launch_console_attribute($$;$)
 {
  local ($p_attribute, $p_status, $p_notes) = @_;
-
-    # Initialise DB connection
-    # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
 
     # Put in DB
     if (defined $p_notes) {
@@ -1267,7 +1217,6 @@ sub set_launch_console_attribute($$;$)
 
     $sth->finish();
 
-#    $dbh->disconnect();
 }
 
 
@@ -1352,9 +1301,6 @@ sub get_last_status($;$)
 
  $v_status = 0; # Default status
 
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
  # Put in DB
  if ($p_exclude_pending == 1) {
     $query = "SELECT status
@@ -1376,8 +1322,6 @@ sub get_last_status($;$)
 
  ($v_status) = $sth->fetchrow_array();
  $sth->finish();
-
- # $dbh->disconnect();
 
  return $v_status;
 
@@ -1417,9 +1361,6 @@ sub insert_imu($$)
 
  %imu = %$imu_hash;
 
- # Initialise DB connection
- # my $dbh = DBI->connect($pg_db_string,"","",{AutoCommit => 1, RaiseError => 1},) or die $DBI::errstr;
-
  # Put in DB
  $query = "INSERT INTO imu_t (instance_id,roll,pitch,yaw,gyrox,gyroy,gyroz,accx,accy,accz,timer)
                    values (?,?,?,?,?,?,?,?,?,?,?)";
@@ -1429,7 +1370,6 @@ sub insert_imu($$)
                $imu{'accx'}, $imu{'accy'}, $imu{'accz'}, $imu{'timer'});
 
  $sth->finish();
- # $dbh->disconnect();
 }
 
 
