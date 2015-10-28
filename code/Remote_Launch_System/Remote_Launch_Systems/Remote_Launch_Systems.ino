@@ -108,7 +108,7 @@ uint8_t image_id = 0;
 ssdv_t ssdv;
 uint8_t pkt[SSDV_PKT_SIZE], *jpeg;
 unsigned long ssdv_timer   = 0;
-unsigned int ssdv_packet_size = 64;
+unsigned int ssdv_packet_size = 256;
 
 
 
@@ -259,7 +259,7 @@ void profile1()
      // Only allow automatic taking pictures IF the launch system is NOT powered.
      if (! isLaunchSystemPowered()) {
         if(!picture_ready) {  
-           picture_ready = takePicture(30); // This figure 60 is in seconds...not milliseconds like other ones.
+           picture_ready = takePicture(300); // This figure 60 is in seconds...not milliseconds like other ones.
         }
      }
   
@@ -299,7 +299,7 @@ void profile1()
 // - The Period - in Milliseconds.
 void profile2()
 {
-  show_menu(30000, 1000, 2000); // Don't really need this, but keeping in here for safety measure.
+  show_menu(30000, 100, 2000); // Don't really need this, but keeping in here for safety measure.
   
   show_profile(3000);
   
@@ -1863,7 +1863,6 @@ boolean create_image_ssdv_file()
      
      callsign[0] = '\0';
      imgFile = SD.open(&current_pic_name[0], FILE_READ); //The file name should not be too long
-     // imgFile = SD.open("10100656", FILE_READ); //The file name should not be too long
      ssdvFile = SD.open("ssdv", FILE_WRITE);
      
      ssdv_enc_init(&ssdv, type, callsign, image_id);
@@ -1955,6 +1954,7 @@ boolean send_ssdv_file()
   {  
       sprintf(&hex_code[0], "%02X", b[j]);
       sendPacket(&hex_code[0], false, false);
+      delay(4);
   }  
   sendPacket("", true, false);   
   delay(500);  // Plenty of delay, to allow ground station to process the packet
