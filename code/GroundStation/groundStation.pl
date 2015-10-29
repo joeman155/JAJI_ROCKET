@@ -23,7 +23,6 @@ use Switch;
 $home_dir = "/data/gs/";
 
 # DATABASE CONFIG
-my $db_string    = "dbi:SQLite:dbname=" . $home_dir . "db/gs.db";  # SQLIte DB file
 my $pg_db_string = "dbi:Pg:dbname=rls";
 my $dbh = initialise_db();
 
@@ -117,8 +116,12 @@ if (my $e = $@)
   }
 
 
+# Removing anything before we start.... reduce chance of rubbish
+# coming through...
 $port->purge_tx;
 $port->purge_rx;
+
+
 print "Connected to Serial Port and Listening...\n";
 
 
@@ -223,9 +226,13 @@ while (1 == 1)
             # We have 3 second delay after getting heartbeat.... so we quickly get
             # stats on state of link
             # Every 15 iterations...get stats
-            # NOTE: We only want to get status IF the power is not on...
-            # stats gather is to time consuming and unnecessary during launches
-            if ($v_power_status == 0) {
+            # NOTE: We only want to get status IF the power is not on
+            #       AND we are not transferring a picture....
+            #       stats gather is to time consuming and unnecessary during 
+            #       launches and can interupt picture downloads
+            $v_photo_status = is_photo_downloads_enabled();
+            if ($v_power_status == 0 && 
+                ($ssdv_transfer == 0 || $v_photo_status == 0)) {
                if ($radio_stats_count > 50) {
                    get_radio_stats();
                    $radio_stats_count = 0;

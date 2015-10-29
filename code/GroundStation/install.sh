@@ -10,7 +10,6 @@ echo Creating GS directories
 [ -d /data/web ] || mkdir /data/web
 [ -d /data/web/out ] || mkdir /data/web/out
 [ -d /data/gs ] || mkdir /data/gs
-[ -d /data/gs/db ] || mkdir /data/gs/db
 [ -d /data/gs/run ] || mkdir /data/gs/run
 [ -d /data/gs/uploads ] || mkdir /data/gs/uploads
 [ -d /data/gs/out/images ] || mkdir /data/gs/out/images
@@ -18,7 +17,6 @@ echo Creating GS directories
 
 echo Permissions on files
 touch /data/gs/run/download_file_status
-chmod 777 /data/gs/db
 chmod 777 /data/gs/run
 chmod 777 /data/gs/uploads
 chmod 777 /data/gs/run/download_file_status
@@ -47,10 +45,6 @@ ln -s /data/gs/out/images /data/web/out/images
 
 
 echo Initialising the database...
-[ -f /data/gs/db/gs.db ] && mv /data/gs/db/gs.db /data/gs/db/gs.db.bck
-# Not using SQLITE3 database now. Will completely remove later.
-# sqlite3 /data/gs/db/gs.db < tables.sql
-# chmod 777 /data/gs/db/gs.db
 psql rls -f pgsql_tables.sql
 
 
