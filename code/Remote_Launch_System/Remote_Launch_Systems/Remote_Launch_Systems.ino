@@ -14,7 +14,7 @@
 
 // Debugging
 unsigned short int DEBUGGING = 1;
-unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
+unsigned short int RECEIVEPORT = 0;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
 #define LOOP_DELAY 10
@@ -1118,6 +1118,13 @@ void extractIMUInfo()
   delay(300);
 #endif
 
+ String str = String("D06:") + String(roll) + String(",") + String(pitch) + String(",") + String(yaw)
+              + String(",") + String(gyroX) + String(",") + String(gyroY) + String(",") + String(gyroZ) 
+              + String(",") + String(accX) + String(",") + String(accY) + String(",") + String(accZ)
+              + String(",") + String(timer);
+ sendPacket(str);            
+ 
+ /*
  sendPacket(String("D06:") + String(roll), false);
  sendPacket(String(",") + String(pitch), false);  
  sendPacket(String(",") + String(yaw), false);  
@@ -1128,7 +1135,8 @@ void extractIMUInfo()
  sendPacket(String(",") + String(accY), false);  
  sendPacket(String(",") + String(accZ), false);   
  sendPacket(String(",") + String(timer));    
-
+ */
+ 
 }
 
 
@@ -1204,6 +1212,7 @@ void extractGPSInfo()
     unsigned long speed, course, altitude;
     int year;
     byte month, day, hour, minute, second, hundredths;    
+    String str;
     
     gps.f_get_position(&flat, &flon, &age);
     flat_processed = flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6;
@@ -1212,31 +1221,40 @@ void extractGPSInfo()
     
     // latitude
     dtostrf(flat_processed, 12, 8, outstr);
-    sendPacket(String("D01:") + String(outstr), false); 
+    // sendPacket(String("D01:") + String(outstr), false); 
+    str = String("D01:") + String(outstr);
     
     // longitude
     dtostrf(flon_processed, 12, 8, outstr);
-    sendPacket(String(",") + String(outstr), false);
+    // sendPacket(String(",") + String(outstr), false);
+    str = str + String(",") + String(outstr);
     
     // altitude
     altitude = gps.altitude()/100;
-    sendPacket(String(",") + String(altitude), false);    
+    // sendPacket(String(",") + String(altitude), false);    
+    str = str + String(",") + String(altitude);
     
     // date/time
     gps.crack_datetime(&year,&month,&day,&hour,&minute,&second,&hundredths);
-    sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year), false);
-    sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths), false);
+    // sendPacket(String(",") + String(day) + String("/") + String(month) + String("/") + String(year), false);
+    str = str + String(",") + String(day) + String("/") + String(month) + String("/") + String(year);
+    // sendPacket(String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths), false);
+    str = str + String(",") + String(hour) + String(".") + String(minute) + String(".") + String(second) + String(".") + String(hundredths);
     
     // heading
     course = gps.f_course();    
-    sendPacket(String(",") + String(course), false);
+    // sendPacket(String(",") + String(course), false);
+    str = str + String(",") + String(course);
     
     // speed
     speed = gps.f_speed_kmph();
-    sendPacket(String(",") + String(speed), false);
+    // sendPacket(String(",") + String(speed), false);
+    str = str + String(",") + String(speed);
     
     // # of Satellites
-    sendPacket(String(",") + String(sat_count));
+    // sendPacket(String(",") + String(sat_count));
+    str = str + String(",") + String(sat_count);
+    sendPacket(str);
   }  
 }  
 
@@ -1292,17 +1310,28 @@ void physical_measurements(int sensors_period)
  if (millis() - sensors_timer > sensors_period) {
    extractPressureTemperature();
    bmp180_temperature += 273;
+   
+   /*
    sendPacket(String("D00:") + String(bmp180_pressure), false);
    sendPacket(String(",")    + String(bmp180_temperature), false);  // NOTE: Will need to put external temp here....for now, we are duplicating internal temp
    sendPacket(String(",")    + String(bmp180_temperature),false); 
- 
+   */
+   
+   String str = String("D00:") + String(bmp180_pressure) + String(",")    + String(bmp180_temperature) + String(",")    + String(bmp180_temperature);
+
+                
    // also wish to package voltage readings along with other measurements immediately above.
    ardupsu.read();
    ignpsu.read();
    dtostrf(ardupsu.value(),4, 2, outstr);   
-   sendPacket (String(",") + String(outstr), false); 
+   // sendPacket (String(",") + String(outstr), false); 
+   str = str + String(",") + String(outstr);
+   
    dtostrf(ignpsu.value(),5, 2, outstr);  
-   sendPacket (String(",") + String(outstr), true);   
+   // sendPacket (String(",") + String(outstr), true);
+   str = str + String(",") + String(outstr);   
+   
+   sendPacket(str);
   
    sensors_timer = millis();
  }
