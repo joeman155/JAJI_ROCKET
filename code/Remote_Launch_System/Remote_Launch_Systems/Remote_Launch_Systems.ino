@@ -13,8 +13,8 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 1;
-unsigned short int RECEIVEPORT = 0;  // 0 = Serial, 1 for Serial1, 2 for Serial2
+unsigned short int DEBUGGING = 0;
+unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
 #define LOOP_DELAY 10
