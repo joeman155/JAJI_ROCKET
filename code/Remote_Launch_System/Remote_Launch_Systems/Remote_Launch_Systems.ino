@@ -175,8 +175,10 @@ void setup() {
   
   
   // Radio Modem
-  Serial2.begin(57600);
+  Serial2.begin(9600);
   sendPacket ("S");  
+  
+  // delay(500000);   // Used to delay the large amount of traffic...helpful if I don't want modem bogged down while editing it over a radio link.
   
   // i2C
   Wire.begin();
@@ -311,7 +313,7 @@ void profile2()
 
   send_heartbeat(5000);
 
-  imu(100);
+  imu(200);
 
   delay(LOOP_DELAY);   
 }
