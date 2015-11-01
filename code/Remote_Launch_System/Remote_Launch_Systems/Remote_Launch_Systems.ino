@@ -10,10 +10,11 @@
 #include <SFE_LSM9DS0.h>
 #include <SFE_BMP180.h>
 #include "ssdv.h"
+#include <Statistic.h>
  
 
 // Debugging
-unsigned short int DEBUGGING = 0;
+unsigned short int DEBUGGING = 1;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -112,13 +113,32 @@ unsigned int ssdv_packet_size = 256;
 
 
 
-// IMU
+// IMU - Fundamentals
 #define LSM9DS0_XM  0x1D // Would be 0x1E if SDO_XM is LOW
 #define LSM9DS0_G   0x6B // Would be 0x6A if SDO_G is LOW
 LSM9DS0 dof(MODE_I2C, LSM9DS0_G, LSM9DS0_XM);
 unsigned long imu_timer   = 0;
 
-// KALMAN
+// IMU Statistics
+Statistic roll_stats, pitch_stats, yaw_stats;
+Statistic gyroX_stats, gyroY_stats, gyroZ_stats;
+struct stats_trend_struct {
+  float average;
+  float variance;
+};
+typedef struct stats_trend_struct stats_trend;
+
+stats_trend **roll_stats_trends;
+stats_trend **pitch_stats_trends;
+stats_trend **yaw_stats_trends;
+stats_trend **gyroX_stats_trends;
+stats_trend **gyroY_stats_trends;
+stats_trend **gyroZ_stats_trends;
+
+unsigned long stats_time_interval;
+
+
+// IMU - KALMAN
 uint32_t timer;
 #define RESTRICT_PITCH // Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
 Kalman kalmanX; // Yaw
@@ -213,6 +233,9 @@ void setup() {
     sdCardState = 1;
   }
   
+  // Initialise stats (clear them out)
+  initialise_imu_stats();
+
 }
 
 
@@ -252,8 +275,8 @@ void profile1()
 
   timing(500);
   
-  imu(1000);
-  
+  imu(1000, true); // Get values every 1000msec and true means send the data down
+    
   launch_systems(500);
   
   
@@ -313,7 +336,7 @@ void profile2()
 
   send_heartbeat(5000);
 
-  imu(200);
+  imu(200, true);
 
   delay(LOOP_DELAY);   
 }
@@ -991,7 +1014,7 @@ void rotateMatrix(double xb, double yb, double zb, double a, double b, double c,
 
 
 // Extract and calculate information for IMU.
-void extractIMUInfo()
+void extractIMUInfo(boolean print_values)
 {
     // Read Accelerometer
   dof.readAccel();
@@ -1118,11 +1141,16 @@ void extractIMUInfo()
   delay(300);
 #endif
 
- String str = String("D06:") + String(roll) + String(",") + String(pitch) + String(",") + String(yaw)
-              + String(",") + String(gyroX) + String(",") + String(gyroY) + String(",") + String(gyroZ) 
-              + String(",") + String(accX) + String(",") + String(accY) + String(",") + String(accZ)
-              + String(",") + String(timer);
- sendPacket(str);            
+ // Add to the Stats
+imu_statistics(roll, pitch, yaw, gyroX, gyroY, gyroZ);
+
+if  (print_values) {
+   String str = String("D06:") + String(roll) + String(",") + String(pitch) + String(",") + String(yaw)
+                + String(",") + String(gyroX) + String(",") + String(gyroY) + String(",") + String(gyroZ) 
+                + String(",") + String(accX) + String(",") + String(accY) + String(",") + String(accZ)
+                + String(",") + String(timer);
+    sendPacket(str);            
+}
  
 }
 
@@ -1352,14 +1380,14 @@ void show_photo_enabled_status(int show_photo_enabled_period)
 
 
 
-void imu(int imu_period)
+void imu(int imu_period, boolean print_values)
 {
  // IMU Code
  // Prefix: D06
  // Format of string is:-
  // D06:Roll,Pitch,Yaw,gyroX,gyroY,gyroZ,accX,accY,accZ,timer
  if (millis() - imu_timer > imu_period) { 
-    extractIMUInfo();
+    extractIMUInfo(print_values);
     imu_timer = millis();
  }
 }
@@ -2004,4 +2032,204 @@ int send_ssdv_file_orig()
   // Serial.println("FINISHED SENDING SSDV FILE");
 
   return i;
+}
+
+
+
+// Generate moving average of values for last minute
+//
+void imu_statistics(float roll, float pitch, float yaw, double gyroX, double gyroY, double gyroZ)
+{
+  unsigned long interval     = 60000;
+  unsigned long current_time = millis();
+  
+     
+  if (current_time - stats_time_interval < interval * 2 &&
+      current_time - stats_time_interval >= interval) {
+     // Print resutls
+     String str = String("D16:") + String(roll_stats_trends[0]->average) + String(",") + String(roll_stats_trends[0]->variance);
+     str = str + String(",") + String(pitch_stats_trends[0]->average) + String(",") + String(pitch_stats_trends[0]->variance);
+     str = str + String(",") + String(yaw_stats_trends[0]->average) + String(",") + String(yaw_stats_trends[0]->variance);
+     str = str + String(",") + String(gyroX_stats_trends[0]->average) + String(",") + String(gyroX_stats_trends[0]->variance);
+     str = str + String(",") + String(gyroY_stats_trends[0]->average) + String(",") + String(gyroY_stats_trends[0]->variance);
+     str = str + String(",") + String(gyroZ_stats_trends[0]->average) + String(",") + String(gyroZ_stats_trends[0]->variance);   
+   
+     sendPacket(str);  
+     
+     // Move stats down one line...
+     push_stats_down();
+     
+     // Set start point for new Interval
+     stats_time_interval = current_time;    
+
+  } else if (current_time - stats_time_interval >= interval * 2) {
+     // More than two intervals since the last measurement. Not ideal. We start again?
+     // Clear out stats, so we start from fresh
+     clear_imu_trends();
+     
+     // Set start point for new Interval
+     stats_time_interval = current_time;           
+  }
+  
+  
+  // If still within current interval, then update average
+  if (current_time - stats_time_interval < interval) {  
+     // Compute stats
+     roll_stats.add(roll);
+     pitch_stats.add(pitch);
+     yaw_stats.add(yaw);
+     gyroX_stats.add(gyroX);
+     gyroY_stats.add(gyroY);
+     gyroZ_stats.add(gyroZ);
+     
+     roll_stats_trends[0]->average   = roll_stats.average();
+     roll_stats_trends[0]->variance  = roll_stats.variance();   
+     pitch_stats_trends[0]->average  = pitch_stats.average();
+     pitch_stats_trends[0]->variance = pitch_stats.variance();   
+     yaw_stats_trends[0]->average    = yaw_stats.average();
+     yaw_stats_trends[0]->variance   = yaw_stats.variance();   
+     gyroX_stats_trends[0]->average  = gyroX_stats.average();
+     gyroX_stats_trends[0]->variance = gyroX_stats.variance();       
+     gyroY_stats_trends[0]->average  = gyroY_stats.average();
+     gyroY_stats_trends[0]->variance = gyroY_stats.variance();   
+     gyroZ_stats_trends[0]->average  = gyroZ_stats.average();
+     gyroZ_stats_trends[0]->variance = gyroZ_stats.variance();        
+  }
+     
+  
+
+  
+  
+/*  
+// DEBUGGING
+  sendPacket(String("Roll: ")  + String(roll_stats_trends[0]->average) + String("\t")  + String(roll_stats_trends[0]->variance), true, false);  
+  sendPacket(String("Pitch: ") + String(pitch_stats_trends[0]->average) + String("\t") + String(pitch_stats_trends[0]->variance), true, false);  
+  sendPacket(String("Yaw: ")   + String(yaw_stats_trends[0]->average) + String("\t")   + String(yaw_stats_trends[0]->variance), true, false);  
+  sendPacket(String("GyroX: ") + String(gyroX_stats_trends[0]->average) + String("\t") + String(gyroX_stats_trends[0]->variance), true, false);  
+  sendPacket(String("GyroY: ") + String(gyroY_stats_trends[0]->average) + String("\t") + String(gyroY_stats_trends[0]->variance), true, false);  
+  sendPacket(String("GyroZ: ") + String(gyroZ_stats_trends[0]->average) + String("\t") + String(gyroZ_stats_trends[0]->variance), true, false);    
+*/
+  
+/*
+// DEBUGGING
+  sendPacket(String("AVG0: ") + String(roll_stats_trends[0]->average));
+  sendPacket(String("AVG1: ") + String(roll_stats_trends[1]->average));  
+  sendPacket(String("AVG2: ") + String(roll_stats_trends[2]->average));  
+  sendPacket(String("AVG3: ") + String(roll_stats_trends[3]->average));  
+  sendPacket(String("AVG4: ") + String(roll_stats_trends[4]->average));    
+*/
+  
+}
+
+
+// Purpose is to push stats down one notch
+void push_stats_down()
+{
+  // Push all stats down one notch
+  for (int i = 4; i > 0; i--) {
+     roll_stats_trends[i]->average = roll_stats_trends[i-1]->average;
+     roll_stats_trends[i]->variance = roll_stats_trends[i-1]->variance;
+     pitch_stats_trends[i]->average = pitch_stats_trends[i-1]->average;
+     pitch_stats_trends[i]->variance = pitch_stats_trends[i-1]->variance;  
+     yaw_stats_trends[i]->average = yaw_stats_trends[i-1]->average;
+     yaw_stats_trends[i]->variance = yaw_stats_trends[i-1]->variance;  
+     gyroX_stats_trends[i]->average = gyroX_stats_trends[i-1]->average;
+     gyroX_stats_trends[i]->variance = gyroX_stats_trends[i-1]->variance;  
+     gyroY_stats_trends[i]->average = gyroY_stats_trends[i-1]->average;
+     gyroY_stats_trends[i]->variance = gyroY_stats_trends[i-1]->variance;  
+     gyroZ_stats_trends[i]->average = gyroZ_stats_trends[i-1]->average;
+     gyroZ_stats_trends[i]->variance = gyroZ_stats_trends[i-1]->variance;       
+  }  
+  
+  // Clear Top level Stats....
+  roll_stats_trends[0]->average  = 0;
+  roll_stats_trends[0]->variance = 0;
+  pitch_stats_trends[0]->average  = 0;
+  pitch_stats_trends[0]->variance = 0;  
+  yaw_stats_trends[0]->average  = 0;
+  yaw_stats_trends[0]->variance = 0;  
+  
+  gyroX_stats_trends[0]->average  = 0;
+  gyroX_stats_trends[0]->variance = 0;  
+  gyroY_stats_trends[0]->average  = 0;
+  gyroY_stats_trends[0]->variance = 0;  
+  gyroZ_stats_trends[0]->average  = 0;
+  gyroZ_stats_trends[0]->variance = 0;    
+  
+  roll_stats.clear();
+  pitch_stats.clear();
+  yaw_stats.clear();
+  gyroX_stats.clear();
+  gyroY_stats.clear();
+  gyroZ_stats.clear();     
+}
+
+void clear_imu_trends()
+{
+  for (int i = 0; i < 5; i++) {
+     roll_stats_trends[i]->average  = 0;
+     roll_stats_trends[i]->variance = 0;
+     pitch_stats_trends[i]->average  = 0;
+     pitch_stats_trends[i]->variance = 0;  
+     yaw_stats_trends[i]->average  = 0;
+     yaw_stats_trends[i]->variance = 0;  
+  
+     gyroX_stats_trends[i]->average  = 0;
+     gyroX_stats_trends[i]->variance = 0;  
+     gyroY_stats_trends[i]->average  = 0;
+     gyroY_stats_trends[i]->variance = 0;  
+     gyroZ_stats_trends[i]->average  = 0;
+     gyroZ_stats_trends[i]->variance = 0;    
+  }
+  
+  roll_stats.clear();
+  pitch_stats.clear();
+  yaw_stats.clear();
+  gyroX_stats.clear();
+  gyroY_stats.clear();
+  gyroZ_stats.clear();     
+}
+
+
+// Initialise memory structures and clean areas out ready for stats gathering
+void  initialise_imu_stats()
+{
+  roll_stats.clear();
+  pitch_stats.clear();
+  yaw_stats.clear();
+  gyroX_stats.clear();
+  gyroY_stats.clear();
+  gyroZ_stats.clear();
+  
+  roll_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  pitch_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  yaw_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  gyroX_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  gyroY_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  gyroZ_stats_trends = (stats_trend **) malloc(5 * sizeof(stats_trend *));
+  for (int i=0; i < 5; i++) {
+     roll_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     roll_stats_trends[i]->average = 0;
+     roll_stats_trends[i]->variance = 0;     
+     
+     pitch_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     pitch_stats_trends[i]->average = 0;
+     pitch_stats_trends[i]->variance = 0;   
+     
+     yaw_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     yaw_stats_trends[i]->average = 0;
+     yaw_stats_trends[i]->variance = 0;     
+
+     gyroX_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     gyroX_stats_trends[i]->average = 0;
+     gyroX_stats_trends[i]->variance = 0;     
+     
+     gyroY_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     gyroY_stats_trends[i]->average = 0;
+     gyroY_stats_trends[i]->variance = 0;   
+     
+     gyroZ_stats_trends[i] = (stats_trend *) malloc(sizeof(stats_trend));
+     gyroZ_stats_trends[i]->average = 0;
+     gyroZ_stats_trends[i]->variance = 0;       
+  }
 }
