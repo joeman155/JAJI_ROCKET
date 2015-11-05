@@ -7,6 +7,8 @@ CREATE TABLE measurement_group_t (
 		id integer primary key autoincrement,
 		group_name varchar2(5),
 		source varchar2(10),
+		attribute1 varchar2(10),
+		attribute2 varchar2(10),
 		creation_date datetime);
 
 CREATE TABLE measurement_t (id integer primary key autoincrement,

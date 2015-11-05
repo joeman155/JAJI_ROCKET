@@ -294,7 +294,7 @@ sub decode_rx()
 		"CPU Voltage"		=> $v_cpu_voltage,
 		"IGN Voltage"		=> $v_ign_voltage
 			);
-    insert_measurements("D00", $RLS_SOURCE, \%measurements); 
+    insert_measurements("D00", $RLS_SOURCE, "", "",  \%measurements); 
     $v_result = "Measurements: " . $p_line;
   } elsif ($p_line =~ m/^D01:(.+),(.+),(.+),(.*),(.+),(.+),(.+),(.+)$/)
   {
@@ -323,7 +323,7 @@ sub decode_rx()
     my %measurements = (
          "Uptime"	=> $v_time
 			);
-    insert_measurements("D02", $RLS_SOURCE, \%measurements);
+    insert_measurements("D02", $RLS_SOURCE, "", "", \%measurements);
   } elsif ($p_line =~ /^D03$/)
   {
     $v_result = "Taking picture";
@@ -369,6 +369,41 @@ sub decode_rx()
   {
     $v_result = "Finished writing picture to microSD";
     $saving_picture = 0;
+  } elsif ($p_line =~ /^D16:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
+  {
+    $attribute1                  = $1; # Time in seconds since 1970
+    $roll_stats_trends_average   = $2;
+    $roll_stats_trends_variance  = $3;
+    $pitch_stats_trends_average  = $4;
+    $pitch_stats_trends_variance = $5;
+    $yaw_stats_trends_average    = $6;
+    $yaw_stats_trends_variance   = $7;
+    $gyroX_stats_trends_average  = $8;
+    $gyroX_stats_trends_variance = $9;
+    $gyroY_stats_trends_average  = $10;
+    $gyroY_stats_trends_variance = $11;
+    $gyroZ_stats_trends_average  = $12;
+    $gyroZ_stats_trends_variance = $13;
+
+    my %measurements = (
+                "Roll Stats Trend Average"    => $roll_stats_trends_average,
+                "Roll Stats Trend Variance"   => $roll_stats_trends_variance,
+                "Pitch Stats Trend Average"   => $pitch_stats_trends_average,
+                "Pitch Stats Trend Variance"  => $pitch_stats_trends_variance,
+                "Yaw Stats Trend Average"     => $yaw_stats_trends_average,
+                "Yaw Stats Trend Variance"    => $yaw_stats_trends_variance,
+                "gyroX Stats Trend Average"   => $gyroX_stats_trends_average,
+                "gyroX Stats Trend Variance"  => $gyroX_stats_trends_variance,
+                "gyroY Stats Trend Average"   => $gyroY_stats_trends_average,
+                "gyroY Stats Trend Variance"  => $gyroY_stats_trends_variance,
+                "gyroZ Stats Trend Average"   => $gyroZ_stats_trends_average,
+                "gyroZ Stats Trend Variance"  => $gyroZ_stats_trends_variance
+                        );
+
+    insert_measurements("D16", $RLS_SOURCE, $attribute1, "",  \%measurements);
+    $v_result = "Measurements: " . $p_line;
+
+    #joe
   } elsif ($p_line =~ /^D12:(.*)$/)
   {
     $v_file = $1 . "-" . time();
@@ -580,16 +615,16 @@ sub log_message($)
 # - A group of measurements
 sub insert_measurements()
 {
- local ($group_name, $source, $measurements_hash) = @_;
+ local ($group_name, $source, $attribute1, $attribute2, $measurements_hash) = @_;
 
  %measurements = %$measurements_hash;
 
  # Insert a Group measurement record
- $query = "INSERT INTO measurement_group_t (group_name, source)
-           VALUES (?,?)";
+ $query = "INSERT INTO measurement_group_t (group_name, source, attribute1, attribute2)
+           VALUES (?,?,?,?)";
 
  $sth = $dbh->prepare($query);
- $sth->execute($group_name, $source);
+ $sth->execute($group_name, $source, $attribute1, $attribute2);
  $sth->finish();
 
  $query = "SELECT currval('measurement_group_id_seq')";
