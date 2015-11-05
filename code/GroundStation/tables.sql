@@ -3,6 +3,7 @@ CREATE TABLE messages_t (id integer primary key autoincrement,
                          message text, 
                          creation_date datetime);
 
+
 CREATE TABLE measurement_group_t (
 		id integer primary key autoincrement,
 		group_name varchar2(5),

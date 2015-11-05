@@ -30,6 +30,8 @@ CREATE TABLE measurement_group_t (
     id integer primary key default nextval('measurement_group_id_seq'),
     group_name varchar(5),
     source varchar(10),
+    attribute1 varchar(10),
+    attribute2 varchar(10),
     creation_date timestamp);
 
 ALTER TABLE measurement_group_t ALTER COLUMN creation_date SET DEFAULT CURRENT_TIMESTAMP;
