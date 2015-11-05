@@ -48,7 +48,7 @@ CREATE sequence measurement_id_seq;
 CREATE TABLE measurement_t (id integer primary key default nextval('measurement_id_seq'),
     instance_id varchar(100),
     group_id integer,
-    name   varchar(20),
+    name   varchar(30),
     value float);
 
 grant select on measurement_t to "www-data";

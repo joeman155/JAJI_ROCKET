@@ -369,21 +369,22 @@ sub decode_rx()
   {
     $v_result = "Finished writing picture to microSD";
     $saving_picture = 0;
-  } elsif ($p_line =~ /^D16:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
+  } elsif ($p_line =~ /^D16:(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*),(.*)$/)
   {
-    $attribute1                  = $1; # Time in seconds since 1970
-    $roll_stats_trends_average   = $2;
-    $roll_stats_trends_variance  = $3;
-    $pitch_stats_trends_average  = $4;
-    $pitch_stats_trends_variance = $5;
-    $yaw_stats_trends_average    = $6;
-    $yaw_stats_trends_variance   = $7;
-    $gyroX_stats_trends_average  = $8;
-    $gyroX_stats_trends_variance = $9;
-    $gyroY_stats_trends_average  = $10;
-    $gyroY_stats_trends_variance = $11;
-    $gyroZ_stats_trends_average  = $12;
-    $gyroZ_stats_trends_variance = $13;
+    # $attribute1                  = $1; # Time in seconds since 1970
+    $attribute1 = '123123';
+    $roll_stats_trends_average   = $1;
+    $roll_stats_trends_variance  = $2;
+    $pitch_stats_trends_average  = $3;
+    $pitch_stats_trends_variance = $4;
+    $yaw_stats_trends_average    = $5;
+    $yaw_stats_trends_variance   = $6;
+    $gyroX_stats_trends_average  = $7;
+    $gyroX_stats_trends_variance = $8;
+    $gyroY_stats_trends_average  = $9;
+    $gyroY_stats_trends_variance = $10;
+    $gyroZ_stats_trends_average  = $11;
+    $gyroZ_stats_trends_variance = $12;
 
     my %measurements = (
                 "Roll Stats Trend Average"    => $roll_stats_trends_average,
