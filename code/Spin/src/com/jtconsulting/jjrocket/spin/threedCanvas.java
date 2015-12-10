@@ -114,7 +114,7 @@ public class threedCanvas extends Applet {
  	   // TRANSFORM SPIN 1
  	   Transform3D transform_spin1 = new Transform3D();
  	   TransformGroup tg_spin1 = new TransformGroup();
- 	   Vector3f vector_spin1 = new Vector3f(0f, 0f, (float) (r.getSpin1_pos()[2]));
+ 	   Vector3f vector_spin1 = new Vector3f( (float) (r.getSpin1_pos()[0]), (float) (r.getSpin1_pos()[1] - r.getLen()/2), (float) (r.getSpin1_pos()[2]));
  	   transform_spin1.setTranslation(vector_spin1);
  	   Transform3D rotation_spin1 = new Transform3D();
  	   // rotation_spin1.rotZ(Math.PI/2);
@@ -134,7 +134,7 @@ public class threedCanvas extends Applet {
  	   // TRANSFORM SPIN 2
  	   Transform3D transform_spin2 = new Transform3D();
  	   TransformGroup tg_spin2 = new TransformGroup();
- 	   Vector3f vector_spin2 = new Vector3f(0f, 0f, (float) (r.getSpin2_pos()[2]));
+ 	   Vector3f vector_spin2 = new Vector3f((float) (r.getSpin2_pos()[0]), (float) (r.getSpin2_pos()[1] - r.getLen()/2), (float) (r.getSpin2_pos()[2]));
  	   transform_spin2.setTranslation(vector_spin2);
  	   Transform3D rotation_spin2 = new Transform3D();
  	   // rotation_spin2.rotZ(Math.PI/2);

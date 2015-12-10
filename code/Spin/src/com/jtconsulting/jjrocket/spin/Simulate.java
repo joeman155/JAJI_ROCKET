@@ -82,7 +82,7 @@ public class Simulate {
 		BigDecimal time = new BigDecimal("0.0");
 		
 		
-		// MOTOR
+		// SPIN MOTOR 1
 		Motor m1 = new Motor();
 		m1.setLen(0.1);
 		m1.setMass(0.05);
@@ -92,8 +92,9 @@ public class Simulate {
 		m1.setNorm_thrust(2.5);
 		m1.setNorm_thrust_start_time(0.3);
 		m1.setNorm_thrust_end_time(0.675);
-		m1.setIgnition_delay(0.1);
+		m1.setIgnition_delay(0.0);
 
+		// SPIN MOTOR 2
 		Motor m2 = new Motor();
 		m2.setLen(0.1);
 		m2.setMass(0.05);
@@ -103,18 +104,18 @@ public class Simulate {
 		m2.setNorm_thrust(2.5);
 		m2.setNorm_thrust_start_time(0.3);
 		m2.setNorm_thrust_end_time(0.675);
-		m2.setIgnition_delay(0.0);
+		m2.setIgnition_delay(0.2);  //0.2
 
 		
 		// ROCKET
 		Rocket r = new Rocket();
-		r.setMass(1.5);
-		r.setLen(1);
-		r.setBalance_mass(0.5);
+		r.setMass(2);
+		r.setLen(2);
+		r.setBalance_mass(.2);  // 0.5
 		r.setBalance_mass_distance(2);
 		r.setPosition(0, 0, 0);
-		r.setRadii(0.023,  0.025);
-		r.setCg(0, 0, r.getLen()/2);  // i.e. we assume perfect symmetry. We also assume that Spin rockets burn at exact
+		r.setRadii(0.05,  0.046);   // 0.023, 0.025
+		// r.setCg(0, 0, r.getLen()/2);  // i.e. we assume perfect symmetry. We also assume that Spin rockets burn at exact
 		                              // same rate and have minimal effect on position of CG.
 		r.setOrientation(0, 0, 0);    // i.e. upright. Pretend we have IMU on top, flat. (Though axis of IMU would need to be
 										// Interchanged with what is defined at top of program
@@ -122,23 +123,24 @@ public class Simulate {
 		r.setSpinRadius(0.015);
 		r.setSpinLength(0.1);
 		
+		// MAIN Rocket engine
+		r.setEngine_mass(2.0000001);
+		r.setEngine_len(0.4);
+		r.setEngine_radius(0.029);
 		
+		
+		
+		// Derive other properties of rocket
+		r.computeInertias();	
+		r.computeCg();
 		
 		// Forces - simple constant force over whole of the time.
-		double[] cg = {0.00, r.getLen()/2, 0.00};
+		double[] cg = {r.getCgx(), r.getCgy(), r.getCgz()};
 		
-		
-		// Very IMPERFECT
-/*		double[] spin1_force_data = {  12, 0.5, 0.5 };
-		double[] spin1_pos_data   = {  0, 0.005 + r.getLen()/2, 0.03 };
-		double[] spin2_force_data = { -12, -0.5, -0.5 };
-		double[] spin2_pos_data   = {  0, r.getLen()/2 - 0.005, -0.03 };
-		*/
-		
-		
+			
 		
 		// SPIN1 FORCES
-		double[] spin1_force_angles = {Math.PI * 3/180, Math.PI * 3/180, Math.PI * 2/180 + -Math.PI/2};
+		double[] spin1_force_angles = {Math.PI * -2/180, Math.PI * 3/180, Math.PI * 3/180 + -Math.PI/2};
 		r.setSpin1_rotation_matrix(utils.createRotationMatrix(spin1_force_angles[0], spin1_force_angles[1], spin1_force_angles[2]));
 		double[] s1_force = {0, 1, 0};
 		RealVector spin1_force_vector_raw = MatrixUtils.createRealVector(s1_force);
@@ -148,7 +150,7 @@ public class Simulate {
 		
 		
 		// SPIN2 FORCES
-		double[] spin2_force_angles = {-Math.PI * 4/180, Math.PI * -3/180, -Math.PI * 3/180 + Math.PI/2};
+		double[] spin2_force_angles = {Math.PI * 3/180, Math.PI * 3/180, -Math.PI * 2/180 + Math.PI/2};
 		r.setSpin2_rotation_matrix(utils.createRotationMatrix(spin2_force_angles[0], spin2_force_angles[1], spin2_force_angles[2]));
 		double[] s2_force = {0, 1, 0};
 		RealVector spin2_force_vector_raw = MatrixUtils.createRealVector(s2_force);
@@ -157,23 +159,16 @@ public class Simulate {
 		
 		
 		// POSITION OF SPIN ROCKETS MOTORS
-		double spin1_length_deviation = -0.003;
-		double spin2_length_deviation = 0.002;
-		double[] spin1_pos_data   = {  0, spin1_length_deviation + r.getLen()/2,  r.getRadius_external() + r.getSpinRadius() };		
-		double[] spin2_pos_data   = {  0, r.getLen()/2 + spin2_length_deviation, -(r.getRadius_external() + r.getSpinRadius()) };
+		double spin1_length_deviation = -0.002;
+		double spin2_length_deviation =  0.002;
+		double[] spin1_pos_data   = {  0, spin1_length_deviation + r.getCgy(),  r.getRadius_external() + r.getSpinRadius() };		
+		double[] spin2_pos_data   = {  0, r.getCgy() + spin2_length_deviation, -(r.getRadius_external() + r.getSpinRadius()) };
 		
 		r.setSpin1_pos(spin1_pos_data);
 		r.setSpin2_pos(spin2_pos_data);
 		RealVector spin1_pos_vector   = MatrixUtils.createRealVector(spin1_pos_data);
 		RealVector spin2_pos_vector   = MatrixUtils.createRealVector(spin2_pos_data);
 		
-		// PERFECT
-		/*
-		double[] spin1_force_data = {  12, 0.0, 0.0 };
-		double[] spin1_pos_data   = {  0, r.getLen()/2, 0.03 };
-		double[] spin2_force_data = { -12, 0, 0 };
-		double[] spin2_pos_data   = {  0, r.getLen()/2, -0.03 };
-		*/
 		
 		
 		// Initialise 3D Canvas
@@ -188,14 +183,14 @@ public class Simulate {
 		// r.setSpin2_force_vector(spin2_force_data);
 		
 		
-		// Derive other properties of rocket
-		r.computeInertias();
+
 		
 		// Print out properties of rocket
-		System.out.println("Mass:           " + r.getMass());
-		System.out.println("Length:         " + r.getLen());
-		System.out.println("External Radius:" + r.getRadius_external());
-		System.out.println("Interal Radius: " + r.getRadius_internal());
+		System.out.println("Mass:              " + r.getMass());
+		System.out.println("Length:            " + r.getLen());
+		System.out.println("External Radius:   " + r.getRadius_external());
+		System.out.println("Interal Radius:    " + r.getRadius_internal());
+		System.out.println("Centre of Gravity: " + r.getCgx() + ", " + r.getCgy() + ", " + r.getCgz());
 
 
 		

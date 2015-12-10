@@ -9,6 +9,9 @@ import org.apache.commons.math3.linear.RealVector;
  *
  */
 public class Rocket {
+	private double engine_mass;
+	private double engine_len;
+	private double engine_radius;
 	private double balance_mass;
 	private double balance_mass_distance;
 	private double mass;
@@ -328,6 +331,8 @@ public class Rocket {
 	}
 	
 	public final void computeInertias() {
+		
+		// Rocket Tube
 		double ixx =       this.getMass() * (3 * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2)) + Math.pow(this.getLen(),2))/12;
 		double iyy = 0.5 * this.getMass() * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2));
 		double izz =       this.getMass() * (3 * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2)) + Math.pow(this.getLen(),2))/12;
@@ -338,8 +343,23 @@ public class Rocket {
 		double izx = 0;
 		double izy = 0;
 		
+		
+		// Engine (e = Engine)
+		double ixxe = this.getEngine_mass() * (3 * Math.pow(this.getEngine_radius(),  3) + Math.pow(this.getEngine_len(),  2))/12;
+		double iyye = 0.5 * this.getEngine_mass() * this.getEngine_radius() * this.getEngine_radius();
+		double izze = ixxe; 
+
+		double distance_from_cg = this.getCgy();
+		ixxe = ixxe + this.getEngine_mass() * Math.pow((distance_from_cg),2);
+		izze = izze + this.getEngine_mass() * Math.pow((distance_from_cg),2);
+		
+		ixx = ixx + ixxe;
+		iyy = iyy + iyye;
+		izz = izz + izze;
+		
+		// Balance Weight
 		ixx = ixx + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance() + this.getLen()),2);
-		izz = izz + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance() + this.getLen()),2);
+		izz = izz + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance() + this.getLen()),2);		
 		
 		double inertia_data[][] = { {ixx, ixy, ixz},
 									{iyx, iyy, iyz},
@@ -552,6 +572,33 @@ public class Rocket {
 		this.setVelocity_x(vx);
 		this.setVelocity_x(vy);
 		this.setVelocity_z(vz);
+	}
+	public double getEngine_mass() {
+		return engine_mass;
+	}
+	public void setEngine_mass(double engine_mass) {
+		this.engine_mass = engine_mass;
+	}
+	public double getEngine_len() {
+		return engine_len;
+	}
+	public void setEngine_len(double engine_len) {
+		this.engine_len = engine_len;
+	}
+	public double getEngine_radius() {
+		return engine_radius;
+	}
+	public void setEngine_radius(double engine_radius) {
+		this.engine_radius = engine_radius;
+	}
+	public void computeCg() {
+		// TODO Auto-generated method stub
+		double cy = 0.5 * (this.getLen() * this.getMass() + this.getEngine_len() * this.getEngine_mass());
+		cy = cy/(this.getEngine_mass() + this.getMass());
+		
+		this.setCgx(0);
+		this.setCgy(cy);
+		this.setCgz(0);		
 	}
 	
 	
