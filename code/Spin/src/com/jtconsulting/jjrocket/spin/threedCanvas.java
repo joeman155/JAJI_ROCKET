@@ -208,7 +208,7 @@ public class threedCanvas extends Applet {
 	   Transform3D viewRotation2 = new Transform3D();
 	   viewRotation1.rotY(0.5f);
 	   viewRotation2.rotX(-0.2f);
-	   Vector3f viewTranslation = new Vector3f(0f, (float) (0.1 * r.getLen()), (float) (3 * r.getLen()));
+	   Vector3f viewTranslation = new Vector3f(0f, (float) (0.5 * r.getLen()), (float) (3 * r.getLen()));
 	   viewTransform.setTranslation(viewTranslation);
 	   
 	   /*

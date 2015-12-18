@@ -336,31 +336,47 @@ public class Rocket {
 		double ixx =       this.getMass() * (3 * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2)) + Math.pow(this.getLen(),2))/12;
 		double iyy = 0.5 * this.getMass() * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2));
 		double izz =       this.getMass() * (3 * (Math.pow(this.getRadius_external(),2) + Math.pow(this.getRadius_internal(),2)) + Math.pow(this.getLen(),2))/12;
-		double ixy = 0;
-		double ixz = 0;
-		double iyx = 0;
-		double iyz = 0;
-		double izx = 0;
-		double izy = 0;
+		double ixy =  0.000025;
+		double ixz =  0.00004;
+		double iyx =  0.00003;
+		double iyz = -0.000012;
+		double izx =  0.00002;
+		double izy = -0.000010;
+		
+		ixy = ixz = iyz = iyz = izx = izy = 0;
+		
+		double rocket_distance_from_cg = this.getLen()/2 - this.getCgy();
+		ixx = ixx + this.getMass() * Math.pow(rocket_distance_from_cg,  2);
+		izz = izz + this.getMass() * Math.pow(rocket_distance_from_cg,  2);
 		
 		
 		// Engine (e = Engine)
-		double ixxe = this.getEngine_mass() * (3 * Math.pow(this.getEngine_radius(),  3) + Math.pow(this.getEngine_len(),  2))/12;
+		double ixxe = this.getEngine_mass() * (3 * Math.pow(this.getEngine_radius(),  2) + Math.pow(this.getEngine_len(),  2))/12;
 		double iyye = 0.5 * this.getEngine_mass() * this.getEngine_radius() * this.getEngine_radius();
 		double izze = ixxe; 
 
-		double distance_from_cg = this.getCgy();
-		ixxe = ixxe + this.getEngine_mass() * Math.pow((distance_from_cg),2);
-		izze = izze + this.getEngine_mass() * Math.pow((distance_from_cg),2);
+		double engine_distance_from_cg = this.getCgy() - this.getEngine_len()/2;
+		ixxe = ixxe + this.getEngine_mass() * Math.pow((engine_distance_from_cg),2);
+		izze = izze + this.getEngine_mass() * Math.pow((engine_distance_from_cg),2);
 		
+		// Add Engine Moment of Inertias to the Engine moment of Inertias
 		ixx = ixx + ixxe;
 		iyy = iyy + iyye;
 		izz = izz + izze;
 		
 		// Balance Weight
-		ixx = ixx + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance() + this.getLen()),2);
-		izz = izz + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance() + this.getLen()),2);		
+		ixx = ixx + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance()),2);
+		izz = izz + this.getBalance_mass() * Math.pow((this.getBalance_mass_distance()),2);		
 		
+		
+		
+		// Launch Platform
+		// JUST A GUESS... a bit of a hack...
+		ixx = ixx + 1;
+		izz = izz + 1;
+		
+		
+		// the GRAND Inertia matrix.
 		double inertia_data[][] = { {ixx, ixy, ixz},
 									{iyx, iyy, iyz},
 									{izx, izy, izz}
@@ -471,7 +487,7 @@ public class Rocket {
 	private final void setWz(double wz) {
 		this.wz = wz;
 	}
-	public void setRotationSpeen(double wx, double wy, double wz) {
+	public void setRotationSpeed(double wx, double wy, double wz) {
 		this.setWx(wx);
 		this.setWy(wy);
 		this.setWz(wz);
@@ -592,13 +608,21 @@ public class Rocket {
 		this.engine_radius = engine_radius;
 	}
 	public void computeCg() {
-		// TODO Auto-generated method stub
+		/*
 		double cy = 0.5 * (this.getLen() * this.getMass() + this.getEngine_len() * this.getEngine_mass());
 		cy = cy/(this.getEngine_mass() + this.getMass());
 		
 		this.setCgx(0);
 		this.setCgy(cy);
 		this.setCgz(0);		
+		*/
+		
+		double cy = (this.getEngine_mass() * this.getEngine_len()/2 + this.getBalance_mass() * this.getBalance_mass_distance() + this.getLen() * this.getMass()/2);
+		cy = cy/(this.getEngine_mass() + this.getMass() + this.getBalance_mass());
+		
+		this.setCgx(0);
+		this.setCgy(cy);
+		this.setCgz(0);				
 	}
 	
 	

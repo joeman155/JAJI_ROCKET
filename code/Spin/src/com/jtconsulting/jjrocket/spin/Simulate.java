@@ -82,65 +82,124 @@ public class Simulate {
 		BigDecimal time = new BigDecimal("0.0");
 		
 		
+		
+		// A8 ENGINES
 		// SPIN MOTOR 1
 		Motor m1 = new Motor();
-		m1.setLen(0.1);
+		m1.setLen(0.07);
 		m1.setMass(0.05);
 		m1.setPeak_thrust(10);
 		m1.setPeek_thrust_start_time(0.2);
-		m1.setPeek_thrust_end_time(0.23);
-		m1.setNorm_thrust(2.5);
-		m1.setNorm_thrust_start_time(0.3);
+		m1.setPeek_thrust_end_time(0.24);
+		m1.setNorm_thrust(2);
+		m1.setNorm_thrust_start_time(0.28);
 		m1.setNorm_thrust_end_time(0.675);
 		m1.setIgnition_delay(0.0);
 
 		// SPIN MOTOR 2
 		Motor m2 = new Motor();
-		m2.setLen(0.1);
+		m2.setLen(0.07);
 		m2.setMass(0.05);
 		m2.setPeak_thrust(10);
 		m2.setPeek_thrust_start_time(0.2);
-		m2.setPeek_thrust_end_time(0.23);
-		m2.setNorm_thrust(2.5);
-		m2.setNorm_thrust_start_time(0.3);
+		m2.setPeek_thrust_end_time(0.24);
+		m2.setNorm_thrust(2);
+		m2.setNorm_thrust_start_time(0.28);
 		m2.setNorm_thrust_end_time(0.675);
-		m2.setIgnition_delay(0.2);  //0.2
+		m2.setIgnition_delay(0.1);  //0.2
+		
+		
+		/*
+		// B4 ENGINES
+		// SPIN MOTOR 1
+		Motor m1 = new Motor();
+		m1.setLen(0.07);
+		m1.setMass(0.05);
+		m1.setPeak_thrust(12);
+		m1.setPeek_thrust_start_time(0.11);
+		m1.setPeek_thrust_end_time(0.12);
+		m1.setNorm_thrust(3);
+		m1.setNorm_thrust_start_time(0.28);
+		m1.setNorm_thrust_end_time(1);
+		m1.setIgnition_delay(0.0);
 
+		// SPIN MOTOR 2
+		Motor m2 = new Motor();
+		m2.setLen(0.07);
+		m2.setMass(0.05);
+		m2.setPeak_thrust(12);
+		m2.setPeek_thrust_start_time(0.11);
+		m2.setPeek_thrust_end_time(0.12);
+		m2.setNorm_thrust(3);
+		m2.setNorm_thrust_start_time(0.28);
+		m2.setNorm_thrust_end_time(1);
+		m2.setIgnition_delay(0.1);  //0.2
+		*/
+				
+
+		/*
+		// D12 ENGINES		 
+		// SPIN MOTOR 1
+		Motor m1 = new Motor();
+		m1.setLen(0.07);
+		m1.setMass(0.07);
+		m1.setPeak_thrust(10);
+		m1.setPeek_thrust_start_time(0.3);
+		m1.setPeek_thrust_end_time(0.35);
+		m1.setNorm_thrust(10);
+		m1.setNorm_thrust_start_time(0.45);
+		m1.setNorm_thrust_end_time(1.65);
+		m1.setIgnition_delay(0.0);
+
+		// SPIN MOTOR 2
+		Motor m2 = new Motor();
+		m2.setLen(0.07);
+		m2.setMass(0.07);
+		m2.setPeak_thrust(10);
+		m2.setPeek_thrust_start_time(0.3);
+		m2.setPeek_thrust_end_time(0.35);
+		m2.setNorm_thrust(10);
+		m2.setNorm_thrust_start_time(0.45);
+		m2.setNorm_thrust_end_time(1.65);
+		m2.setIgnition_delay(0.0);  //0.2
+*/
+		
+		
 		
 		// ROCKET
 		Rocket r = new Rocket();
-		r.setMass(2);
+		r.setMass(1);
 		r.setLen(2);
-		r.setBalance_mass(.2);  // 0.5
-		r.setBalance_mass_distance(2);
-		r.setPosition(0, 0, 0);
-		r.setRadii(0.05,  0.046);   // 0.023, 0.025
-		// r.setCg(0, 0, r.getLen()/2);  // i.e. we assume perfect symmetry. We also assume that Spin rockets burn at exact
-		                              // same rate and have minimal effect on position of CG.
-		r.setOrientation(0, 0, 0);    // i.e. upright. Pretend we have IMU on top, flat. (Though axis of IMU would need to be
-										// Interchanged with what is defined at top of program
-		r.setRotationSpeen(0, 0, 0);
+		r.setBalance_mass(0.00001);    // 0.5
+		r.setBalance_mass_distance(-1);     // Distance from CG along y-axis
+		r.setPosition(0, .50, 0);
+		r.setRadii(0.05,  0.046);          // 0.023, 0.025
+		r.setOrientation(0, 0, 0);         // i.e. upright. Pretend we have IMU on top, flat. (Though axis of IMU would need to be
+		r.setRotationSpeed(0, 0, 0);
 		r.setSpinRadius(0.015);
 		r.setSpinLength(0.1);
 		
 		// MAIN Rocket engine
-		r.setEngine_mass(2.0000001);
+		r.setEngine_mass(0);   // 1.75
 		r.setEngine_len(0.4);
-		r.setEngine_radius(0.029);
-		
-		
+		r.setEngine_radius(0.029);	
 		
 		// Derive other properties of rocket
-		r.computeInertias();	
 		r.computeCg();
+		r.computeInertias();	
+		
+		
 		
 		// Forces - simple constant force over whole of the time.
 		double[] cg = {r.getCgx(), r.getCgy(), r.getCgz()};
 		
-			
+		double angle_deviation  =   2;
+		double angle_deviation1 =  -2;
+		double angle_deviation2 =  -2;
+		double angle_deviation3 =  -2;
 		
 		// SPIN1 FORCES
-		double[] spin1_force_angles = {Math.PI * -2/180, Math.PI * 3/180, Math.PI * 3/180 + -Math.PI/2};
+		double[] spin1_force_angles = {Math.PI * angle_deviation1/180, Math.PI * angle_deviation2/180, Math.PI * angle_deviation3/180 + -Math.PI/2};
 		r.setSpin1_rotation_matrix(utils.createRotationMatrix(spin1_force_angles[0], spin1_force_angles[1], spin1_force_angles[2]));
 		double[] s1_force = {0, 1, 0};
 		RealVector spin1_force_vector_raw = MatrixUtils.createRealVector(s1_force);
@@ -150,7 +209,7 @@ public class Simulate {
 		
 		
 		// SPIN2 FORCES
-		double[] spin2_force_angles = {Math.PI * 3/180, Math.PI * 3/180, -Math.PI * 2/180 + Math.PI/2};
+		double[] spin2_force_angles = {Math.PI * angle_deviation/180, Math.PI * angle_deviation/180, Math.PI * angle_deviation/180 + Math.PI/2};
 		r.setSpin2_rotation_matrix(utils.createRotationMatrix(spin2_force_angles[0], spin2_force_angles[1], spin2_force_angles[2]));
 		double[] s2_force = {0, 1, 0};
 		RealVector spin2_force_vector_raw = MatrixUtils.createRealVector(s2_force);
@@ -159,10 +218,12 @@ public class Simulate {
 		
 		
 		// POSITION OF SPIN ROCKETS MOTORS
-		double spin1_length_deviation = -0.002;
+		double spin1_length_deviation =  0.002;
 		double spin2_length_deviation =  0.002;
-		double[] spin1_pos_data   = {  0, spin1_length_deviation + r.getCgy(),  r.getRadius_external() + r.getSpinRadius() };		
-		double[] spin2_pos_data   = {  0, r.getCgy() + spin2_length_deviation, -(r.getRadius_external() + r.getSpinRadius()) };
+		double spin_dist = r.getRadius_external() + r.getSpinRadius();
+		spin_dist = 0.04;
+		double[] spin1_pos_data   = {   0, spin1_length_deviation + r.getCgy(),  spin_dist };		
+		double[] spin2_pos_data   = {   0, r.getCgy() + spin2_length_deviation, -spin_dist };
 		
 		r.setSpin1_pos(spin1_pos_data);
 		r.setSpin2_pos(spin2_pos_data);
@@ -178,10 +239,6 @@ public class Simulate {
 		
 		// Create Vectors of CG...to be used later			
 		RealVector cg_vector          = MatrixUtils.createRealVector(cg);
-		
-		// r.setSpin1_force_vector(spin1_force_data);
-		// r.setSpin2_force_vector(spin2_force_data);
-		
 		
 
 		
@@ -218,8 +275,8 @@ public class Simulate {
 			// GET THRUST and given time
 			Double thrust1 = m1.getThrust(time.doubleValue());
 			Double thrust2 = m2.getThrust(time.doubleValue());
-			System.out.println("Thrust1 is:   " + thrust1);
-			System.out.println("Thrust2 is:   " + thrust2);
+			System.out.println("Spin Thrust1 is:   " + thrust1);
+			System.out.println("Spin Thrust2 is:   " + thrust2);
 			
 			
 			// SPIN1 MOTOR			
@@ -308,9 +365,9 @@ public class Simulate {
 			
 			// Compute new Inertia Matrix (in Global Reference System)
 			RealMatrix inertia_global = rotation_matrix_inverse_transpose.multiply(r.getInertia()).multiply(rotation_matrix_inverse);
-			utils.debug("Inertia ROW 1:  "  + inertia_global.getEntry(0, 0) + ", " + inertia_global.getEntry(0,1) + ", " + inertia_global.getEntry(0,2));
-			utils.debug("Inertia ROW 2:  "  + inertia_global.getEntry(1, 0) + ", " + inertia_global.getEntry(1,1) + ", " + inertia_global.getEntry(1,2));			
-			utils.debug("Inertia ROW 3:  "  + inertia_global.getEntry(2, 0) + ", " + inertia_global.getEntry(2,1) + ", " + inertia_global.getEntry(2,2));			
+			System.out.println("Inertia ROW 1:  "  + inertia_global.getEntry(0, 0) + ", " + inertia_global.getEntry(0,1) + ", " + inertia_global.getEntry(0,2));
+			System.out.println("Inertia ROW 2:  "  + inertia_global.getEntry(1, 0) + ", " + inertia_global.getEntry(1,1) + ", " + inertia_global.getEntry(1,2));			
+			System.out.println("Inertia ROW 3:  "  + inertia_global.getEntry(2, 0) + ", " + inertia_global.getEntry(2,1) + ", " + inertia_global.getEntry(2,2));			
 
 			
 		
@@ -321,14 +378,16 @@ public class Simulate {
 			System.out.println("Time: " + time.toString());
 			System.out.println("Torque:                  "  + total_torque_vector.getEntry(0) + ", " + total_torque_vector.getEntry(1) + ", " + total_torque_vector.getEntry(2));
 			System.out.println("Rotation Acceleration:   "  + rotation_acceleration_vector_global.getEntry(0) + ", " + rotation_acceleration_vector_global.getEntry(1) + ", " + rotation_acceleration_vector_global.getEntry(2));
-			System.out.println("Rotation Velocity:       "  + r.getWx() + ", " + r.getWy() + ", " + r.getWz());
-			System.out.println("Rotation orientation:    "  + r.getRoll() + ", " + r.getPitch() + ", " + r.getYaw());
+			System.out.println("Rotation Velocity:       "  + 180 * r.getWx()/Math.PI + ", " + 180 * r.getWy()/Math.PI + ", " + 180 * r.getWz()/Math.PI + " degrees/sec");
+			System.out.println("Rotation Orientation:    "  + 180 * r.getRoll()/Math.PI + ", " + 180 * r.getPitch()/Math.PI + ", " + 180 * r.getYaw()/Math.PI + " degrees");
+			System.out.println("                         "  + r.getWx()/2/Math.PI + ", " + r.getWy()/2/Math.PI + ", " + r.getWz()/2/Math.PI + " Revs per Second");
+			
 			
 			System.out.println("Translation Velocity:    "  + r.getVelocity_x() + ", " + r.getVelocity_y() + ", " + r.getVelocity_z());
 			System.out.println("Translation orientation: "  + r.getPosition_x() * 1000 + ", " + r.getPosition_y() * 1000 + ", " + r.getPosition_z() * 1000 + " mm");
 			
-			double x_distance = 1000 * Math.sin(r.getYaw()) * r.getLen()/2;
-			double z_distance = 1000 * Math.sin(r.getRoll()) * r.getLen()/2;
+			double x_distance = 1000 * Math.sin(r.getYaw())  * (r.getLen() - r.getCgy());
+			double z_distance = 1000 * Math.sin(r.getRoll()) * (r.getLen() - r.getCgy());
 			double total_distance = Math.sqrt(Math.pow(x_distance,2) + Math.pow(z_distance,  2));
 			System.out.println("Precession Distance:   " + total_distance + " mm");
 			
@@ -368,7 +427,7 @@ public class Simulate {
 			
 			
 			try {
-				TimeUnit.MILLISECONDS.sleep(5);
+				TimeUnit.MILLISECONDS.sleep(1);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
