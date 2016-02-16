@@ -14,7 +14,7 @@
  
 
 // Debugging
-unsigned short int DEBUGGING = 1;
+unsigned short int DEBUGGING = 0;
 unsigned short int RECEIVEPORT = 2;  // 0 = Serial, 1 for Serial1, 2 for Serial2
 
 // delay between measurements
@@ -2046,13 +2046,13 @@ void imu_statistics(float roll, float pitch, float yaw, double gyroX, double gyr
      
   if (current_time - stats_time_interval < interval * 2 &&
       current_time - stats_time_interval >= interval) {
-     // Print resutls
-     String str = String("D16:") + String(roll_stats_trends[0]->average) + String(",") + String(roll_stats_trends[0]->variance);
-     str = str + String(",") + String(pitch_stats_trends[0]->average) + String(",") + String(pitch_stats_trends[0]->variance);
-     str = str + String(",") + String(yaw_stats_trends[0]->average) + String(",") + String(yaw_stats_trends[0]->variance);
-     str = str + String(",") + String(gyroX_stats_trends[0]->average) + String(",") + String(gyroX_stats_trends[0]->variance);
-     str = str + String(",") + String(gyroY_stats_trends[0]->average) + String(",") + String(gyroY_stats_trends[0]->variance);
-     str = str + String(",") + String(gyroZ_stats_trends[0]->average) + String(",") + String(gyroZ_stats_trends[0]->variance);   
+     // Print results
+     String str = String("D16:") + String(roll_stats_trends[0]->average)  + String(",") + String(roll_stats_trends[0]->variance);
+     str = str     + String(",") + String(pitch_stats_trends[0]->average) + String(",") + String(pitch_stats_trends[0]->variance);
+     str = str     + String(",") + String(yaw_stats_trends[0]->average)   + String(",") + String(yaw_stats_trends[0]->variance);
+     str = str     + String(",") + String(gyroX_stats_trends[0]->average) + String(",") + String(gyroX_stats_trends[0]->variance);
+     str = str     + String(",") + String(gyroY_stats_trends[0]->average) + String(",") + String(gyroY_stats_trends[0]->variance);
+     str = str     + String(",") + String(gyroZ_stats_trends[0]->average) + String(",") + String(gyroZ_stats_trends[0]->variance);   
    
      sendPacket(str);  
      
