@@ -94,7 +94,7 @@ void setup() {
   pinMode(MOTOR2_STEP, OUTPUT); 
   
   
-  Serial.begin(9600);
+  Serial.begin(115200);
   digitalWrite(MOTOR1_DIRECTION, LOW);
   Serial.println("Wait for it!");
   delay(3000);
@@ -512,17 +512,17 @@ void smoother_step_5()
 	} else {
           // Move S1 around
 	  if (s1_diff > PI) {
-                // Move Smoother1 CW
-                s1_direction = 2;
+                // Move Smoother1 CCW
+                s1_direction = 1;
 	  } else if (s1_diff <= PI && s1_diff > 0) {
-                // Move Smoother1 CCW
-                s1_direction = 1;
-	  } else if (s1_diff < 0 && s1_diff > - PI){
-                // Move Smoother1 CW
+                // Move Smoother1  CW
                 s1_direction = 2;
-	  } else if (s1_diff <= -PI) {
+	  } else if (s1_diff < 0 && s1_diff > - PI){
                 // Move Smoother1 CCW
                 s1_direction = 1;
+	  } else if (s1_diff <= -PI) {
+                // Move Smoother1  CW
+                s1_direction = 2;
 	  } else { 
                 s1_direction = 0;
 	  }
@@ -531,17 +531,17 @@ void smoother_step_5()
 				
 	  // Move S2 around
 	  if (s2_diff > PI) {
-                // Move Smoother2 CW
-                s2_direction = 2;
-	  } else if (s2_diff > 0 && s2_diff <= PI) {
-		// Move Smoother2 CCW
-                s2_direction = 1;
-	  } else if (s2_diff < 0 && s2_diff > - PI){
-                // Move Smoother2 CW
-                s2_direction = 2;
-	  } else if (s2_diff <= -PI) {
                 // Move Smoother2 CCW
                 s2_direction = 1;
+	  } else if (s2_diff > 0 && s2_diff <= PI) {
+		// Move Smoother2  CW
+                s2_direction = 2;
+	  } else if (s2_diff < 0 && s2_diff > - PI){
+                // Move Smoother2 CCW
+                s2_direction = 1;
+	  } else if (s2_diff <= -PI) {
+                // Move Smoother2 CW
+                s2_direction = 2;
 	  } else { 
 		// System.out.println("No Movement required - s2");
                 s2_direction = 0;
