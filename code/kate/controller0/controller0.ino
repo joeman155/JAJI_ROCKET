@@ -58,6 +58,13 @@ unsigned int smoother_step = 0;
 double corrective_angle = 0;
 double move_to_neutral_distance = 0;
 double s1_direction = 0, s2_direction = 0;
+double intermediate_move = 0;
+double s1_diff = 0, s2_diff = 0;
+double final_angle_move = 0;
+double resting_angle_move = 0;
+double offset = 0.000; // 1/2 angle between final resting place of smoothers
+
+
 
 // DEBUGGING
 boolean debugging = true;
@@ -368,6 +375,160 @@ void smoother_step_1()
 	s2_angle = angle_reorg(s2_angle);
   
 }
+
+
+
+void smoother_step_2() 
+{
+
+	if (move_to_neutral_distance <= 0) {
+		smoother_step = 3;
+	} else {
+  
+  // Figure out how many steps we need to do...
+  // Then do # of steps...and when finished, set smoother_step = 3;
+  
+  /*
+		move_to_neutral_distance = move_to_neutral_distance - interval.doubleValue() * s2.getMax_angular_speed();
+		
+		if (s1_direction == 1) {
+			s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
+			s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+		} else if (s1_direction == 2) {
+			s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
+			s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+		} else {
+			System.out.println("Unusual state. Not able to move back to resting state");
+		} 
+*/
+			
+	}
+
+
+	// System.out.println("BACK TO NEUTRAL S1 ANGLE: " + s1.getAng_y());
+	// System.out.println("BACK TO NEUTRAL S2 ANGLE: " + s2.getAng_y());
+
+}
+
+
+
+void smoother_step_3() 
+{
+  
+	/// Find angle between the two smoothers...then halve...this is the mid-point
+	double mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+	mid_point_angle = mid_point_angle / 2;
+				
+	// Deduce the distance we need 
+	intermediate_move = abs(corrective_angle - mid_point_angle);
+				
+	// If Greater than Pi, then we are being in-efficient
+	if (intermediate_move >= PI) {
+		intermediate_move = intermediate_move - PI;
+	} 
+				
+				
+	// s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
+	// s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
+				
+	if (intermediate_move <= PI/2 && corrective_angle < mid_point_angle) {
+		s1_direction = 2;
+		s2_direction = 2;
+	} else if (intermediate_move > PI/2 && corrective_angle < mid_point_angle) {
+		s1_direction = 1;
+		s2_direction = 1;
+		intermediate_move = PI - intermediate_move;
+	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_angle) {
+		s1_direction = 1;
+		s2_direction = 1;
+	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_angle) {
+		s1_direction = 2;
+		s2_direction = 2;
+		intermediate_move = PI - intermediate_move;
+	}
+				
+				
+/*				
+	System.out.println("Midpoint Angle: " + mid_point_angle);
+	System.out.println("Intermediate move (distance): " + intermediate_move);
+	System.out.println("S1 Direction: " + s1_direction);
+	System.out.println("S2 Direction: " + s2_direction);
+*/
+	
+	// Signal to code to go on to 'Intermediate' move
+	smoother_step = 4;  
+}
+
+
+
+void smoother_step_4() 
+{
+	// Intermediate move - moving both weights together
+	// intermediate_move = intermediate_move - interval.doubleValue() * s1.getMax_angular_speed();
+        // Determine # of steps required for intermediate_move
+			
+	if (intermediate_move < 0) {
+		
+		s1_diff = s1_angle - corrective_angle;
+		s2_diff = s2_angle - corrective_angle;
+					
+		final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+		final_angle_move = final_angle_move / 2 - offset;
+					
+		smoother_step = 5;
+
+	}
+				
+	// Move S1 around
+	if (s1_direction == 1) {
+                // Move Stepper motor XX steps around as found above.  CCW
+                // Exit when done and set smoother_step = 5
+                
+		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
+              
+	} else if (s1_direction == 2) {
+                // Move Stepper motor XX steps around as found above. CW
+                // Exit when done and set smoother_step = 5
+                
+		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
+	}
+					
+			
+	// Move S2 around
+	if (s2_direction == 1) {
+                // Move Stepper motor XX steps around as found above.  CCW
+                // Exit when done and set smoother_step = 5
+                
+		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+	} else if (s2_direction == 2) {
+                // Move Stepper motor XX steps around as found above.  CW
+                // Exit when done and set smoother_step = 5
+                
+		// s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+	}
+					
+	// System.out.println("S1 ANGLE: " + s1.getAng_y());
+	// System.out.println("S2 ANGLE: " + s2.getAng_y());  
+}
+
+
+
+void smoother_step_5() 
+{
+  
+}
+
+
+void smoother_step_6() 
+{
+  
+}
+
+void smoother_step_7() 
+{
+  
+}
+
 
 
 
