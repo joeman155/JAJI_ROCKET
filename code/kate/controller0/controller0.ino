@@ -30,11 +30,9 @@ int z;
 // Measurements from the Gyroscope
 float rotation_vx, rotation_vy, rotation_vz;
 float old_rotation_vx, old_rotation_vy, old_rotation_vz;
-float avg_rotation_vx, avg_rotation_vy, avg_rotation_vz;
 
 // Calculated quantities
 float rotation_ax, rotation_ay, rotation_az;
-
 
 // STEPPER MOTOR
 #define MOTOR1_DIRECTION 9
@@ -119,6 +117,9 @@ void loop() {
   print_time();
   rotation_vz = rotation_vz - 1 * PI/180;
 
+
+  print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
+  print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
 
   calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
   
@@ -396,19 +397,21 @@ void smoother_step_2()
 	if (move_to_neutral_distance <= 0) {
 		smoother_step = 3;
 	} else {
-  
-  // Figure out how many steps we need to do...
-  // Then do # of steps...and when finished, set smoother_step = 3;
+                print_debug(debugging, "Neutral Move.");
+                move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
+                smoother_step = 3;
+                
+                
   
   /*
 		move_to_neutral_distance = move_to_neutral_distance - interval.doubleValue() * s2.getMax_angular_speed();
 		
 		if (s1_direction == 1) {
-			s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
-			s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+			s1.setAng_y(s1_angle - interval.doubleValue() * s1.getMax_angular_speed());
+			s2.setAng_y(s2_angle + interval.doubleValue() * s2.getMax_angular_speed());
 		} else if (s1_direction == 2) {
-			s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
-			s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+			s1.setAng_y(s1_angle + interval.doubleValue() * s1.getMax_angular_speed());
+			s2.setAng_y(s2_angle - interval.doubleValue() * s2.getMax_angular_speed());
 		} else {
 			System.out.println("Unusual state. Not able to move back to resting state");
 		} 
@@ -417,8 +420,8 @@ void smoother_step_2()
 	}
 
 
-	// System.out.println("BACK TO NEUTRAL S1 ANGLE: " + s1.getAng_y());
-	// System.out.println("BACK TO NEUTRAL S2 ANGLE: " + s2.getAng_y());
+	// System.out.println("BACK TO NEUTRAL S1 ANGLE: " + s1_angle);
+	// System.out.println("BACK TO NEUTRAL S2 ANGLE: " + s2_angle);
 
 }
 
@@ -479,23 +482,23 @@ void smoother_step_4()
 	// intermediate_move = intermediate_move - interval.doubleValue() * s1.getMax_angular_speed();
         // Determine # of steps required for intermediate_move
 			
-	if (intermediate_move < 0) {
-		
-		s1_diff = s1_angle - corrective_angle;
-		s2_diff = s2_angle - corrective_angle;
-					
-		final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
-		final_angle_move = final_angle_move / 2 - offset;
-					
+	if (intermediate_move < 0) {				
 		smoother_step = 5;
 	} else {
-	  move_stepper_motors(s1_direction, s2_direction, intermediate_move);
+          print_debug(debugging, "Intermediate Move." + String(intermediate_move));
+	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
 	  smoother_step = 5;
         }
 
+	s1_diff = s1_angle - corrective_angle;
+	s2_diff = s2_angle - corrective_angle;
+					
+	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+	final_angle_move = final_angle_move / 2 - offset;
 
-	// System.out.println("S1 ANGLE: " + s1.getAng_y());
-	// System.out.println("S2 ANGLE: " + s2.getAng_y());  
+
+	// System.out.println("S1 ANGLE: " + s1_angle);
+	// System.out.println("S2 ANGLE: " + s2_angle);  
 }
 
 
@@ -544,54 +547,146 @@ void smoother_step_5()
                 s2_direction = 0;
 	  }
 
-
-          move_stepper_motors(s1_direction, s2_direction, final_angle_move);
+          print_debug(debugging, "Final Move." + String(final_angle_move));
+          move_stepper_motors(s1_direction, s2_direction, final_angle_move, 0);
           smoother_step = 6;
         }
 
 
 					
-	// System.out.println("FINAL S1 ANGLE: " + s1.getAng_y());
-	// System.out.println("FINAL S2 ANGLE: " + s2.getAng_y());
+	// System.out.println("FINAL S1 ANGLE: " + s1_angle);
+	// System.out.println("FINAL S2 ANGLE: " + s2_angle);
 
 }
 
 
 void smoother_step_6() 
 {
-  
+ 
+ 	// First make sure that acceleration is in opposite direction of velocity (i.e. it is slowing down)
+	if ((sgn(rotation_ax) * sgn(rotation_vx) != -1 && abs(180 * rotation_vx/PI) > upper_velocity_threshold) 
+		|| 
+	    (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(180 * rotation_vz/PI) > upper_velocity_threshold)) {
+		
+	    Serial.println("NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
+					
+	    // So. let's assume we are over-correcting
+	    smoother_step = 7;
+	    resting_angle_move = PI;
+			
+	    s1_angle = angle_reorg(s1_angle);
+	    s2_angle = angle_reorg(s2_angle);
+		
+	    if (s2_angle >= s1_angle) {
+		s1_direction = 1; // CW
+		s2_direction = 2; // CCW
+	    } else if (s2_angle < s1_angle) {
+		s1_direction = 2; // CW
+		s2_direction = 1; // CCW
+	    }					
+	
+        }
+				
+				
+
+				
+	// If velocity < lower_velocity_threshold, then start to reduce acceleration
+	if (abs(180 * rotation_vx/PI) <  lower_velocity_threshold &&
+			abs(180 * rotation_vz/PI) <  lower_velocity_threshold) {
+		Serial.println("SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
+	
+		smoother_step = 7;
+		resting_angle_move = PI/2;
+			
+		
+	        s1_angle = angle_reorg(s1_angle);
+	        s2_angle = angle_reorg(s2_angle);
+		
+		if (s2_angle >= s1_angle) {
+			s1_direction = 1; // CW
+			s2_direction = 2; // CCW
+		} else if (s2_angle < s1_angle) {
+			s1_direction = 2; // CW
+			s2_direction = 1; // CCW
+		}
+	}				
+				
 }
 
 void smoother_step_7() 
 {
+  print_debug(debugging, "Rest Move." + String(resting_angle_move));
+  move_stepper_motors(s1_direction, s2_direction, resting_angle_move, 5);
   
+  /*
+	resting_angle_move = resting_angle_move - interval.doubleValue() * s1.getMax_angular_speed();
+		
+	System.out.println("S1:" + utils.angle_reorg(s1.getAng_y()));
+	System.out.println("S2:" + utils.angle_reorg(s2.getAng_y()));
+	if (s1_direction == 1) {
+		s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
+		s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+	} else if (s1_direction == 2) {
+		s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
+		s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+	} else {
+		System.out.println("Unusual state. Not able to move back to resting state");
+	}
+			
+	// System.out.println("RESTING S1 ANGLE: " + s1.getAng_y());
+	// System.out.println("RESTING S2 ANGLE: " + s2.getAng_y());
+		
+	if (resting_angle_move <= 0 || (Math.abs(180 * rotation_acceleration_local.getEntry(0)/Math.PI) < 5 && Math.abs(180 * rotation_acceleration_local.getEntry(2)/Math.PI) < 5)) {
+		set_course = 10;
+		System.out.println("Back to a semi-stable state, " + resting_angle_move + ", " + Math.abs(rotation_acceleration_local.getEntry(0)) + ", " + Math.abs(rotation_acceleration_local.getEntry(2)));
+	}  
+*/
 }
 
 
 // We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
 // We will want to move the same angle.
-void move_stepper_motors(short s1_direction, short s2_direction, double angle)
+// If threshold == 0, then we ignore this
+void move_stepper_motors(short s1_direction, short s2_direction, double angle, double threshold)
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / 1.8);
+  int i = 0;
+  double angle_moved = angle;
+  
+  // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
+  
   
   // DO THE MOVE COMMANDS HERE
+  while (i < steps) {
+    i++;
+    Serial.println("Moving Step: " + String(i));
+    
+    // CODE HERE TO DO THE STEP at JUST the right time
+    
+    if (threshold > 0) {
+       // Threshold value > 0, this means we should do some threshold checks.
+       
+       // And if threshold is met, we need to calculate angle moved
+       angle_moved = i * 180 / PI / 1.8;
+    }
+  }
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
    if (s1_direction == 1) {
-     s1_angle = s1_angle + angle;
+     s1_angle = s1_angle + angle_moved;
      s1_angle = angle_reorg(s1_angle);
    } else if (s1_direction == 2) {
-     s1_angle = s1_angle - angle;
+     s1_angle = s1_angle - angle_moved;
      s1_angle = angle_reorg(s1_angle);     
    }
    
    if (s2_direction == 1) {
-     s2_angle = s2_angle + angle;
+     s2_angle = s2_angle + angle_moved;
      s2_angle = angle_reorg(s2_angle);
    } else if (s2_direction == 2) {
-     s2_angle = s2_angle - angle;
+     s2_angle = s2_angle - angle_moved;
      s2_angle = angle_reorg(s2_angle);     
    }   
    
