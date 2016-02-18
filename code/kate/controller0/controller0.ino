@@ -337,7 +337,19 @@ void smoother_step_processing()
 {
   if (smoother_step == 1) {
     smoother_step_1();
-  }
+  } else if (smoother_step == 2) {
+    smoother_step_2();
+  } else if (smoother_step == 3) {
+    smoother_step_3();
+  } else if (smoother_step == 4) {
+    smoother_step_4();
+  } else if (smoother_step == 5) {
+    smoother_step_5();
+  } else if (smoother_step == 6) {
+    smoother_step_6();
+  } else if (smoother_step == 7) {
+    smoother_step_7();
+  } 
   
 }
 
@@ -476,37 +488,12 @@ void smoother_step_4()
 		final_angle_move = final_angle_move / 2 - offset;
 					
 		smoother_step = 5;
+	} else {
+	  move_stepper_motors(s1_direction, s2_direction, intermediate_move);
+	  smoother_step = 5;
+        }
 
-	}
-				
-	// Move S1 around
-	if (s1_direction == 1) {
-                // Move Stepper motor XX steps around as found above.  CCW
-                // Exit when done and set smoother_step = 5
-                
-		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
-              
-	} else if (s1_direction == 2) {
-                // Move Stepper motor XX steps around as found above. CW
-                // Exit when done and set smoother_step = 5
-                
-		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
-	}
-					
-			
-	// Move S2 around
-	if (s2_direction == 1) {
-                // Move Stepper motor XX steps around as found above.  CCW
-                // Exit when done and set smoother_step = 5
-                
-		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
-	} else if (s2_direction == 2) {
-                // Move Stepper motor XX steps around as found above.  CW
-                // Exit when done and set smoother_step = 5
-                
-		// s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
-	}
-					
+
 	// System.out.println("S1 ANGLE: " + s1.getAng_y());
 	// System.out.println("S2 ANGLE: " + s2.getAng_y());  
 }
@@ -515,61 +502,54 @@ void smoother_step_4()
 
 void smoother_step_5() 
 {
-	// If corrective Angle > 0
-	// final_angle_move = final_angle_move - interval.doubleValue() * s1.getMax_angular_speed();
-	
-/*		
-	if (final_angle_move < 0) {
-		set_course = 6;
 		
-	}
-*/				
-
-        // Determine # of steps required for final_angle_move
-
-
-	// Move S1 around
-	if (s1_diff > PI) {
+	if (final_angle_move < 0) {
+		smoother_step = 6;
+		
+	} else {
+          // Move S1 around
+	  if (s1_diff > PI) {
                 // Move Smoother1 CW
-                
-		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
-	} else if (s1_diff <= PI && s1_diff > 0) {
+                s1_direction = 2;
+	  } else if (s1_diff <= PI && s1_diff > 0) {
                 // Move Smoother1 CCW
-                
-		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
-	} else if (s1_diff < 0 && s1_diff > - PI){
+                s1_direction = 1;
+	  } else if (s1_diff < 0 && s1_diff > - PI){
                 // Move Smoother1 CW
-                
-		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
-	} else if (s1_diff <= -PI) {
+                s1_direction = 2;
+	  } else if (s1_diff <= -PI) {
                 // Move Smoother1 CCW
-                
-		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
-	} else { 
-		// System.out.println("No Movement required - s1");
-	}
+                s1_direction = 1;
+	  } else { 
+                s1_direction = 0;
+	  }
+
 				
 				
-	// Move S2 around
-	if (s2_diff > PI) {
+	  // Move S2 around
+	  if (s2_diff > PI) {
                 // Move Smoother2 CW
-                
-		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
-	} else if (s2_diff > 0 && s2_diff <= PI) {
+                s2_direction = 2;
+	  } else if (s2_diff > 0 && s2_diff <= PI) {
 		// Move Smoother2 CCW
-
-                // s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
-	} else if (s2_diff < 0 && s2_diff > - PI){
+                s2_direction = 1;
+	  } else if (s2_diff < 0 && s2_diff > - PI){
                 // Move Smoother2 CW
-  
-		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
-	} else if (s2_diff <= -PI) {
+                s2_direction = 2;
+	  } else if (s2_diff <= -PI) {
                 // Move Smoother2 CCW
-                
-		// s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
-	} else { 
+                s2_direction = 1;
+	  } else { 
 		// System.out.println("No Movement required - s2");
-	}
+                s2_direction = 0;
+	  }
+
+
+          move_stepper_motors(s1_direction, s2_direction, final_angle_move);
+          smoother_step = 6;
+        }
+
+
 					
 	// System.out.println("FINAL S1 ANGLE: " + s1.getAng_y());
 	// System.out.println("FINAL S2 ANGLE: " + s2.getAng_y());
@@ -588,6 +568,34 @@ void smoother_step_7()
 }
 
 
+// We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
+// We will want to move the same angle.
+void move_stepper_motors(short s1_direction, short s2_direction, double angle)
+{
+  // CALCULATE # OF STEPS
+  int steps = round((angle * 180 / PI) / 1.8);
+  
+  // DO THE MOVE COMMANDS HERE
+  
+  
+   // We want to keep track of where the smoothers are...no feedback..we just count steps
+   if (s1_direction == 1) {
+     s1_angle = s1_angle + angle;
+     s1_angle = angle_reorg(s1_angle);
+   } else if (s1_direction == 2) {
+     s1_angle = s1_angle - angle;
+     s1_angle = angle_reorg(s1_angle);     
+   }
+   
+   if (s2_direction == 1) {
+     s2_angle = s2_angle + angle;
+     s2_angle = angle_reorg(s2_angle);
+   } else if (s2_direction == 2) {
+     s2_angle = s2_angle - angle;
+     s2_angle = angle_reorg(s2_angle);     
+   }   
+   
+}
 
 
 static inline int8_t sgn(int val) {
