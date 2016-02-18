@@ -515,7 +515,65 @@ void smoother_step_4()
 
 void smoother_step_5() 
 {
+	// If corrective Angle > 0
+	// final_angle_move = final_angle_move - interval.doubleValue() * s1.getMax_angular_speed();
+	
+/*		
+	if (final_angle_move < 0) {
+		set_course = 6;
+		
+	}
+*/				
+
+        // Determine # of steps required for final_angle_move
+
+
+	// Move S1 around
+	if (s1_diff > PI) {
+                // Move Smoother1 CW
+                
+		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
+	} else if (s1_diff <= PI && s1_diff > 0) {
+                // Move Smoother1 CCW
+                
+		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
+	} else if (s1_diff < 0 && s1_diff > - PI){
+                // Move Smoother1 CW
+                
+		// s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
+	} else if (s1_diff <= -PI) {
+                // Move Smoother1 CCW
+                
+		// s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
+	} else { 
+		// System.out.println("No Movement required - s1");
+	}
+				
+				
+	// Move S2 around
+	if (s2_diff > PI) {
+                // Move Smoother2 CW
+                
+		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+	} else if (s2_diff > 0 && s2_diff <= PI) {
+		// Move Smoother2 CCW
+
+                // s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+	} else if (s2_diff < 0 && s2_diff > - PI){
+                // Move Smoother2 CW
   
+		// s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
+	} else if (s2_diff <= -PI) {
+                // Move Smoother2 CCW
+                
+		// s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
+	} else { 
+		// System.out.println("No Movement required - s2");
+	}
+					
+	// System.out.println("FINAL S1 ANGLE: " + s1.getAng_y());
+	// System.out.println("FINAL S2 ANGLE: " + s2.getAng_y());
+
 }
 
 
