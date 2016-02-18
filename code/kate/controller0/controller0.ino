@@ -31,6 +31,13 @@ int y;
 int z;
 
 
+
+// STEPPER MOTOR
+#define MOTOR1_DIRECTION 9
+#define MOTOR1_STEP 8
+#define MOTOR2_DIRECTION 7
+#define MOTOR2_STEP 6
+
 // TIME TRACKING
 unsigned long time;
 
@@ -56,8 +63,21 @@ void setup() {
   
   // initialize digital pin 13 as an output.
   pinMode(13, OUTPUT);
-  pinMode(9, OUTPUT);
+  
+  // INITIALIZE STEPPER MOTOR CONTROL PINS
+  pinMode(MOTOR1_DIRECTION, OUTPUT);
+  pinMode(MOTOR1_STEP, OUTPUT);
+  pinMode(MOTOR2_DIRECTION, OUTPUT);
+  pinMode(MOTOR2_STEP, OUTPUT); 
+  
+  
   Serial.begin(9600);
+  digitalWrite(MOTOR1_DIRECTION, LOW);
+  Serial.println("Wait for it!");
+  delay(3000);
+  Serial.println("Done!");
+  digitalWrite(MOTOR1_DIRECTION, HIGH);
+  digitalWrite(MOTOR1_STEP, LOW);
   
 }
 
@@ -68,10 +88,7 @@ void loop() {
   delay(100);              // wait for a second
   digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
   delay(100);              // wait for a second
-  delay(1000);
-  digitalWrite(9, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(10);
-  digitalWrite(9, LOW);   // turn the LED on (HIGH is the voltage level)
+
   
 
 }
