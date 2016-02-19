@@ -40,8 +40,20 @@ float rotation_ax, rotation_ay, rotation_az;
 #define MOTOR2_DIRECTION 7
 #define MOTOR2_STEP 6
 
+#define cw HIGH
+#define ccw LOW
+
 double s1_angle = 0;
 double s2_angle = PI;
+int s1_step = 0;      // Correlates to s1_angle
+int s2_step = 100;    // Correlates to s2_angle
+
+unsigned long c0 = 11000;  // Initial timing, if starting from standstill
+unsigned long cx;          // Current cx value
+unsigned long cx_last;     // Last cx value
+unsigned long last_time_fired;   // Last time a step was triggered
+unsigned long next_time_fired;   // The next time a step needs to be triggered
+
 
 
 // TIME TRACKING
@@ -618,29 +630,7 @@ void smoother_step_7()
   print_debug(debugging, "Rest Move." + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, 5);
   
-  /*
-	resting_angle_move = resting_angle_move - interval.doubleValue() * s1.getMax_angular_speed();
-		
-	System.out.println("S1:" + utils.angle_reorg(s1.getAng_y()));
-	System.out.println("S2:" + utils.angle_reorg(s2.getAng_y()));
-	if (s1_direction == 1) {
-		s1.setAng_y(s1.getAng_y() - interval.doubleValue() * s1.getMax_angular_speed());
-		s2.setAng_y(s2.getAng_y() + interval.doubleValue() * s2.getMax_angular_speed());
-	} else if (s1_direction == 2) {
-		s1.setAng_y(s1.getAng_y() + interval.doubleValue() * s1.getMax_angular_speed());
-		s2.setAng_y(s2.getAng_y() - interval.doubleValue() * s2.getMax_angular_speed());
-	} else {
-		System.out.println("Unusual state. Not able to move back to resting state");
-	}
-			
-	// System.out.println("RESTING S1 ANGLE: " + s1.getAng_y());
-	// System.out.println("RESTING S2 ANGLE: " + s2.getAng_y());
-		
-	if (resting_angle_move <= 0 || (Math.abs(180 * rotation_acceleration_local.getEntry(0)/Math.PI) < 5 && Math.abs(180 * rotation_acceleration_local.getEntry(2)/Math.PI) < 5)) {
-		set_course = 10;
-		System.out.println("Back to a semi-stable state, " + resting_angle_move + ", " + Math.abs(rotation_acceleration_local.getEntry(0)) + ", " + Math.abs(rotation_acceleration_local.getEntry(2)));
-	}  
-*/
+
 }
 
 
@@ -651,26 +641,93 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / 1.8);
-  int i = 0;
+  int i = 1;
   double angle_moved = angle;
+  boolean notfinished = true;
+  boolean first_triggered = true;
   
   // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
+  s1_stepper_motor_direction(s1_direction);
+  s2_stepper_motor_direction(s2_direction);
   
   
-  // DO THE MOVE COMMANDS HERE
-  while (i < steps) {
-    i++;
-    Serial.println("Moving Step: " + String(i));
+  // DO THE MOVE COMMANDS HERE - SPEED UP
+  while (i <= steps/2 && notfinished) {
+
+      // Do first pulse ASAP...no waiting
+      if (first_triggered == true) {
+          pulse_motor(MOTOR1_STEP);
+          pulse_motor(MOTOR2_STEP);
+          first_triggered = false;
+          last_time_fired = micros();
+      
+          // CODE HERE TO DO THE STEP at JUST the right time
+          next_time_fired = last_time_fired + c0;
+          cx_last = c0;
+          
+          // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
+          Serial.println(String(last_time_fired));
+          Serial.println("Step Size: " + String(c0));
+      } else {
+          boolean finished_pulse = false;
+          while (! finished_pulse) {
+              unsigned long current_time = micros();
+              if (current_time > next_time_fired) {
+                  pulse_motor(MOTOR1_STEP);
+                  pulse_motor(MOTOR2_STEP);
+                  last_time_fired = micros();
+          
+                  // CODE HERE TO DO THE STEP at JUST the right time
+                  long s1_cx = calculate_stepper_interval(0, i);
+                  // long s2_cx = calculate_stepper_interval(0, i);     
+                  next_time_fired = last_time_fired + s1_cx;
+                  
+                  // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
+                  Serial.println(String(last_time_fired));
+                  Serial.println("Step Size: " + String(s1_cx));
+            
+                finished_pulse = true;
+              }
+          }        
+      i++;          
+    }
     
-    // CODE HERE TO DO THE STEP at JUST the right time
     
+      
+
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        
        // And if threshold is met, we need to calculate angle moved
        angle_moved = i * 180 / PI / 1.8;
+       notfinished = false;
     }
   }
+  
+  int steps_remaining = i;
+  i = 1;
+  // DO THE MOVE COMMANDS HERE - SPEED DOWN
+  while (i <= steps_remaining) {
+    Serial.println("Moving Step: " + String(i));
+    
+    // CODE HERE TO DO THE STEP at JUST the right time
+    long s1_cx = calculate_stepper_interval(steps_remaining, i);
+    long s2_cx = calculate_stepper_interval(steps_remaining, i);
+    
+    // CODE THAT USES s1_* timings to then activate the stepper motors.
+//TODO    
+    
+    if (threshold > 0) {
+       // Threshold value > 0, this means we should do some threshold checks...i.e. are we fixing things up?
+       
+       // And if threshold is met, we need to calculate angle moved
+       angle_moved = angle_moved + i * 180 / PI / 1.8;
+       // STILL SLOWING DOWN. CAN't JUST ESCAPE ROUTINE...let it go to completion.
+    }
+    
+    i++;    
+  }
+  
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
@@ -720,4 +777,51 @@ void crossproduct(double vec1[], double vec2[])
         vec3[0] = vec1[1] * vec2[2] - vec1[2] * vec2[1];
         vec3[1] = vec1[0] * vec2[2] - vec1[2] * vec2[0];
         vec3[2] = vec1[0] * vec2[1] - vec1[1] * vec2[0];
+}
+
+
+
+void stepper_motor_direction(int motor, int direction)
+{
+  
+  if (direction == 1) {
+     digitalWrite(MOTOR1_DIRECTION, cw);
+  } else if (direction == 2) {
+     digitalWrite(MOTOR1_DIRECTION, ccw);
+  }
+}
+
+
+void s1_stepper_motor_direction(int direction)
+{
+  stepper_motor_direction(MOTOR1_DIRECTION, direction);
+}
+
+void s2_stepper_motor_direction(int direction)
+{
+  stepper_motor_direction(MOTOR2_DIRECTION, direction);
+}
+
+
+// Provides the time to wait
+// - updown - 1 for speeding up, 0 for speeding down
+// - step   - The step number we are up to
+long calculate_stepper_interval(int starting_step, int next_step)
+{
+  long cx;
+  
+  cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
+  
+  cx_last = cx;
+  
+  return cx;
+}
+
+
+
+// Pulse the motor
+void pulse_motor (short motor)
+{
+  
+  
 }
