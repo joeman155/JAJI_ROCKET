@@ -48,17 +48,17 @@ double s2_angle = PI;
 int s1_step = 0;      // Correlates to s1_angle
 int s2_step = 100;    // Correlates to s2_angle
 
-unsigned long c0 = 11000;  // Initial timing, if starting from standstill
-unsigned long cx;          // Current cx value
-unsigned long cx_last;     // Last cx value
-unsigned long last_time_fired;   // Last time a step was triggered
-unsigned long next_time_fired;   // The next time a step needs to be triggered
+long c0 = 11000;  // Initial timing, if starting from standstill
+long cx;          // Current cx value
+long cx_last;     // Last cx value
+long last_time_fired;   // Last time a step was triggered
+long next_time_fired;   // The next time a step needs to be triggered
 
 
 
 // TIME TRACKING
-unsigned long time;
-unsigned long last_time;
+long time;
+long last_time;
 
 
 // BALANCING VARIABLES
@@ -108,11 +108,14 @@ void setup() {
   
   Serial.begin(115200);
   digitalWrite(MOTOR1_DIRECTION, LOW);
-  Serial.println("Wait for it!");
+  Serial.println("System Initialised!");
+  
+  /*
   delay(3000);
   Serial.println("Done!");
   digitalWrite(MOTOR1_DIRECTION, HIGH);
   digitalWrite(MOTOR1_STEP, LOW);
+  */
   
   
   
@@ -120,11 +123,13 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
-
+/*
   digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
   delay(100);              // wait for a second
   digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
   delay(100);              // wait for a second
+*/
+
 
   print_time();
   rotation_vz = rotation_vz - 1 * PI/180;
@@ -149,7 +154,6 @@ void loop() {
   
   print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
   print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-  print_time();
   
 
 
@@ -248,8 +252,9 @@ int readRegister(int deviceAddress, byte address){
 void print_time() {
   
   time = micros();
+  double  time_display = time/(double) 1000000;
   Serial.print("Time: ");
-  Serial.println(time);
+  printDouble(time_display,10000);
 }
 
 void print_debug(boolean debug, String str) {
@@ -645,6 +650,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   double angle_moved = angle;
   boolean notfinished = true;
   boolean first_triggered = true;
+  long start_time = micros();
   
   // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
   s1_stepper_motor_direction(s1_direction);
@@ -653,13 +659,15 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   // DO THE MOVE COMMANDS HERE - SPEED UP
   while (i <= steps/2 && notfinished) {
-
+      Serial.println("Moving Step: " + String(i));
+      
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
           pulse_motor(MOTOR1_STEP);
           pulse_motor(MOTOR2_STEP);
-          first_triggered = false;
           last_time_fired = micros();
+          first_triggered = false;
+          
       
           // CODE HERE TO DO THE STEP at JUST the right time
           next_time_fired = last_time_fired + c0;
@@ -675,26 +683,26 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               if (current_time > next_time_fired) {
                   pulse_motor(MOTOR1_STEP);
                   pulse_motor(MOTOR2_STEP);
+                  long actual_step = current_time - last_time_fired;
                   last_time_fired = micros();
           
                   // CODE HERE TO DO THE STEP at JUST the right time
-                  long s1_cx = calculate_stepper_interval(0, i);
-                  // long s2_cx = calculate_stepper_interval(0, i);     
-                  next_time_fired = last_time_fired + s1_cx;
+                  long next_step = calculate_stepper_interval(0, i);   
+                  next_time_fired = last_time_fired + next_step;
                   
                   // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
-                  Serial.println(String(last_time_fired));
-                  Serial.println("Step Size: " + String(s1_cx));
+                  // Serial.println(String(last_time_fired));
+                  Serial.println(String(next_step)+ String(", ") + String(actual_step));
             
                 finished_pulse = true;
               }
           }        
-      i++;          
+                
     }
     
     
       
-
+    i++;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        
@@ -705,17 +713,54 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   }
   
   int steps_remaining = i;
+  first_triggered = true;
   i = 1;
   // DO THE MOVE COMMANDS HERE - SPEED DOWN
-  while (i <= steps_remaining) {
+  while (i < steps_remaining) {
     Serial.println("Moving Step: " + String(i));
     
     // CODE HERE TO DO THE STEP at JUST the right time
-    long s1_cx = calculate_stepper_interval(steps_remaining, i);
-    long s2_cx = calculate_stepper_interval(steps_remaining, i);
+
+      // Do first pulse ASAP...no waiting
+      if (first_triggered == true) {
+          pulse_motor(MOTOR1_STEP);
+          pulse_motor(MOTOR2_STEP);
+          last_time_fired = micros();
+          first_triggered = false;
+          
+      
+          // CODE HERE TO DO THE STEP at JUST the right time
+          next_time_fired = last_time_fired + cx_last;
+          
+          // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
+          Serial.println(String(last_time_fired));
+          Serial.println("Step Size: " + String(cx_last));
+      } else {
+          boolean finished_pulse = false;
+          while (! finished_pulse) {
+              unsigned long current_time = micros();
+              if (current_time > next_time_fired) {
+                  pulse_motor(MOTOR1_STEP);
+                  pulse_motor(MOTOR2_STEP);
+                  long actual_step = current_time - last_time_fired;
+                  last_time_fired = micros();
+          
+                  // CODE HERE TO DO THE STEP at JUST the right time
+                  long next_step = calculate_stepper_interval(steps_remaining, i);   
+                  next_time_fired = last_time_fired + next_step;
+                  
+                  // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
+                  // Serial.println(String(last_time_fired));
+                  Serial.println(String(next_step)+ String(", ") + String(actual_step));
+            
+                finished_pulse = true;
+              }
+          }        
+                
+    }
     
-    // CODE THAT USES s1_* timings to then activate the stepper motors.
-//TODO    
+    
+    i++;
     
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks...i.e. are we fixing things up?
@@ -724,10 +769,14 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
        angle_moved = angle_moved + i * 180 / PI / 1.8;
        // STILL SLOWING DOWN. CAN't JUST ESCAPE ROUTINE...let it go to completion.
     }
-    
-    i++;    
+      
   }
   
+  
+  long end_time = micros();
+  double move_time = (end_time - start_time) / (double) 1000000;
+  Serial.print("MOVE TIME: ");
+  printDouble(move_time, 10000);
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
@@ -809,9 +858,7 @@ void s2_stepper_motor_direction(int direction)
 long calculate_stepper_interval(int starting_step, int next_step)
 {
   long cx;
-  
   cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
-  
   cx_last = cx;
   
   return cx;
@@ -822,6 +869,34 @@ long calculate_stepper_interval(int starting_step, int next_step)
 // Pulse the motor
 void pulse_motor (short motor)
 {
+  digitalWrite(motor, HIGH);
+  delayMicroseconds(2);     // Double what spec says we need
+  digitalWrite(motor, LOW);
+  delayMicroseconds(2);     // Double what spec says we need
   
   
+}
+
+
+
+void printDouble( double val, unsigned int precision){
+// prints val with number of decimal places determine by precision
+// NOTE: precision is 1 followed by the number of zeros for the desired number of decimial places
+// example: printDouble( 3.1415, 100); // prints 3.14 (two decimal places)
+
+   Serial.print (int(val));  //prints the int part
+   Serial.print("."); // print the decimal point
+   unsigned int frac;
+   if(val >= 0)
+     frac = (val - int(val)) * precision;
+   else
+      frac = (int(val)- val ) * precision;
+   int frac1 = frac;
+   while( frac1 /= 10 )
+       precision /= 10;
+   precision /= 10;
+   while(  precision /= 10)
+       Serial.print("0");
+
+   Serial.println(frac,DEC) ;
 }
