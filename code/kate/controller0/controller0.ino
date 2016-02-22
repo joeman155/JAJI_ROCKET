@@ -48,6 +48,17 @@ double s2_angle = PI;
 int s1_step = 0;      // Correlates to s1_angle
 int s2_step = 100;    // Correlates to s2_angle
 
+
+double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
+double torque_percent;      // How much of max_torque we want to use
+double moment_of_inertia;   // Moment of Inertia of arm and weight
+double steps_per_rotation;  // # of Steps per revolution
+double mass_of_smoother;    // How much each sphererical smoother weights
+double smoother_radius;     // How many meteres it is 
+double mass_of_arm;
+double distance_to_smoother; 
+double max_acceleration;    // Maximum acceleration we can attain
+
 long c0 = 11000;  // Initial timing, if starting from standstill
 long cx;          // Current cx value
 long cx_last;     // Last cx value
@@ -95,7 +106,6 @@ void setup() {
   attachInterrupt(0, collect_gyro_data, FALLING);  // Interrupt from Gyroscope
   delay(1500); //wait for the sensor to be ready
   
-  
   // initialize digital pin 13 as an output.
   pinMode(13, OUTPUT);
   
@@ -108,6 +118,62 @@ void setup() {
   
   Serial.begin(115200);
   digitalWrite(MOTOR1_DIRECTION, LOW);
+  
+  // Calculate Stepper timing constant c0
+  // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
+  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
+  
+  // SH2141-5541.pdf from POLOLU
+  max_torque = 40.77;            // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
+
+  // KATE System set-up  
+  torque_percent = 75;           // Safety margin...don't want to exceed max_torque
+  steps_per_rotation = 200;      // # of Steps per revolution
+  mass_of_smoother = 0.025;      // Each smoother in kg
+  smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
+  mass_of_arm = 0.01;            // How much mass of each arm weights
+  distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother
+  
+  
+  // This is quite a complicated equation. Below is a representation
+  //       ||
+  //  axle ||             **
+  //       ||           ******
+  //       ||----------********    <<--- Smoother  (Assume it is a sphere....radius = 9mm)
+  //            arm     ******
+  //                      **
+  //
+  // We need to take into account:-
+  //     - Moment of inertia of axle   (if known)
+  //     - Moment of inertia of arm
+  //     - Moment of inertia of smoother weight
+  //
+  //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother                         
+  moment_of_inertia =  (mass_of_arm * distance_to_smoother * distance_to_smoother/3)  + (2 * mass_of_smoother * smoother_radius * smoother_radius/5) +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
+  
+  
+  // Deduce maximum rotational acceleration
+  max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
+  
+  // Calculate Initial timing constant
+  c0 = 1000000L * pow((2 * (360/200) * PI/180)/max_acceleration, 0.5);
+  Serial.print("Moment of Inertia:    ");
+  Serial.print((double) moment_of_inertia, 7);
+  Serial.println(" kgm^2");
+  Serial.print("Maximum Acceleration: ");
+  Serial.print((double) max_acceleration);
+  Serial.println(" rad/s/s");
+  Serial.print("C0:                   ");
+  Serial.print((double) c0);
+  Serial.println(" cycles");  
+  
+  
+
+
+  delay(5000);  
+  
+  
+  
   Serial.println("System Initialised!");
   
   /*
@@ -625,7 +691,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   // DO THE MOVE COMMANDS HERE - SPEED UP
   while (i <= steps/2 && notfinished) {
-      Serial.println("Moving Step: " + String(i));
+      Serial.println("S:" + String(i));
       
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
@@ -641,7 +707,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           
           // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
           Serial.println(String(last_time_fired));
-          Serial.println("Step Size: " + String(c0));
+          Serial.println(String(c0));
       } else {
           boolean finished_pulse = false;
           while (! finished_pulse) {
@@ -685,7 +751,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   i = 1;
   // DO THE MOVE COMMANDS HERE - SPEED DOWN
   while (i < steps_remaining) {
-      Serial.println("Moving Step: " + String(i));
+      Serial.println("S:" + String(i));
     
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
@@ -700,7 +766,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           
           // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
           Serial.println(String(last_time_fired));
-          Serial.println("Step Size: " + String(cx_last));
+          Serial.println(String(cx_last));
       } else {
           boolean finished_pulse = false;
           while (! finished_pulse) {
@@ -840,9 +906,9 @@ long calculate_stepper_interval(int starting_step, int next_step)
 void pulse_motor (short motor)
 {
   digitalWrite(motor, HIGH);
-  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...so we'll wait 2
+  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   digitalWrite(motor, LOW);
-  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...so we'll wait 2
+  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   
   
 }
