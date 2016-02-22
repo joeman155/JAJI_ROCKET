@@ -461,11 +461,11 @@ void smoother_step_1()
 		s2_direction = 1; // CCW
 	}				
 	
-/*
-	Serial.println("NEUTRALMIDPOINT: " + mid_point_angle);
-	Serial.println("NEUTRAL: " + move_to_neutral_distance);
-	Serial.println("s1_direction: " + s1_direction);
-*/	
+
+	Serial.println("NEUTRALMIDPOINT: " + String(mid_point_angle));
+	Serial.println("NEUTRAL: "         + String(move_to_neutral_distance));
+	Serial.println("s1_direction: "    + String(s1_direction));
+	
 	s1_angle = angle_reorg(s1_angle);
 	s2_angle = angle_reorg(s2_angle);
   
@@ -478,6 +478,7 @@ void smoother_step_2()
 
 	if (move_to_neutral_distance <= 0) {
 		smoother_step = 3;
+                print_debug(debugging, "No need to move to neutral position, already in neutral position");
 	} else {
                 print_debug(debugging, "Neutral Move.");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
@@ -494,10 +495,10 @@ void smoother_step_3()
   
 	/// Find angle between the two smoothers...then halve...this is the mid-point
 	double mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
-	mid_point_angle = mid_point_angle / 2;
+	double mid_point_direction = mid_point_angle / 2 + s1_angle;
 				
 	// Deduce the distance we need 
-	intermediate_move = abs(corrective_angle - mid_point_angle);
+	intermediate_move = abs(corrective_angle - mid_point_direction);
 				
 	// If Greater than Pi, then we are being in-efficient
 	if (intermediate_move >= PI) {
@@ -508,17 +509,17 @@ void smoother_step_3()
 	// s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
 	// s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
 				
-	if (intermediate_move <= PI/2 && corrective_angle < mid_point_angle) {
+	if (intermediate_move <= PI/2 && corrective_angle <= mid_point_direction) {
 		s1_direction = 2;
 		s2_direction = 2;
-	} else if (intermediate_move > PI/2 && corrective_angle < mid_point_angle) {
+	} else if (intermediate_move > PI/2 && corrective_angle <= mid_point_direction) {
 		s1_direction = 1;
 		s2_direction = 1;
 		intermediate_move = PI - intermediate_move;
-	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_angle) {
+	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_direction) {
 		s1_direction = 1;
 		s2_direction = 1;
-	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_angle) {
+	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_direction) {
 		s1_direction = 2;
 		s2_direction = 2;
 		intermediate_move = PI - intermediate_move;
@@ -666,7 +667,7 @@ void smoother_step_7()
 {
   print_debug(debugging, "Rest Move." + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, 5);
-  
+  smoother_step = 0;
 
 }
 
