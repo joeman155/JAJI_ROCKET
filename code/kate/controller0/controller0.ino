@@ -300,7 +300,6 @@ boolean check_system_stability(float vx, float vy, float vz, float ax, float ay,
     return true;
   }
 
-  
   return false;
 }
 
@@ -397,9 +396,9 @@ void smoother_step_1()
 	}				
 	
 /*
-	System.out.println("NEUTRALMIDPOINT: " + mid_point_angle);
-	System.out.println("NEUTRAL: " + move_to_neutral_distance);
-	System.out.println("s1_direction: " + s1_direction);
+	Serial.println("NEUTRALMIDPOINT: " + mid_point_angle);
+	Serial.println("NEUTRAL: " + move_to_neutral_distance);
+	Serial.println("s1_direction: " + s1_direction);
 */	
 	s1_angle = angle_reorg(s1_angle);
 	s2_angle = angle_reorg(s2_angle);
@@ -416,29 +415,9 @@ void smoother_step_2()
 	} else {
                 print_debug(debugging, "Neutral Move.");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
-                smoother_step = 3;
-                
-                
-  
-  /*
-		move_to_neutral_distance = move_to_neutral_distance - interval.doubleValue() * s2.getMax_angular_speed();
-		
-		if (s1_direction == 1) {
-			s1.setAng_y(s1_angle - interval.doubleValue() * s1.getMax_angular_speed());
-			s2.setAng_y(s2_angle + interval.doubleValue() * s2.getMax_angular_speed());
-		} else if (s1_direction == 2) {
-			s1.setAng_y(s1_angle + interval.doubleValue() * s1.getMax_angular_speed());
-			s2.setAng_y(s2_angle - interval.doubleValue() * s2.getMax_angular_speed());
-		} else {
-			System.out.println("Unusual state. Not able to move back to resting state");
-		} 
-*/
-			
+                smoother_step = 3;			
 	}
 
-
-	// System.out.println("BACK TO NEUTRAL S1 ANGLE: " + s1_angle);
-	// System.out.println("BACK TO NEUTRAL S2 ANGLE: " + s2_angle);
 
 }
 
@@ -481,10 +460,10 @@ void smoother_step_3()
 				
 				
 /*				
-	System.out.println("Midpoint Angle: " + mid_point_angle);
-	System.out.println("Intermediate move (distance): " + intermediate_move);
-	System.out.println("S1 Direction: " + s1_direction);
-	System.out.println("S2 Direction: " + s2_direction);
+	Serial.println("Midpoint Angle: " + mid_point_angle);
+	Serial.out.println("Intermediate move (distance): " + intermediate_move);
+	Serial.out.println("S1 Direction: " + s1_direction);
+	Serial.out.println("S2 Direction: " + s2_direction);
 */
 	
 	// Signal to code to go on to 'Intermediate' move
@@ -502,7 +481,7 @@ void smoother_step_4()
 	if (intermediate_move < 0) {				
 		smoother_step = 5;
 	} else {
-          print_debug(debugging, "Intermediate Move." + String(intermediate_move));
+          print_debug(debugging, "Intermediate Move: " + String(intermediate_move));
 	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
 	  smoother_step = 5;
         }
@@ -513,9 +492,6 @@ void smoother_step_4()
 	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
 	final_angle_move = final_angle_move / 2 - offset;
 
-
-	// System.out.println("S1 ANGLE: " + s1_angle);
-	// System.out.println("S2 ANGLE: " + s2_angle);  
 }
 
 
@@ -568,12 +544,6 @@ void smoother_step_5()
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, 0);
           smoother_step = 6;
         }
-
-
-					
-	// System.out.println("FINAL S1 ANGLE: " + s1_angle);
-	// System.out.println("FINAL S2 ANGLE: " + s2_angle);
-
 }
 
 
@@ -589,7 +559,7 @@ void smoother_step_6()
 					
 	    // So. let's assume we are over-correcting
 	    smoother_step = 7;
-	    resting_angle_move = PI;
+	    resting_angle_move = PI/2;
 			
 	    s1_angle = angle_reorg(s1_angle);
 	    s2_angle = angle_reorg(s2_angle);
@@ -604,9 +574,6 @@ void smoother_step_6()
 	
         }
 				
-				
-
-				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
 	if (abs(180 * rotation_vx/PI) <  lower_velocity_threshold &&
 			abs(180 * rotation_vz/PI) <  lower_velocity_threshold) {
@@ -615,7 +582,6 @@ void smoother_step_6()
 		smoother_step = 7;
 		resting_angle_move = PI/2;
 			
-		
 	        s1_angle = angle_reorg(s1_angle);
 	        s2_angle = angle_reorg(s2_angle);
 		
@@ -705,10 +671,12 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     i++;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
-       
-       // And if threshold is met, we need to calculate angle moved
-       angle_moved = i * 180 / PI / 1.8;
-       notfinished = false;
+       if (abs(180 * rotation_ax/PI) < threshold && abs(180 * rotation_az/PI) < threshold) {
+          // And if threshold is met, we need to calculate angle moved
+          angle_moved = i * 180 / PI / 1.8;
+          notfinished = false;
+          smoother_step = 10;
+       }       
     }
   }
   
@@ -717,10 +685,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   i = 1;
   // DO THE MOVE COMMANDS HERE - SPEED DOWN
   while (i < steps_remaining) {
-    Serial.println("Moving Step: " + String(i));
+      Serial.println("Moving Step: " + String(i));
     
-    // CODE HERE TO DO THE STEP at JUST the right time
-
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
           pulse_motor(MOTOR1_STEP);
@@ -762,13 +728,17 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     
     i++;
     
+    /*
+    // THRESHOLD CODE NOT APPLICABLE HERE
+    // STILL SLOWING DOWN. CAN't JUST ESCAPE ROUTINE...let it go to completion.
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks...i.e. are we fixing things up?
        
        // And if threshold is met, we need to calculate angle moved
        angle_moved = angle_moved + i * 180 / PI / 1.8;
-       // STILL SLOWING DOWN. CAN't JUST ESCAPE ROUTINE...let it go to completion.
+       
     }
+    */
       
   }
   
@@ -870,9 +840,9 @@ long calculate_stepper_interval(int starting_step, int next_step)
 void pulse_motor (short motor)
 {
   digitalWrite(motor, HIGH);
-  delayMicroseconds(2);     // Double what spec says we need
+  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...so we'll wait 2
   digitalWrite(motor, LOW);
-  delayMicroseconds(2);     // Double what spec says we need
+  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...so we'll wait 2
   
   
 }
