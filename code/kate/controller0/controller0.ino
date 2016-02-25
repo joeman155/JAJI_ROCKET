@@ -73,8 +73,8 @@ long last_time;
 
 
 // BALANCING VARIABLES
-unsigned int upper_velocity_threshold = 5;
-unsigned int lower_velocity_threshold = 2;
+unsigned int upper_velocity_threshold;
+unsigned int lower_velocity_threshold;
 unsigned int smoother_step = 0;
 double corrective_angle = 0;
 double move_to_neutral_distance = 0;
@@ -121,10 +121,11 @@ void setup() {
   
   // Calculate Stepper timing constant c0
   // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
-  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
+  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
+  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 12 volts DC
   
   // SH2141-5541.pdf from POLOLU
-  max_torque = 40.77;            // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
+  // max_torque = 40.77;            // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
 
   // KATE System set-up  
   torque_percent = 75;           // Safety margin...don't want to exceed max_torque
@@ -133,6 +134,18 @@ void setup() {
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
   distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother
+  upper_velocity_threshold = 5;
+  lower_velocity_threshold = 2;
+  
+  // KATE System set-up  - TESTING
+  torque_percent = 75;           // Safety margin...don't want to exceed max_torque
+  steps_per_rotation = 200;      // # of Steps per revolution
+  mass_of_smoother = 0.025;      // Each smoother in kg
+  smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
+  mass_of_arm = 0.01;            // How much mass of each arm weights
+  distance_to_smoother = 0.015;   // How far from stepper motor axis to the smoother
+  upper_velocity_threshold = 5;
+  lower_velocity_threshold = 2;  
   
   
   // This is quite a complicated equation. Below is a representation
@@ -150,15 +163,16 @@ void setup() {
   //
   //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother                         
   moment_of_inertia =  (mass_of_arm * distance_to_smoother * distance_to_smoother/3)  + (2 * mass_of_smoother * smoother_radius * smoother_radius/5) +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
-  
+  moment_of_inertia = 0.005 * 0.002 * 0.002 /2;   // Moment of inertia of shaft...assuming it is steel (densisty = 8050), is a cylinder of length 45mm and radius 2mm)
+  moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass
   
   // Deduce maximum rotational acceleration
   max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
   
   // Calculate Initial timing constant
-  c0 = 1000000L * pow((2 * (360/200) * PI/180)/max_acceleration, 0.5);
+  c0 = 1000000 * pow(2 * 1.8 * PI/180/max_acceleration, 0.5);
   Serial.print("Moment of Inertia:    ");
-  Serial.print((double) moment_of_inertia, 7);
+  Serial.print((double) moment_of_inertia, 9);
   Serial.println(" kgm^2");
   Serial.print("Maximum Acceleration: ");
   Serial.print((double) max_acceleration);
@@ -168,7 +182,13 @@ void setup() {
   Serial.println(" cycles");  
   
   
-
+/*
+  move_x(200);
+  digitalWrite(MOTOR1_DIRECTION, HIGH);
+  delay(1);    
+  move_x(200);
+  delay(1000000);
+*/
 
   delay(5000);  
   
@@ -610,6 +630,7 @@ void smoother_step_5()
           print_debug(debugging, "Final Move." + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, 0);
           smoother_step = 6;
+          delay(10000000);
         }
 }
 
@@ -679,7 +700,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / 1.8);
-  int i = 1;
+  int i = 0;
   double angle_moved = angle;
   boolean notfinished = true;
   boolean first_triggered = true;
@@ -692,7 +713,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   // DO THE MOVE COMMANDS HERE - SPEED UP
   while (i <= steps/2 && notfinished) {
-      Serial.println("S:" + String(i));
+      // Serial.println("S:" + String(i));
       
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
@@ -714,18 +735,23 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
+                  long actual_step = current_time - last_time_fired;
+                  last_time_fired = current_time;
                   pulse_motor(MOTOR1_STEP);
                   pulse_motor(MOTOR2_STEP);
-                  long actual_step = current_time - last_time_fired;
-                  last_time_fired = micros();
+                  
+                  // last_time_fired = micros();
           
                   // CODE HERE TO DO THE STEP at JUST the right time
                   long next_step = calculate_stepper_interval(0, i);   
+                  // long next_step = calc_up(i);
+                  // next_step = c0; cx_last = c0;
                   next_time_fired = last_time_fired + next_step;
                   
                   // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
                   // Serial.println(String(last_time_fired));
-                  Serial.println(String(next_step)+ String(", ") + String(actual_step));
+                  // Serial.println(String(next_step)+ String(", ") + String(actual_step));
+                  Serial.println(actual_step, DEC);
             
                 finished_pulse = true;
               }
@@ -749,10 +775,10 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   int steps_remaining = i;
   first_triggered = true;
-  i = 1;
+  i = 0;
   // DO THE MOVE COMMANDS HERE - SPEED DOWN
   while (i < steps_remaining) {
-      Serial.println("S:" + String(i));
+      // Serial.println("S:" + String(i));
     
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
@@ -773,18 +799,23 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
+                  long actual_step = current_time - last_time_fired;
+                  last_time_fired = current_time;
                   pulse_motor(MOTOR1_STEP);
                   pulse_motor(MOTOR2_STEP);
-                  long actual_step = current_time - last_time_fired;
-                  last_time_fired = micros();
+                  
+                  // last_time_fired = micros();
           
                   // CODE HERE TO DO THE STEP at JUST the right time
                   long next_step = calculate_stepper_interval(steps_remaining, i);   
+                  // long next_step = calc_down(i);
+                  // next_step = c0; cx_last = c0;
                   next_time_fired = last_time_fired + next_step;
                   
                   // Serial.println("Moving Step: " + String(i) + String(" at time: ") + String(last_time_fired));
                   // Serial.println(String(last_time_fired));
-                  Serial.println(String(next_step)+ String(", ") + String(actual_step));
+                  // Serial.println(String(next_step)+ String(", ") + String(actual_step));
+                  Serial.println(actual_step, DEC);
             
                 finished_pulse = true;
               }
@@ -814,6 +845,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   double move_time = (end_time - start_time) / (double) 1000000;
   Serial.print("MOVE TIME: ");
   printDouble(move_time, 10000);
+  double move_speed = (double) 60 * move_time / (double) 90;
+  Serial.print("MOVE SPEED: ");
+  printDouble(move_speed, 10000);  
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
@@ -871,20 +905,22 @@ void stepper_motor_direction(int motor, int direction)
 {
   
   if (direction == 1) {
-     digitalWrite(MOTOR1_DIRECTION, cw);
+     digitalWrite(motor, cw);
   } else if (direction == 2) {
-     digitalWrite(MOTOR1_DIRECTION, ccw);
+     digitalWrite(motor, ccw);
   }
 }
 
 
 void s1_stepper_motor_direction(int direction)
 {
+  Serial.println("MOTOR1: " + String(direction));
   stepper_motor_direction(MOTOR1_DIRECTION, direction);
 }
 
 void s2_stepper_motor_direction(int direction)
 {
+  Serial.println("MOTOR2: " + String(direction));
   stepper_motor_direction(MOTOR2_DIRECTION, direction);
 }
 
@@ -895,21 +931,57 @@ void s2_stepper_motor_direction(int direction)
 long calculate_stepper_interval(int starting_step, int next_step)
 {
   long cx;
-  cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
-  cx_last = cx;
+  // double was_last_cx;
+  // was_last_cx = cx_last;
+  if (next_step - starting_step == 1) {
+    cx = cx_last * 0.4142;
+    cx_last = cx;
+  } else if (next_step - starting_step == -1 ) {
+    cx = cx_last / 0.4142;
+  } else {
+    cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
+    cx_last = cx;
+  }
+  // Serial.println("STEP=" + String(next_step) + String(",last_cx=") + String(was_last_cx) + String(",cx=") + String(cx));
   
   return cx;
 }
 
+long calc_up(int next_step)
+{
+  long cx;
+  double val1 = pow(next_step, 0.5);
+  
+  cx = cx_last * (pow(next_step + 1, 0.5) - val1)/(val1 - pow(next_step - 1, 0.5)); 
+  Serial.println("STEP=" + String(next_step) + String(",cx=") + String(cx));
+  cx_last = cx;
+  return cx;
+}
+
+
+long calc_down(int next_step)
+{
+  long cx;
+  
+
+  double val1 = pow(next_step, 0.5);
+  
+  cx = cx_last * (val1 - pow(next_step - 1, 0.5))/(pow(next_step + 1, 0.5) - val1); 
+  Serial.println("STEP=" + String(next_step) + String(",cx=") + String(cx));
+  
+  
+  cx_last = cx;
+  return cx;
+}
 
 
 // Pulse the motor
 void pulse_motor (short motor)
 {
   digitalWrite(motor, HIGH);
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
+  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...
   digitalWrite(motor, LOW);
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
+  delayMicroseconds(2);     // Double what spec says we need min of 1 microsecond...
   
   
 }
@@ -936,4 +1008,18 @@ void printDouble( double val, unsigned int precision){
        Serial.print("0");
 
    Serial.println(frac,DEC) ;
+}
+
+
+
+void move_x(int x)
+{
+  int i = 0;
+  
+  while (i < x) {
+  pulse_motor(MOTOR1_STEP);
+  delayMicroseconds(2000);
+  
+  i++;
+  }
 }
