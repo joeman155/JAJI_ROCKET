@@ -122,7 +122,6 @@ void setup() {
   // Calculate Stepper timing constant c0
   // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
   max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 12 volts DC
   
   // SH2141-5541.pdf from POLOLU
   // max_torque = 40.77;            // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
@@ -138,7 +137,9 @@ void setup() {
   lower_velocity_threshold = 2;
   
   // KATE System set-up  - TESTING
-  torque_percent = 75;           // Safety margin...don't want to exceed max_torque
+  torque_percent = 50;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+                                 // allowing for additional time...should some other force on system be acting on the mass.
+                                 // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
   mass_of_smoother = 0.025;      // Each smoother in kg
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
@@ -164,7 +165,7 @@ void setup() {
   //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother                         
   moment_of_inertia =  (mass_of_arm * distance_to_smoother * distance_to_smoother/3)  + (2 * mass_of_smoother * smoother_radius * smoother_radius/5) +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
   moment_of_inertia = 0.005 * 0.002 * 0.002 /2;   // Moment of inertia of shaft...assuming it is steel (densisty = 8050), is a cylinder of length 45mm and radius 2mm)
-  moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass
+  moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass  THIS WORKS WELL...DO NO DELETE.
   
   // Deduce maximum rotational acceleration
   max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
@@ -218,7 +219,7 @@ void loop() {
 
 
   print_time();
-  rotation_vz = rotation_vz - 1 * PI/180;
+  rotation_vz = rotation_vz + 1 * PI/180;
 
 
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
