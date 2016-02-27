@@ -35,10 +35,10 @@ float old_rotation_vx, old_rotation_vy, old_rotation_vz;
 float rotation_ax, rotation_ay, rotation_az;
 
 // STEPPER MOTOR
-#define MOTOR1_DIRECTION 9
+#define MOTOR1_DIRECTION 6
 #define MOTOR1_STEP 8
 #define MOTOR2_DIRECTION 7
-#define MOTOR2_STEP 6
+#define MOTOR2_STEP 9
 
 #define cw HIGH
 #define ccw LOW
@@ -718,8 +718,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
-          pulse_motor(MOTOR1_STEP);
-          pulse_motor(MOTOR2_STEP);
+          pulse_motors();
           last_time_fired = micros();
           first_triggered = false;
           
@@ -737,8 +736,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               if (current_time > next_time_fired) {
                   long actual_step = current_time - last_time_fired;
                   last_time_fired = current_time;
-                  pulse_motor(MOTOR1_STEP);
-                  pulse_motor(MOTOR2_STEP);
+                  pulse_motors();
           
                   // CODE HERE TO DO THE STEP at JUST the right time
                   long next_step = calculate_stepper_interval(0, i);   
@@ -778,8 +776,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           if (current_time > next_time_fired) {
               long actual_step = current_time - last_time_fired;
               last_time_fired = current_time;
-              pulse_motor(MOTOR1_STEP);
-              pulse_motor(MOTOR2_STEP);
+              pulse_motors();
                   
               // CODE HERE TO DO THE STEP at JUST the right time
               long next_step = calculate_stepper_interval(steps_remaining, i);   
@@ -957,15 +954,14 @@ long calc_down(int next_step)
 }
 
 
-// Pulse the motor
-void pulse_motor (short motor)
-{
-  digitalWrite(motor, HIGH);
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
-  digitalWrite(motor, LOW);
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
-}
 
+void pulse_motors()
+{
+  PORTB = PORTB | B00000011;
+  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
+  PORTB = PORTB & B11111100;
+  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...  
+}
 
 
 void printDouble( double val, unsigned int precision){
@@ -997,7 +993,7 @@ void move_x(int x)
   int i = 0;
   
   while (i < x) {
-  pulse_motor(MOTOR1_STEP);
+  pulse_motors();
   delayMicroseconds(2000);
   
   i++;
