@@ -196,28 +196,15 @@ void setup() {
   
   
   
-  Serial.println("System Initialised!");
-  
-  /*
-  delay(3000);
-  Serial.println("Done!");
-  digitalWrite(MOTOR1_DIRECTION, HIGH);
-  digitalWrite(MOTOR1_STEP, LOW);
-  */
-  
-  
-  
+  Serial.println("System Initialised!");  
 }
+
+
+
+
 
 // the loop function runs over and over again forever
 void loop() {
-/*
-  digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(100);              // wait for a second
-  digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
-  delay(100);              // wait for a second
-*/
-
 
   print_time();
   rotation_vz = rotation_vz + 1 * PI/180;
@@ -243,11 +230,9 @@ void loop() {
   print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
   print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
   
-
-
-  
-
 }
+
+
 
 void collect_gyro_data() {
   print_time();
@@ -630,7 +615,7 @@ void smoother_step_5()
 	  }
 
           print_debug(debugging, "Final Move." + String(final_angle_move));
-          move_stepper_motors(s1_direction, s2_direction, final_angle_move, 0);
+          move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
           delay(10000000);
         }
@@ -689,7 +674,7 @@ void smoother_step_6()
 void smoother_step_7() 
 {
   print_debug(debugging, "Rest Move." + String(resting_angle_move));
-  move_stepper_motors(s1_direction, s2_direction, resting_angle_move, 5);
+  move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
 
 }
@@ -704,7 +689,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   int steps = round((angle * 180 / PI) / 1.8);
   int i = 0;
   double angle_moved = angle;
-  boolean notfinished = true;
+  // boolean notfinished = true;
   boolean first_triggered = true;
   long start_time = micros();
   
@@ -714,7 +699,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   
   // DO THE MOVE COMMANDS HERE - SPEED UP
-  while (i <= steps/2 && notfinished) {
+  while (i <= steps/2) { // && notfinished) {
       
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
@@ -758,16 +743,15 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
        if (abs(180 * rotation_ax/PI) < threshold && abs(180 * rotation_az/PI) < threshold) {
           // And if threshold is met, we need to calculate angle moved
           angle_moved = i * 180 / PI / 1.8;
-          notfinished = false;
-          smoother_step = 10;
-       }       
+          break;
+       }     
     }
   }
   
   int steps_remaining = i;
   first_triggered = true;
   i = 0;
-  // DO THE MOVE COMMANDS HERE - SPEED DOWN
+  // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
   while (i < steps_remaining) {
         
       boolean finished_pulse = false;
@@ -788,24 +772,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
             finished_pulse = true;
           }
       }        
-                
-    
-    
     i++;
-    
-    /*
-    // THRESHOLD CODE NOT APPLICABLE HERE
-    // STILL SLOWING DOWN. CAN't JUST ESCAPE ROUTINE...let it go to completion.
-    if (threshold > 0) {
-       // Threshold value > 0, this means we should do some threshold checks...i.e. are we fixing things up?
-       
-       // And if threshold is met, we need to calculate angle moved
-       angle_moved = angle_moved + i * 180 / PI / 1.8;
-       
-    }
-    */
-      
   }
+  
   
   // Finished our pulses, but we need to wait until Step motor has completely stopped.
   boolean finished_pulse = false;
@@ -910,8 +879,7 @@ void s2_stepper_motor_direction(int direction)
 long calculate_stepper_interval(int starting_step, int next_step)
 {
   long cx;
-  // double was_last_cx;
-  // was_last_cx = cx_last;
+
   if (next_step - starting_step == 1) {
     cx = cx_last * 0.4142;
     cx_last = cx;
@@ -921,7 +889,6 @@ long calculate_stepper_interval(int starting_step, int next_step)
     cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
     cx_last = cx;
   }
-  // Serial.println("STEP=" + String(next_step) + String(",last_cx=") + String(was_last_cx) + String(",cx=") + String(cx));
   
   return cx;
 }
