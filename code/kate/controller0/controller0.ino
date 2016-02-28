@@ -893,34 +893,6 @@ long calculate_stepper_interval(int starting_step, int next_step)
   return cx;
 }
 
-long calc_up(int next_step)
-{
-  long cx;
-  double val1 = pow(next_step, 0.5);
-  
-  cx = cx_last * (pow(next_step + 1, 0.5) - val1)/(val1 - pow(next_step - 1, 0.5)); 
-  Serial.println("STEP=" + String(next_step) + String(",cx=") + String(cx));
-  cx_last = cx;
-  return cx;
-}
-
-
-long calc_down(int next_step)
-{
-  long cx;
-  
-
-  double val1 = pow(next_step, 0.5);
-  
-  cx = cx_last * (val1 - pow(next_step - 1, 0.5))/(pow(next_step + 1, 0.5) - val1); 
-  Serial.println("STEP=" + String(next_step) + String(",cx=") + String(cx));
-  
-  
-  cx_last = cx;
-  return cx;
-}
-
-
 
 void pulse_motors()
 {
