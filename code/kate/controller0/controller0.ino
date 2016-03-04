@@ -11,6 +11,7 @@
  */
 
 
+
 #include <Wire.h>
 
 
@@ -26,6 +27,10 @@ int L3G4200D_Address = 105; //I2C address of the L3G4200D
 int x;
 int y;
 int z;
+volatile boolean gotdata = false;
+int gyroZero = 0;
+int gyroHigh = 0;
+int gyroLow = 0;
 
 // Measurements from the Gyroscope
 float rotation_vx, rotation_vy, rotation_vz;
@@ -100,14 +105,23 @@ unsigned long last_button_time = 0;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  // Initialise the Gyroscope
-  Wire.begin();
-  setupL3G4200D(250); // Configure L3G4200  - 250, 500 or 2000 deg/sec
-  attachInterrupt(0, collect_gyro_data, FALLING);  // Interrupt from Gyroscope
-  delay(1500); //wait for the sensor to be ready
   
-  // initialize digital pin 13 as an output.
+  Wire.begin();
+  Serial.begin(115200);
+  pinMode(2, INPUT);
   pinMode(13, OUTPUT);
+  
+  Serial.println("starting up L3G4200D");
+  setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
+  delay(1500); //wait for the sensor to be ready
+  Serial.println("Start calibrating...");
+  calibrate();
+  Serial.println("Finished calibrating...");    
+  delay(1000);
+  
+
+  // initialize digital pin 13 as an output.
+  
   
   // INITIALIZE STEPPER MOTOR CONTROL PINS
   pinMode(MOTOR1_DIRECTION, OUTPUT);
@@ -116,7 +130,7 @@ void setup() {
   pinMode(MOTOR2_STEP, OUTPUT); 
   
   
-  Serial.begin(115200);
+  
   digitalWrite(MOTOR1_DIRECTION, LOW);
   
   // Calculate Stepper timing constant c0
@@ -184,30 +198,41 @@ void setup() {
   Serial.println(" cycles");  
   
   
-/*
-  move_x(200);
-  digitalWrite(MOTOR1_DIRECTION, HIGH);
-  delay(1);    
-  move_x(200);
-  delay(1000000);
-*/
 
   delay(5000);  
+
   
-  
-  
+  attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
   Serial.println("System Initialised!");  
 }
-
-
 
 
 
 // the loop function runs over and over again forever
 void loop() {
 
+  long currMicros = micros();
+  
+    // Data available!
+  if (gotdata) {
+    Serial.print(x, DEC);
+    Serial.print("  ");
+    Serial.print(y, DEC);
+    Serial.print("  ");
+    Serial.print(z, DEC);
+    
+    Serial.print("  ");
+    Serial.println(currMicros);
+    
+    gotdata = false;
+    collect_gyro_data();
+  }
+  
   print_time();
-  rotation_vz = rotation_vz + 1 * PI/180;
+  
+  // Simulate rotation
+  // rotation_vz = rotation_vz + 1 * PI/180;
+
 
 
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
@@ -229,18 +254,27 @@ void loop() {
   
   print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
   print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
+
   
 }
 
 
 
+
+void gyro_data_available() {
+  gotdata = true;
+  digitalWrite(13, HIGH);
+}
+
+
+
 void collect_gyro_data() {
-  print_time();
-  print_debug(debugging, "Collecting Gyroscope data. ");  
-  // getGyroValues();
-  String str = String("X: ") + x + String(", Y: ") + y + String(", Z: ") + z;
-  print_debug(debugging, str);
-  print_time();
+//  print_time();
+//  print_debug(debugging, "Collecting Gyroscope data. ");  
+  getGyroValues();
+//  String str = String("X: ") + x + String(", Y: ") + y + String(", Z: ") + z;
+//  print_debug(debugging, str);
+//  print_time();
 }
 
 
@@ -321,6 +355,7 @@ int readRegister(int deviceAddress, byte address){
 
 
 
+
 // Time Functions
 void print_time() {
   
@@ -336,7 +371,7 @@ void print_debug(boolean debug, String str) {
   }
 }
   
-  
+
   
 void calculate_acceleration(float vx, float vy, float vz)
 {
@@ -533,12 +568,11 @@ void smoother_step_3()
 	}
 				
 				
-/*				
-	Serial.println("Midpoint Angle: " + mid_point_angle);
-	Serial.out.println("Intermediate move (distance): " + intermediate_move);
-	Serial.out.println("S1 Direction: " + s1_direction);
-	Serial.out.println("S2 Direction: " + s2_direction);
-*/
+//	Serial.println("Midpoint Angle: " + mid_point_angle);
+//	Serial.out.println("Intermediate move (distance): " + intermediate_move);
+//	Serial.out.println("S1 Direction: " + s1_direction);
+//	Serial.out.println("S2 Direction: " + s2_direction);
+
 	
 	// Signal to code to go on to 'Intermediate' move
 	smoother_step = 4;  
@@ -936,5 +970,24 @@ void move_x(int x)
   delayMicroseconds(2000);
   
   i++;
+  }
+}
+
+
+
+void calibrate()
+{
+  for(int i = 0; i < 4000; i++)
+  {
+    getGyroValues();
+
+    if(z > gyroHigh)
+    {
+      gyroHigh = z;
+    }
+    else if(z < gyroLow)
+    {
+      gyroLow = z;
+    }
   }
 }
