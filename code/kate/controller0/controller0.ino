@@ -31,6 +31,7 @@ volatile boolean gotdata = false;
 int gyroZero = 0;
 int gyroHigh = 0;
 int gyroLow = 0;
+double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec)
 
 // Measurements from the Gyroscope
 float rotation_vx, rotation_vy, rotation_vz;
@@ -78,8 +79,8 @@ long last_time;
 
 
 // BALANCING VARIABLES
-unsigned int upper_velocity_threshold;
-unsigned int lower_velocity_threshold;
+double upper_velocity_threshold;
+double lower_velocity_threshold;
 unsigned int smoother_step = 0;
 double corrective_angle = 0;
 double move_to_neutral_distance = 0;
@@ -147,8 +148,8 @@ void setup() {
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
   distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother
-  upper_velocity_threshold = 5;
-  lower_velocity_threshold = 2;
+  upper_velocity_threshold = 5 * PI/180;
+  lower_velocity_threshold = 2 * PI/180;
   
   // KATE System set-up  - TESTING
   torque_percent = 75;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
@@ -159,8 +160,8 @@ void setup() {
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
   distance_to_smoother = 0.015;   // How far from stepper motor axis to the smoother
-  upper_velocity_threshold = 5;
-  lower_velocity_threshold = 2;  
+  upper_velocity_threshold = 5 * PI/180;
+  lower_velocity_threshold = 2 * PI/180;  
   
   
   // This is quite a complicated equation. Below is a representation
@@ -215,14 +216,23 @@ void loop() {
   
     // Data available!
   if (gotdata) {
+    /*
     Serial.print(x, DEC);
     Serial.print("  ");
     Serial.print(y, DEC);
     Serial.print("  ");
     Serial.print(z, DEC);
+    */
     
+    // Get rotation rates in radians per second
+    rotation_vx = x * factor;
+    rotation_vy = y * factor;
+    rotation_vz = z * factor;
+    
+    /*
     Serial.print("  ");
     Serial.println(currMicros);
+    */
     
     gotdata = false;
     collect_gyro_data();
@@ -243,6 +253,7 @@ void loop() {
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     print_debug(debugging, "System needs stabilising");
+  
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
   }
@@ -392,15 +403,14 @@ void calculate_acceleration(float vx, float vy, float vz)
   
 boolean check_system_stability(float vx, float vy, float vz, float ax, float ay, float az)
 {
-
   // Check if our velocity measurements exceed upper threshold
-  if (abs(180 * vx/PI) > upper_velocity_threshold || abs(180 * vz/PI) > upper_velocity_threshold) {
+  if (abs(vx) > upper_velocity_threshold || abs(vz) > upper_velocity_threshold) {
     
     // Peform additional check to double check we need to make adjustments to CG
     if (
-	(sgn(ax) * sgn(vx) == -1 || abs(180 * vx/PI) <  upper_velocity_threshold)
+	(sgn(ax) * sgn(vx) == -1 || abs(vx) <  upper_velocity_threshold)
 	&&
-	(sgn(az) * sgn(vz) == -1 || abs(180 * vz/PI) < upper_velocity_threshold) 
+	(sgn(az) * sgn(vz) == -1 || abs(vz) < upper_velocity_threshold) 
 	) {
 	  return false;
 	} 
