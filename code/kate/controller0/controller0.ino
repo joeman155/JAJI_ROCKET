@@ -27,18 +27,20 @@ int L3G4200D_Address = 105; //I2C address of the L3G4200D
 int x;
 int y;
 int z;
-volatile boolean gotdata = false;
+volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
+boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
+boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
 int gyroZero = 0;
 int gyroHigh = 0;
 int gyroLow = 0;
 double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec)
 
 // Measurements from the Gyroscope
-float rotation_vx, rotation_vy, rotation_vz;
-float old_rotation_vx, old_rotation_vy, old_rotation_vz;
+double rotation_vx, rotation_vy, rotation_vz;
+double old_rotation_vx, old_rotation_vy, old_rotation_vz;
 
 // Calculated quantities
-float rotation_ax, rotation_ay, rotation_az;
+double rotation_ax, rotation_ay, rotation_az;
 
 // STEPPER MOTOR
 #define MOTOR1_DIRECTION 6
@@ -214,29 +216,9 @@ void loop() {
 
   long currMicros = micros();
   
-    // Data available!
-  if (gotdata) {
-    /*
-    Serial.print(x, DEC);
-    Serial.print("  ");
-    Serial.print(y, DEC);
-    Serial.print("  ");
-    Serial.print(z, DEC);
-    */
-    
-    // Get rotation rates in radians per second
-    rotation_vx = x * factor;
-    rotation_vy = y * factor;
-    rotation_vz = z * factor;
-    
-    /*
-    Serial.print("  ");
-    Serial.println(currMicros);
-    */
-    
-    gotdata = false;
-    collect_gyro_data();
-  }
+  // Data available!
+  get_latest_rotation_data_all();  
+
   
   print_time();
   
@@ -244,11 +226,8 @@ void loop() {
   // rotation_vz = rotation_vz + 1 * PI/180;
 
 
-
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
   print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
-
-  calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
   
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
@@ -384,7 +363,7 @@ void print_debug(boolean debug, String str) {
   
 
   
-void calculate_acceleration(float vx, float vy, float vz)
+void calculate_acceleration(double vx, double vy, double vz)
 {
   
   time = micros();
@@ -401,7 +380,7 @@ void calculate_acceleration(float vx, float vy, float vz)
 
 
   
-boolean check_system_stability(float vx, float vy, float vz, float ax, float ay, float az)
+boolean check_system_stability(double vx, double vy, double vz, double ax, double ay, double az)
 {
   // Check if our velocity measurements exceed upper threshold
   if (abs(vx) > upper_velocity_threshold || abs(vz) > upper_velocity_threshold) {
@@ -423,7 +402,7 @@ boolean check_system_stability(float vx, float vy, float vz, float ax, float ay,
 
 
 
-void calculate_smoother_location(float vx, float vy, float vz)
+void calculate_smoother_location(double vx, double vy, double vz)
 {
   	// Deduce where the smoother should be
 	// theta = Math.atan(r.getAng_vz()/r.getAng_vx());
@@ -536,8 +515,6 @@ void smoother_step_2()
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;			
 	}
-
-
 }
 
 
@@ -607,7 +584,10 @@ void smoother_step_4()
 	s1_diff = s1_angle - corrective_angle;
 	s2_diff = s2_angle - corrective_angle;
 					
-	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); 
+        print_debug(debugging, "debug Final Move: " + String(final_angle_move));
+        print_debug(debugging, "s1_angle: " + String(s1_angle));
+        print_debug(debugging, "s2_angle: " + String(s2_angle));        
 	final_angle_move = final_angle_move / 2 - offset;
 
 }
@@ -658,10 +638,9 @@ void smoother_step_5()
                 s2_direction = 0;
 	  }
 
-          print_debug(debugging, "Final Move." + String(final_angle_move));
+          print_debug(debugging, "Final Move: " + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
-          delay(10000000);
         }
 }
 
@@ -731,6 +710,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / 1.8);
+  boolean finished_pulse;
   int i = 0;
   double angle_moved = angle;
   // boolean notfinished = true;
@@ -751,7 +731,6 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           last_time_fired = micros();
           first_triggered = false;
           
-      
           // CODE HERE TO DO THE STEP at JUST the right time
           next_time_fired = last_time_fired + c0;
           cx_last = c0;
@@ -759,11 +738,11 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
           Serial.println(String(0));
       } else {
-          boolean finished_pulse = false;
+          finished_pulse = false;
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  long actual_step = current_time - last_time_fired;
+                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
           
@@ -771,22 +750,35 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                   long next_step = calculate_stepper_interval(0, i);   
                   next_time_fired = last_time_fired + next_step;
                   
-                  //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-                  Serial.println(actual_step, DEC);
+                  //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
+                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
             
-                finished_pulse = true;
+                  finished_pulse = true;
+                
+                  // If there is data available...get it now...we have some spare time (until next pulse) to get it!
+                  if (dataneedsprocessing) {
+                     get_latest_rotation_data2();
+                  } else {
+                     get_latest_rotation_data1();
+                  }
               }
           }              
     }
     
     
-      
+    
+    
+    
     i++;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        if (abs(180 * rotation_ax/PI) < threshold && abs(180 * rotation_az/PI) < threshold) {
           // And if threshold is met, we need to calculate angle moved
-          angle_moved = i * 180 / PI / 1.8;
+          
+          //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
+          //         360/200   (degrees per step) - 200 steps per revolution
+          //         PI/180     Convert from degress to radians
+          angle_moved = 2 * i * (360 / 200) * (PI/180);
           break;
        }     
     }
@@ -798,11 +790,11 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
   while (i < steps_remaining) {
         
-      boolean finished_pulse = false;
+      finished_pulse = false;
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              long actual_step = current_time - last_time_fired;
+              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
                   
@@ -811,17 +803,25 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              Serial.println(actual_step, DEC);
+              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
            
-            finished_pulse = true;
+              finished_pulse = true;
+            
+              // If there is data available...get it now...we have some spare time (until next pulse) to get it!
+              if (dataneedsprocessing) {
+                 get_latest_rotation_data2();
+              } else {
+                 get_latest_rotation_data1();
+              }     
           }
-      }        
+      } 
+    
     i++;
   }
   
   
   // Finished our pulses, but we need to wait until Step motor has completely stopped.
-  boolean finished_pulse = false;
+  finished_pulse = false;
   while (! finished_pulse) {  
     unsigned long current_time = micros();
           if (current_time > next_time_fired) {
@@ -1001,3 +1001,76 @@ void calibrate()
     }
   }
 }
+
+
+
+// Get latest IMU data (if available)
+void get_latest_rotation_data_all()
+{
+  
+  
+  if (gotdata && ! is_processing) {
+    is_processing = true;
+    /*
+    Serial.print(x, DEC);
+    Serial.print("  ");
+    Serial.print(y, DEC);
+    Serial.print("  ");
+    Serial.print(z, DEC);
+    */
+    
+    // Get rotation rates in radians per second
+    rotation_vx = x * factor;
+    rotation_vy = y * factor;
+    rotation_vz = z * factor;
+    
+    /*
+    Serial.print("  ");
+    Serial.println(currMicros);
+    */
+    
+    gotdata = false;
+    collect_gyro_data();
+    
+    // Calculate acceleration
+    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
+    is_processing = false;
+  }
+}  
+
+
+
+
+// Get latest IMU data (if available)
+void get_latest_rotation_data1()
+{
+  
+  if (gotdata && ! is_processing) {
+    is_processing = true;
+    
+    gotdata = false;
+    collect_gyro_data();
+    
+    is_processing = false;
+  }
+} 
+
+
+
+// Get latest IMU data (if available)
+void get_latest_rotation_data2()
+{
+  
+  if (dataneedsprocessing && ! is_processing) {
+    is_processing = true;
+    
+    // Get rotation rates in radians per second
+    rotation_vx = x * factor;
+    rotation_vy = y * factor;
+    rotation_vz = z * factor;
+    
+    // Calculate acceleration
+    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
+    is_processing = false;
+  }
+} 
