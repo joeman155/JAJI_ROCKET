@@ -258,29 +258,19 @@ void gyro_data_available() {
 
 
 
-void collect_gyro_data() {
-//  print_time();
-//  print_debug(debugging, "Collecting Gyroscope data. ");  
-  getGyroValues();
-//  String str = String("X: ") + x + String(", Y: ") + y + String(", Z: ") + z;
-//  print_debug(debugging, str);
-//  print_time();
-}
-
-
-
-
 
 // GYROSCOPE RELATED ROUTINES
-void getGyroValues(){
+void getGyroValues(boolean exclude_y){
 
   byte xMSB = readRegister(L3G4200D_Address, 0x29);
   byte xLSB = readRegister(L3G4200D_Address, 0x28);
   x = ((xMSB << 8) | xLSB);
 
-  byte yMSB = readRegister(L3G4200D_Address, 0x2B);
-  byte yLSB = readRegister(L3G4200D_Address, 0x2A);
-  y = ((yMSB << 8) | yLSB);
+  if (! exclude_y) {
+    byte yMSB = readRegister(L3G4200D_Address, 0x2B);
+    byte yLSB = readRegister(L3G4200D_Address, 0x2A);
+    y = ((yMSB << 8) | yLSB);
+  }
 
   byte zMSB = readRegister(L3G4200D_Address, 0x2D);
   byte zLSB = readRegister(L3G4200D_Address, 0x2C);
@@ -363,18 +353,24 @@ void print_debug(boolean debug, String str) {
   
 
   
-void calculate_acceleration(double vx, double vy, double vz)
+void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
 {
   
   time = micros();
   rotation_ax = 1000000 * (vx - old_rotation_vx)/(time - last_time);
-  rotation_ay = 1000000 * (vy - old_rotation_vy)/(time - last_time);
+  old_rotation_vx = vx;
+  
+  if (! exclude_y) {
+    rotation_ay = 1000000 * (vy - old_rotation_vy)/(time - last_time);
+    old_rotation_vy = vy;  
+  }
+  
   rotation_az = 1000000 * (vz - old_rotation_vz)/(time - last_time);
+  old_rotation_vz = vz;  
+  
+  
   last_time = time;
   
-  old_rotation_vx = vx;
-  old_rotation_vy = vy;  
-  old_rotation_vz = vz;  
   
 }
 
@@ -757,9 +753,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                 
                   // If there is data available...get it now...we have some spare time (until next pulse) to get it!
                   if (dataneedsprocessing) {
-                     get_latest_rotation_data2();
+                     get_latest_rotation_data2(true);
                   } else {
-                     get_latest_rotation_data1();
+                     get_latest_rotation_data1(true);
                   }
               }
           }              
@@ -809,9 +805,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
             
               // If there is data available...get it now...we have some spare time (until next pulse) to get it!
               if (dataneedsprocessing) {
-                 get_latest_rotation_data2();
+                 get_latest_rotation_data2(true);
               } else {
-                 get_latest_rotation_data1();
+                 get_latest_rotation_data1(true);
               }     
           }
       } 
@@ -989,7 +985,7 @@ void calibrate()
 {
   for(int i = 0; i < 4000; i++)
   {
-    getGyroValues();
+    getGyroValues(false);
 
     if(z > gyroHigh)
     {
@@ -1030,10 +1026,10 @@ void get_latest_rotation_data_all()
     */
     
     gotdata = false;
-    collect_gyro_data();
+    getGyroValues(false);
     
     // Calculate acceleration
-    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
+    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
     is_processing = false;
   }
 }  
@@ -1042,14 +1038,14 @@ void get_latest_rotation_data_all()
 
 
 // Get latest IMU data (if available)
-void get_latest_rotation_data1()
+void get_latest_rotation_data1(boolean exclude_y)
 {
   
   if (gotdata && ! is_processing) {
     is_processing = true;
     
     gotdata = false;
-    collect_gyro_data();
+    getGyroValues(exclude_y);
     
     is_processing = false;
   }
@@ -1058,7 +1054,7 @@ void get_latest_rotation_data1()
 
 
 // Get latest IMU data (if available)
-void get_latest_rotation_data2()
+void get_latest_rotation_data2(boolean exclude_y)
 {
   
   if (dataneedsprocessing && ! is_processing) {
@@ -1066,11 +1062,13 @@ void get_latest_rotation_data2()
     
     // Get rotation rates in radians per second
     rotation_vx = x * factor;
-    rotation_vy = y * factor;
+    if (! exclude_y) {
+      rotation_vy = y * factor;
+    }
     rotation_vz = z * factor;
     
     // Calculate acceleration
-    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz);
+    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, exclude_y);
     is_processing = false;
   }
 } 
