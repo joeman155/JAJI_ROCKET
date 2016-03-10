@@ -13,6 +13,25 @@
 
 
 #include <Wire.h>
+#include <SPI.h>
+#include "Adafruit_FRAM_SPI.h"
+
+// FRAM
+/* Example code for the Adafruit SPI FRAM breakout */
+uint8_t FRAM_CS = 10;
+
+//Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
+
+uint8_t FRAM_SCK= 13;
+uint8_t FRAM_MISO = 12;
+uint8_t FRAM_MOSI = 11;
+//Or use software SPI, any pins!
+Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_CS);
+
+uint16_t          addr = 0;
+int fram_size = 8192;
+
+
 
 
 // Gyroscope Variables
@@ -110,9 +129,24 @@ void setup() {
   
   Wire.begin();
   Serial.begin(115200);
+  
+  // Initialise FRAM
+ if (fram.begin()) {
+    Serial.println("Found SPI FRAM");
+  } else {
+    Serial.println("No SPI FRAM found ... check your connections\r\n");
+    while (1);
+  }
+  
+  // Quick method to dump rotational velocities - manually
+  // dumpFRAM();
+  
+  
+  // Initialise Pins
   pinMode(2, INPUT);
   pinMode(13, OUTPUT);
   
+  // Initialise Gryoscope
   Serial.println("starting up L3G4200D");
   setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
   delay(1500); //wait for the sensor to be ready
@@ -121,8 +155,6 @@ void setup() {
   Serial.println("Finished calibrating...");    
   delay(1000);
   
-
-  // initialize digital pin 13 as an output.
   
   
   // INITIALIZE STEPPER MOTOR CONTROL PINS
@@ -200,6 +232,9 @@ void setup() {
   Serial.println(" cycles");  
   
   
+  Serial.println("Clearing FRAM...");
+  clearfram();
+  Serial.println("FRAM cleared!");
 
   delay(5000);  
 
@@ -224,7 +259,7 @@ void loop() {
   // Simulate rotation
   // rotation_vz = rotation_vz + 1 * PI/180;
 
-  print_debug(debugging, "# Measurements: " + gyro_measurement_count);
+  print_debug(debugging, "# Measurements: " + String(gyro_measurement_count));
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
   print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
   
@@ -259,21 +294,87 @@ void gyro_data_available() {
 
 
 // GYROSCOPE RELATED ROUTINES
-void getGyroValues(boolean exclude_y){
+void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
 
   byte xMSB = readRegister(L3G4200D_Address, 0x29);
   byte xLSB = readRegister(L3G4200D_Address, 0x28);
   x = ((xMSB << 8) | xLSB);
 
+  byte yMSB = 0x0;
+  byte yLSB = 0x0;
   if (! exclude_y) {
     byte yMSB = readRegister(L3G4200D_Address, 0x2B);
     byte yLSB = readRegister(L3G4200D_Address, 0x2A);
     y = ((yMSB << 8) | yLSB);
-  }
+  }   
 
   byte zMSB = readRegister(L3G4200D_Address, 0x2D);
   byte zLSB = readRegister(L3G4200D_Address, 0x2C);
   z = ((zMSB << 8) | zLSB);
+  
+
+
+  
+  byte val[6];
+  val[0] = xMSB;
+  val[1] = xLSB;
+  val[2] = yMSB;
+  val[3] = yLSB;
+  val[4] = zMSB;
+  val[5] = zLSB;  
+  if (write_gyro_to_fram) {
+    
+    Serial.print(x);
+    Serial.print("  ");    
+    Serial.print(y);    
+    Serial.print("  ");    
+    Serial.print(z);    
+    Serial.print("  ");     
+    Serial.print(xMSB, HEX);
+    Serial.print("  ");
+    Serial.print(xLSB, HEX);
+    Serial.print("  ");
+    Serial.print(yMSB, HEX);
+    Serial.print("  ");
+    Serial.print(yLSB, HEX);
+    Serial.print("  ");
+    Serial.print(zMSB, HEX);
+    Serial.print("  ");
+    Serial.print(zLSB, HEX);
+    Serial.print("      At ADDR: ");
+    Serial.println(addr, HEX);
+  
+    // Serial.println("W");
+    // time = micros();
+    // Serial.println(time);
+  
+    fram.writeEnable(true); 
+    fram.write(addr, (uint8_t *) &val[0], 6);
+    fram.writeEnable(false);   
+    addr = addr + 6;
+    /*
+    fram.write8(addr, xMSB);
+    addr++;
+    fram.write8(addr, xLSB);
+    addr++;
+    
+    fram.write8(addr, yMSB);
+    addr++;
+    fram.write8(addr, yLSB);
+    addr++;
+
+    fram.write8(addr, zMSB);
+    addr++;
+    fram.write8(addr, zLSB);
+    addr++;    
+    */
+   
+    
+    
+    // time = micros();
+    // Serial.println(time);    
+  }
+
 }
 
 int setupL3G4200D(int scale){
@@ -1013,7 +1114,7 @@ void calibrate()
 {
   for(int i = 0; i < 4000; i++)
   {
-    getGyroValues(false);
+    getGyroValues(false, false);
 
     if(z > gyroHigh)
     {
@@ -1054,7 +1155,7 @@ void get_latest_rotation_data_all()
     */
     
     gotdata = false;
-    getGyroValues(false);
+    getGyroValues(false, true);
     
     // Calculate acceleration
     calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
@@ -1075,7 +1176,7 @@ void get_latest_rotation_data1(boolean exclude_y)
     is_processing = true;
     
     gotdata = false;
-    getGyroValues(exclude_y);
+    getGyroValues(exclude_y, false);
     
     is_processing = false;
   }
@@ -1104,3 +1205,46 @@ void get_latest_rotation_data2(boolean exclude_y)
     is_processing = false;
   }
 } 
+
+
+void clearfram()
+{
+  
+    for (uint16_t a = 0; a < 8192; a++) {
+    fram.writeEnable(true);
+    fram.write8(a, 0x00);
+    fram.writeEnable(false);
+  }
+}
+
+
+void dumpFRAM()
+{
+    byte xmsb, xlsb, ymsb, ylsb, zmsb, zlsb;
+    for (uint16_t a = 0; a < 1365; a=a+6) {
+      xmsb = fram.read8(a);
+      xlsb = fram.read8(a+1);
+    
+      ymsb = fram.read8(a+2);
+      ylsb = fram.read8(a+3);
+
+      zmsb = fram.read8(a+4);
+      zlsb = fram.read8(a+5);    
+    
+      x = ((xmsb << 8) | xlsb);
+      y = ((ymsb << 8) | ylsb);
+      z = ((zmsb << 8) | zlsb);
+      
+      rotation_vx = x * factor;
+      rotation_vy = y * factor;
+      rotation_vz = z * factor;
+      
+      print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+      
+    }
+    
+    delay(1000000);
+}
+
+
+  
