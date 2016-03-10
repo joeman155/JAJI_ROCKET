@@ -33,7 +33,8 @@ boolean dataneedsprocessing = false;  // Got some gyro data and now need to proc
 int gyroZero = 0;
 int gyroHigh = 0;
 int gyroLow = 0;
-double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec)
+double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec - got from datasheet)
+int gyro_measurement_count = 0;
 
 // Measurements from the Gyroscope
 double rotation_vx, rotation_vy, rotation_vz;
@@ -53,8 +54,6 @@ double rotation_ax, rotation_ay, rotation_az;
 
 double s1_angle = 0;
 double s2_angle = PI;
-int s1_step = 0;      // Correlates to s1_angle
-int s2_step = 100;    // Correlates to s2_angle
 
 
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
@@ -85,6 +84,8 @@ double upper_velocity_threshold;
 double lower_velocity_threshold;
 unsigned int smoother_step = 0;
 double corrective_angle = 0;
+double mid_point_angle = 0;
+double mid_point_distance = 0;
 double move_to_neutral_distance = 0;
 double s1_direction = 0, s2_direction = 0;
 double intermediate_move = 0;
@@ -102,8 +103,6 @@ boolean debugging = true;
 
 //variables to keep track of the timing of recent interrupts
 double vec3[] = {0, 0, 0};
-unsigned long button_time = 0;  
-unsigned long last_button_time = 0; 
 
 
 // the setup function runs once when you press reset or power the board
@@ -225,7 +224,7 @@ void loop() {
   // Simulate rotation
   // rotation_vz = rotation_vz + 1 * PI/180;
 
-
+  print_debug(debugging, "# Measurements: " + gyro_measurement_count);
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
   print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
   
@@ -428,8 +427,7 @@ void calculate_smoother_location(double vx, double vy, double vz)
 	// Figure out if    0 < angle 180  OR   180 < angle < 360
 	double zcross = x_vector[0] * corrective_cg_vector[2] - corrective_cg_vector[0] * x_vector[2];					
 								
-	// The smoothers are put 180 degrees out from the direction the CG vectors point in.
-	// corrective_angle = corrective_angle + Math.PI;
+	// Need to get corrective_angle beteween 0 and 2 x PI. We use cross product above to sort this out.
 	if (zcross > 0) {
 		corrective_angle = 2 * PI - corrective_angle;
 	}
@@ -466,20 +464,41 @@ void smoother_step_processing()
 
 void smoother_step_1() 
 {
- 	double mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));				
-	mid_point_angle = angle_reorg(mid_point_angle);
-		
+ 	mid_point_angle     = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); // Find angle between smoothers
+        mid_point_distance  = mid_point_angle / 2 + s1_angle;	                                   // Angular distance from s1 to mid-point
+        mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
+	mid_point_angle     = angle_reorg(mid_point_angle);                                        // Convert this distance to 0...2PI
+	intermediate_move = abs(corrective_angle - mid_point_distance);                            // Angular distance to get mid-point to corrective angle
+	if (intermediate_move >= PI) {                                                             // If Greater than Pi, then we are being in-efficient
+		intermediate_move = intermediate_move - PI;
+	} 
 
-	// We know that mid_point_angle MUST be less then 180 degrees BECAUSE this angle is got from dot-product				
-	if (mid_point_angle < PI) {
-		move_to_neutral_distance = (PI - mid_point_angle)/2;
+
+	// We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
+	if (abs(mid_point_angle) < PI) {
+		move_to_neutral_distance = (PI - abs(mid_point_angle))/2;
 	} else {
 		move_to_neutral_distance = 0;
 	}
 				
-	
-	smoother_step = 2;
-	
+
+      	smoother_step = 2;
+      
+      	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle) && mid_point_angle < PI ) {
+		s1_direction = 2; // CW
+		s2_direction = 1; // CCW
+      	} else if (angle_reorg(s2_angle) >= angle_reorg(s1_angle) && mid_point_angle > PI ) {
+		s1_direction = 1; // CCW
+		s2_direction = 2; // CW
+	} else if (angle_reorg(s2_angle) < angle_reorg(s1_angle)  && mid_point_angle < PI) {
+		s1_direction = 2; // CW
+		s2_direction = 1; // CCW
+	} else if (angle_reorg(s2_angle) < angle_reorg(s1_angle)  && mid_point_angle > PI) {
+		s1_direction = 1; // CCW
+		s2_direction = 2; // CW
+        } 
+        
+/*
 	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle)) {
 		s1_direction = 1; // CW
 		s2_direction = 2; // CCW
@@ -487,6 +506,7 @@ void smoother_step_1()
 		s1_direction = 2; // CW
 		s2_direction = 1; // CCW
 	}				
+*/
 	
 
 	Serial.println("NEUTRALMIDPOINT: " + String(mid_point_angle));
@@ -499,14 +519,21 @@ void smoother_step_1()
 }
 
 
-
+// Move smoothers so they are 180 degrees out of phase if deemed necessary
 void smoother_step_2() 
 {
 
 	if (move_to_neutral_distance <= 0) {
+                // Already 180 degrees out of phase, so no need to move
 		smoother_step = 3;
                 print_debug(debugging, "No need to move to neutral position, already in neutral position");
-	} else {
+	} else if (intermediate_move < PI/4) {
+                // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
+                // position outweighs the imbalances that might be caused.
+		smoother_step = 3;
+                print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
+        } else {
+                // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
                 print_debug(debugging, "Neutral Move.");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;			
@@ -518,14 +545,15 @@ void smoother_step_2()
 void smoother_step_3() 
 {
   
-	/// Find angle between the two smoothers...then halve...this is the mid-point
-	double mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
-	double mid_point_direction = mid_point_angle / 2 + s1_angle;
+	// Find angle between the two smoothers...then halve...this is the mid-point
+        // (We need to re-calculate because we may have moved in smoothers in previous step)
+	mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+	double mid_point_distance = mid_point_angle / 2 + s1_angle;
 				
 	// Deduce the distance we need 
-	intermediate_move = abs(corrective_angle - mid_point_direction);
+	intermediate_move = abs(corrective_angle - mid_point_distance);
 				
-	// If Greater than Pi, then we are being in-efficient
+	// If Greater than Pi, then we are being in-efficient...we need to move smoothers in other direction (which will be < Pi)
 	if (intermediate_move >= PI) {
 		intermediate_move = intermediate_move - PI;
 	} 
@@ -534,17 +562,17 @@ void smoother_step_3()
 	// s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
 	// s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
 				
-	if (intermediate_move <= PI/2 && corrective_angle <= mid_point_direction) {
+	if (intermediate_move <= PI/2 && corrective_angle <= mid_point_distance) {
 		s1_direction = 2;
 		s2_direction = 2;
-	} else if (intermediate_move > PI/2 && corrective_angle <= mid_point_direction) {
+	} else if (intermediate_move > PI/2 && corrective_angle <= mid_point_distance) {
 		s1_direction = 1;
 		s2_direction = 1;
 		intermediate_move = PI - intermediate_move;
-	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_direction) {
+	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_distance) {
 		s1_direction = 1;
 		s2_direction = 1;
-	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_direction) {
+	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_distance) {
 		s1_direction = 2;
 		s2_direction = 2;
 		intermediate_move = PI - intermediate_move;
@@ -1031,6 +1059,8 @@ void get_latest_rotation_data_all()
     // Calculate acceleration
     calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
     is_processing = false;
+    
+    gyro_measurement_count++;
   }
 }  
 
@@ -1059,6 +1089,8 @@ void get_latest_rotation_data2(boolean exclude_y)
   
   if (dataneedsprocessing && ! is_processing) {
     is_processing = true;
+    
+    gyro_measurement_count++;
     
     // Get rotation rates in radians per second
     rotation_vx = x * factor;
