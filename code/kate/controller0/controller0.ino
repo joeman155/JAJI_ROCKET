@@ -30,11 +30,13 @@ Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_
 
 uint16_t          addr = 0;
 int fram_size = 8192;
+boolean fram_installed = false;
 
 
 
 
 // Gyroscope Variables
+boolean gyroscope_installed = false;
 #define CTRL_REG1 0x20
 #define CTRL_REG2 0x21
 #define CTRL_REG3 0x22
@@ -133,9 +135,10 @@ void setup() {
   // Initialise FRAM
  if (fram.begin()) {
     Serial.println("Found SPI FRAM");
+    fram_installed = true;
   } else {
     Serial.println("No SPI FRAM found ... check your connections\r\n");
-    while (1);
+    fram_installed = false;
   }
   
   // Quick method to dump rotational velocities - manually
@@ -147,13 +150,15 @@ void setup() {
   pinMode(13, OUTPUT);
   
   // Initialise Gryoscope
-  Serial.println("starting up L3G4200D");
-  setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
-  delay(1500); //wait for the sensor to be ready
-  Serial.println("Start calibrating...");
-  calibrate();
-  Serial.println("Finished calibrating...");    
-  delay(1000);
+  if (gyroscope_installed) {
+    Serial.println("starting up L3G4200D");
+    setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
+    delay(1500); //wait for the sensor to be ready
+    Serial.println("Start calibrating...");
+    calibrate();
+    Serial.println("Finished calibrating...");    
+    delay(1000);
+  }
   
   
   
@@ -231,15 +236,17 @@ void setup() {
   Serial.print((double) c0);
   Serial.println(" cycles");  
   
-  
-  Serial.println("Clearing FRAM...");
-  clearfram();
-  Serial.println("FRAM cleared!");
+  if (fram_installed) {
+    Serial.println("Clearing FRAM...");
+    clearfram();
+    Serial.println("FRAM cleared!");
+  }
 
   delay(5000);  
 
-  
-  attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
+  if (gyroscope_installed) {
+    attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
+  }
   Serial.println("System Initialised!");  
 }
 
@@ -257,7 +264,7 @@ void loop() {
   print_time();
   
   // Simulate rotation
-  // rotation_vz = rotation_vz + 1 * PI/180;
+  rotation_vz = rotation_vz + 1 * PI/180;
 
   print_debug(debugging, "# Measurements: " + String(gyro_measurement_count));
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
@@ -322,7 +329,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
   val[3] = yLSB;
   val[4] = zMSB;
   val[5] = zLSB;  
-  if (write_gyro_to_fram) {
+  if (write_gyro_to_fram && fram_installed) {
     
     /*
     Serial.print(x);
@@ -844,12 +851,13 @@ void smoother_step_6()
 {
  
  	// First make sure that acceleration is in opposite direction of velocity (i.e. it is slowing down)
-	if ((sgn(rotation_ax) * sgn(rotation_vx) != -1 && abs(180 * rotation_vx/PI) > upper_velocity_threshold) 
+	if ((sgn(rotation_ax) * sgn(rotation_vx) != -1 && abs(rotation_vx) > upper_velocity_threshold) 
 		|| 
-	    (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(180 * rotation_vz/PI) > upper_velocity_threshold)) {
+	    (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(rotation_vz) > upper_velocity_threshold)) {
 		
 	    Serial.println("NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
-					
+			
+// COMMENT this code in this IF blovk FOR TESTING WHEN NOT NOT EXCEPTING ACTUAL CORRECTION OF SYSTEM (because we 'simulate' a movement
 	    // So. let's assume we are over-correcting
 	    smoother_step = 7;
 	    resting_angle_move = PI/2;
@@ -863,13 +871,12 @@ void smoother_step_6()
 	    } else if (s2_angle < s1_angle) {
 		s1_direction = 2; // CW
 		s2_direction = 1; // CCW
-	    }					
-	
+	    }		
+				
         }
 				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
-	if (abs(180 * rotation_vx/PI) <  lower_velocity_threshold &&
-			abs(180 * rotation_vz/PI) <  lower_velocity_threshold) {
+	if (abs(rotation_vx) <  lower_velocity_threshold && abs(rotation_vz) <  lower_velocity_threshold) {
 		Serial.println("SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
 	
 		smoother_step = 7;
@@ -893,7 +900,7 @@ void smoother_step_7()
 {
   print_debug(debugging, "Rest Move." + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
-  smoother_step = 0;
+  smoother_step = 10;
 
 }
 
@@ -967,13 +974,13 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     i++;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
-       if (abs(180 * rotation_ax/PI) < threshold && abs(180 * rotation_az/PI) < threshold) {
+       if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
           // And if threshold is met, we need to calculate angle moved
           
           //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
           //         360/200   (degrees per step) - 200 steps per revolution
           //         PI/180     Convert from degress to radians
-          angle_moved = 2 * i * (360 / 200) * (PI/180);
+          angle_moved = 2 * i * (360 / 200) * (PI/180);   // Total angle that is moved (speed up + slow down)
           break;
        }     
     }
