@@ -92,6 +92,7 @@ long cx;          // Current cx value
 long cx_last;     // Last cx value
 long last_time_fired;   // Last time a step was triggered
 long next_time_fired;   // The next time a step needs to be triggered
+unsigned long data_time;         // Time we receive interrrupt (Data is available)
 
 
 
@@ -142,7 +143,7 @@ void setup() {
   }
   
   // Quick method to dump rotational velocities - manually
-  // dumpFRAM();
+  dumpFRAM();
   
   
   // Initialise Pins
@@ -294,7 +295,8 @@ void loop() {
 
 void gyro_data_available() {
   gotdata = true;
-  digitalWrite(13, HIGH);
+  data_time = micros();
+  // digitalWrite(13, HIGH);
 }
 
 
@@ -319,25 +321,40 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
   byte zLSB = readRegister(L3G4200D_Address, 0x2C);
   z = ((zMSB << 8) | zLSB);
   
-
-
   
-  byte val[6];
-  val[0] = xMSB;
-  val[1] = xLSB;
-  val[2] = yMSB;
-  val[3] = yLSB;
-  val[4] = zMSB;
-  val[5] = zLSB;  
-  if (write_gyro_to_fram && fram_installed) {
-    
+  if (write_gyro_to_fram && fram_installed && addr < 8180) {
+    byte val[10];
+    val[0] = xMSB;
+    val[1] = xLSB;
+    val[2] = yMSB;
+    val[3] = yLSB;
+    val[4] = zMSB;
+    val[5] = zLSB;  
+    val[6] = data_time & 0xFF;
+    val[7] = (data_time >>8 ) & 0xFF;
+    val[8] = (data_time >>16) & 0xFF;
+    val[9] = (data_time >>24) & 0xFF;    
+    Serial.print(zMSB, HEX);
+    Serial.print("   ");    
+    Serial.print(zLSB, HEX);
+    Serial.print("   ");    
+    Serial.print(val[6], HEX);
+    Serial.print("   ");   
+    Serial.print(val[7], HEX);
+    Serial.print("   ");   
+    Serial.print(val[8], HEX);
+    Serial.print("   ");   
+    Serial.print(val[9], HEX);
+    Serial.print("   ");       
+    Serial.println(data_time, HEX);        
+  
     fram.writeEnable(true); 
-    fram.write(addr, (uint8_t *) &val[0], 6);
+    fram.write(addr, (uint8_t *) &val[0], 10);
     fram.writeEnable(false);   
-    addr = addr + 6;
+    addr = addr + 10;
   }
 
-}
+} // JOE
 
 int setupL3G4200D(int scale){
   //From  Jim Lindblom of Sparkfun's code
@@ -1198,7 +1215,11 @@ void clearfram()
 void dumpFRAM()
 {
     byte xmsb, xlsb, ymsb, ylsb, zmsb, zlsb;
-    for (uint16_t a = 0; a < 1365; a=a+6) {
+    byte d1, d2, d3, d4;
+    // unsigned long data_time;
+    for (uint16_t a = 0; a < 819; a=a+10) {
+      d1 = fram.read8(a);
+      Serial.println(d1, HEX);
       xmsb = fram.read8(a);
       xlsb = fram.read8(a+1);
     
@@ -1206,7 +1227,14 @@ void dumpFRAM()
       ylsb = fram.read8(a+3);
 
       zmsb = fram.read8(a+4);
-      zlsb = fram.read8(a+5);    
+      zlsb = fram.read8(a+5);  
+    
+      d1 = fram.read8(a+6);
+      d2 = fram.read8(a+7);
+      d3 = fram.read8(a+8);
+      d4 = fram.read8(a+9);      
+      
+      // data_time = (unsigned long) d1 | (unsigned long) (d2 << 8) | (unsigned long) (d3 << 16) | (unsigned long) (d4 << 24);
     
       x = ((xmsb << 8) | xlsb);
       y = ((ymsb << 8) | ylsb);
@@ -1217,6 +1245,11 @@ void dumpFRAM()
       rotation_vz = z * factor;
       
       print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+      // Serial.println(data_time, HEX);
+      Serial.print(d4, HEX);
+      Serial.print(d3, HEX);
+      Serial.print(d2, HEX);
+      Serial.println(d1, HEX);      
       
     }
     
