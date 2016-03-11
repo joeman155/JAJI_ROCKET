@@ -71,8 +71,8 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
-double s1_angle = 0;
-double s2_angle = PI;
+double s1_angle = PI/4;
+double s2_angle = 3 * PI/4;
 
 
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
@@ -324,6 +324,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
   val[5] = zLSB;  
   if (write_gyro_to_fram) {
     
+    /*
     Serial.print(x);
     Serial.print("  ");    
     Serial.print(y);    
@@ -343,7 +344,8 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
     Serial.print(zLSB, HEX);
     Serial.print("      At ADDR: ");
     Serial.println(addr, HEX);
-  
+    */
+    
     // Serial.println("W");
     // time = micros();
     // Serial.println(time);
@@ -565,26 +567,85 @@ void smoother_step_processing()
 
 void smoother_step_1() 
 {
- 	mid_point_angle     = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); // Find angle between smoothers
-        mid_point_distance  = mid_point_angle / 2 + s1_angle;	                                   // Angular distance from s1 to mid-point
-        mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
-	mid_point_angle     = angle_reorg(mid_point_angle);                                        // Convert this distance to 0...2PI
+  
+        //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
+ 	mid_point_angle     = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); // Find angle between smoothers... ALWAYS returns angle of 0..PI. This is
+                                                                                                   // used to determine how far we need to move the smoothers to be back in the
+                                                                                                   // neutral position.
+                                                                                                   
+	// We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
+	if (mid_point_angle < PI) {
+		move_to_neutral_distance = (PI - abs(mid_point_angle))/2;
+	} else {
+		move_to_neutral_distance = 0;
+	}                                                                                                   
+                                  
+                                                                                                  
+        
+
+        // DIRECTION TO GET SMOOTHERS TO NEUTRAL POSITION - in FASTEST POSSIBLE WAY!
+        // To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
+        // and see which direction this vector is pointing...up (+ve y) or down (-ve y)
+        // NOTE: The Smoothers ALWAYS move in opposite directions
+        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+        
+        // Vector pointing in direction of rocket motion (up)
+	double y_vector[] = {0, 1, 0};	
+    
+        // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
+        // Remember the smoothers lie in the X-Z plane
+        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+        double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
+
+        crossproduct(s1_vector, s2_vector);
+        
+        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+        
+        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+        if (zcross > 0) {
+          s1_direction = 1; // CCW
+	  s2_direction = 2; // CW
+        } else if (zcross < 0) {
+          s1_direction = 2; // CW
+	  s2_direction = 1; // CCW
+        }
+        
+        
+        
+        
+        				
+/*
 	intermediate_move = abs(corrective_angle - mid_point_distance);                            // Angular distance to get mid-point to corrective angle
 	if (intermediate_move >= PI) {                                                             // If Greater than Pi, then we are being in-efficient
 		intermediate_move = intermediate_move - PI;
 	} 
+*/
+
+        // **** CALCULATE WHERE MID POINT OF SMOOTHERS IS AND HOW FAR TO MOVE TO CORRECTIVE ANGLE ****
+        //      WE DO THIS BECAUSE IT MIGHT BE QUICKER TO DO THIS INSTEAD OF GOING TO NEUTRAL POSITION 
+        mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
+        
+        // We want the mid-point being the direction in which the acute angle (< 180) is directed
+        // This calculation works because s1_angle, s2_angle are ALWAYS between 0 and 2PI
+        if (abs(s2_angle - s1_angle) > PI) {
+          mid_point_distance = mid_point_distance + PI;
+        }
+        mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
+        
+
+        intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
+                mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
+                mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
+		intermediate_move = abs(corrective_angle - mid_point_distance);
+	} 
 
 
-	// We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
-	if (abs(mid_point_angle) < PI) {
-		move_to_neutral_distance = (PI - abs(mid_point_angle))/2;
-	} else {
-		move_to_neutral_distance = 0;
-	}
-				
 
       	smoother_step = 2;
       
+      
+      /*
       	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle) && mid_point_angle < PI ) {
 		s1_direction = 2; // CW
 		s2_direction = 1; // CCW
@@ -598,7 +659,7 @@ void smoother_step_1()
 		s1_direction = 1; // CCW
 		s2_direction = 2; // CW
         } 
-        
+    */
 /*
 	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle)) {
 		s1_direction = 1; // CW
@@ -610,8 +671,9 @@ void smoother_step_1()
 */
 	
 
-	Serial.println("NEUTRALMIDPOINT: " + String(mid_point_angle));
-	Serial.println("NEUTRAL: "         + String(move_to_neutral_distance));
+        Serial.println("INTERMEDIATE:    " + String(intermediate_move));
+	Serial.println("S1/S2 Angle:       " + String(mid_point_angle));
+	Serial.println("NEUTRAL MOV REQ'D: " + String(move_to_neutral_distance));
 	Serial.println("s1_direction: "    + String(s1_direction));
 	
 	s1_angle = angle_reorg(s1_angle);
@@ -628,7 +690,7 @@ void smoother_step_2()
                 // Already 180 degrees out of phase, so no need to move
 		smoother_step = 3;
                 print_debug(debugging, "No need to move to neutral position, already in neutral position");
-	} else if (intermediate_move < PI/4) {
+	} else if (intermediate_move < PI/4 && 1 == 2) {
                 // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
                 // position outweighs the imbalances that might be caused.
 		smoother_step = 3;
@@ -649,14 +711,22 @@ void smoother_step_3()
 	// Find angle between the two smoothers...then halve...this is the mid-point
         // (We need to re-calculate because we may have moved in smoothers in previous step)
 	mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
-	double mid_point_distance = mid_point_angle / 2 + s1_angle;
-				
-	// Deduce the distance we need 
-	intermediate_move = abs(corrective_angle - mid_point_distance);
-				
-	// If Greater than Pi, then we are being in-efficient...we need to move smoothers in other direction (which will be < Pi)
-	if (intermediate_move >= PI) {
-		intermediate_move = intermediate_move - PI;
+
+        mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
+        
+        // We want the mid-point being the direction in which the acute angle (< 180) is directed
+        // This calculation works because s1_angle, s2_angle are ALWAYS between 0 and 2PI
+        if (abs(s2_angle - s1_angle) > PI) {
+          mid_point_distance = mid_point_distance + PI;
+        }
+        mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
+        
+        // Deduce the distance we need to move
+        intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
+                mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
+                mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
+		intermediate_move = abs(corrective_angle - mid_point_distance);
 	} 
 				
 				
@@ -867,7 +937,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
+                  long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
           
@@ -876,7 +946,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                   next_time_fired = last_time_fired + next_step;
                   
                   //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
-                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
+                  Serial.println(actual_step, DEC);   // Comment out to speed up routine!
             
                   finished_pulse = true;
                 
@@ -919,7 +989,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
+              long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
                   
@@ -928,7 +998,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
+              Serial.println(actual_step, DEC);     // Comment out to speed up routine!
            
               finished_pulse = true;
             
