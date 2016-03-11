@@ -73,8 +73,8 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
-double s1_angle = PI/4;
-double s2_angle = 3 * PI/4;
+double s1_angle = PI/4;      // 0.1;
+double s2_angle = 3 * PI/4;  // 0.4;
 
 
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
@@ -331,57 +331,10 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
   val[5] = zLSB;  
   if (write_gyro_to_fram && fram_installed) {
     
-    /*
-    Serial.print(x);
-    Serial.print("  ");    
-    Serial.print(y);    
-    Serial.print("  ");    
-    Serial.print(z);    
-    Serial.print("  ");     
-    Serial.print(xMSB, HEX);
-    Serial.print("  ");
-    Serial.print(xLSB, HEX);
-    Serial.print("  ");
-    Serial.print(yMSB, HEX);
-    Serial.print("  ");
-    Serial.print(yLSB, HEX);
-    Serial.print("  ");
-    Serial.print(zMSB, HEX);
-    Serial.print("  ");
-    Serial.print(zLSB, HEX);
-    Serial.print("      At ADDR: ");
-    Serial.println(addr, HEX);
-    */
-    
-    // Serial.println("W");
-    // time = micros();
-    // Serial.println(time);
-  
     fram.writeEnable(true); 
     fram.write(addr, (uint8_t *) &val[0], 6);
     fram.writeEnable(false);   
     addr = addr + 6;
-    /*
-    fram.write8(addr, xMSB);
-    addr++;
-    fram.write8(addr, xLSB);
-    addr++;
-    
-    fram.write8(addr, yMSB);
-    addr++;
-    fram.write8(addr, yLSB);
-    addr++;
-
-    fram.write8(addr, zMSB);
-    addr++;
-    fram.write8(addr, zLSB);
-    addr++;    
-    */
-   
-    
-    
-    // time = micros();
-    // Serial.println(time);    
   }
 
 }
@@ -647,36 +600,7 @@ void smoother_step_1()
 		intermediate_move = abs(corrective_angle - mid_point_distance);
 	} 
 
-
-
-      	smoother_step = 2;
-      
-      
-      /*
-      	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle) && mid_point_angle < PI ) {
-		s1_direction = 2; // CW
-		s2_direction = 1; // CCW
-      	} else if (angle_reorg(s2_angle) >= angle_reorg(s1_angle) && mid_point_angle > PI ) {
-		s1_direction = 1; // CCW
-		s2_direction = 2; // CW
-	} else if (angle_reorg(s2_angle) < angle_reorg(s1_angle)  && mid_point_angle < PI) {
-		s1_direction = 2; // CW
-		s2_direction = 1; // CCW
-	} else if (angle_reorg(s2_angle) < angle_reorg(s1_angle)  && mid_point_angle > PI) {
-		s1_direction = 1; // CCW
-		s2_direction = 2; // CW
-        } 
-    */
-/*
-	if (angle_reorg(s2_angle) >= angle_reorg(s1_angle)) {
-		s1_direction = 1; // CW
-		s2_direction = 2; // CCW
-	} else if (angle_reorg(s2_angle) < angle_reorg(s1_angle)) {
-		s1_direction = 2; // CW
-		s2_direction = 1; // CCW
-	}				
-*/
-	
+      	smoother_step = 2;	
 
         Serial.println("INTERMEDIATE:    " + String(intermediate_move));
 	Serial.println("S1/S2 Angle:       " + String(mid_point_angle));
@@ -697,7 +621,7 @@ void smoother_step_2()
                 // Already 180 degrees out of phase, so no need to move
 		smoother_step = 3;
                 print_debug(debugging, "No need to move to neutral position, already in neutral position");
-	} else if (intermediate_move < PI/4 && 1 == 2) {
+	} else if (intermediate_move < PI/4) { 
                 // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
                 // position outweighs the imbalances that might be caused.
 		smoother_step = 3;
@@ -858,6 +782,7 @@ void smoother_step_6()
 	    Serial.println("NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
 			
 // COMMENT this code in this IF blovk FOR TESTING WHEN NOT NOT EXCEPTING ACTUAL CORRECTION OF SYSTEM (because we 'simulate' a movement
+
 	    // So. let's assume we are over-correcting
 	    smoother_step = 7;
 	    resting_angle_move = PI/2;
@@ -944,7 +869,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
+                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
           
@@ -953,7 +878,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                   next_time_fired = last_time_fired + next_step;
                   
                   //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
-                  Serial.println(actual_step, DEC);   // Comment out to speed up routine!
+                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
             
                   finished_pulse = true;
                 
@@ -996,7 +921,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
+              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
                   
@@ -1005,7 +930,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              Serial.println(actual_step, DEC);     // Comment out to speed up routine!
+              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
            
               finished_pulse = true;
             
@@ -1039,7 +964,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   double move_time = (end_time - start_time) / (double) 1000000;
   Serial.print("MOVE TIME: ");
   printDouble(move_time, 10000);
-  double move_speed = (double) 60 * move_time / (double) 90;
+  double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
   Serial.print("MOVE SPEED: ");
   printDouble(move_speed, 10000);  
   
@@ -1213,23 +1138,11 @@ void get_latest_rotation_data_all()
   
   if (gotdata && ! is_processing) {
     is_processing = true;
-    /*
-    Serial.print(x, DEC);
-    Serial.print("  ");
-    Serial.print(y, DEC);
-    Serial.print("  ");
-    Serial.print(z, DEC);
-    */
     
     // Get rotation rates in radians per second
     rotation_vx = x * factor;
     rotation_vy = y * factor;
     rotation_vz = z * factor;
-    
-    /*
-    Serial.print("  ");
-    Serial.println(currMicros);
-    */
     
     gotdata = false;
     getGyroValues(false, true);
