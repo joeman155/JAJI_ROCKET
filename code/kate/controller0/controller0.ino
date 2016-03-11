@@ -30,13 +30,13 @@ Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_
 
 uint16_t          addr = 0;
 int fram_size = 8192;
-boolean fram_installed = false;
+boolean fram_installed;
 
 
 
 
 // Gyroscope Variables
-boolean gyroscope_installed = false;
+boolean gyroscope_installed = true;
 #define CTRL_REG1 0x20
 #define CTRL_REG2 0x21
 #define CTRL_REG3 0x22
@@ -264,7 +264,7 @@ void loop() {
   print_time();
   
   // Simulate rotation
-  rotation_vz = rotation_vz + 1 * PI/180;
+  // rotation_vz = rotation_vz + 1 * PI/180;
 
   print_debug(debugging, "# Measurements: " + String(gyro_measurement_count));
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
@@ -432,7 +432,6 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
   
   
   last_time = time;
-  
   
 }
 
@@ -823,7 +822,7 @@ void smoother_step_6()
 
 void smoother_step_7() 
 {
-  print_debug(debugging, "Rest Move." + String(resting_angle_move));
+  print_debug(debugging, "Rest Move: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 10;
 
@@ -967,6 +966,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
   Serial.print("MOVE SPEED: ");
   printDouble(move_speed, 10000);  
+  Serial.print("Angle Moved: ");
+  Serial.println(String(angle_moved));
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
@@ -1033,13 +1034,13 @@ void stepper_motor_direction(int motor, int direction)
 
 void s1_stepper_motor_direction(int direction)
 {
-  Serial.println("MOTOR1: " + String(direction));
+  // Serial.println("MOTOR1: " + String(direction));
   stepper_motor_direction(MOTOR1_DIRECTION, direction);
 }
 
 void s2_stepper_motor_direction(int direction)
 {
-  Serial.println("MOTOR2: " + String(direction));
+  // Serial.println("MOTOR2: " + String(direction));
   stepper_motor_direction(MOTOR2_DIRECTION, direction);
 }
 
@@ -1095,21 +1096,6 @@ void printDouble( double val, unsigned int precision){
 
    Serial.println(frac,DEC) ;
 }
-
-
-
-void move_x(int x)
-{
-  int i = 0;
-  
-  while (i < x) {
-  pulse_motors();
-  delayMicroseconds(2000);
-  
-  i++;
-  }
-}
-
 
 
 void calibrate()
@@ -1169,6 +1155,7 @@ void get_latest_rotation_data1(boolean exclude_y)
     getGyroValues(exclude_y, false);
     
     is_processing = false;
+    dataneedsprocessing = true;
   }
 } 
 
