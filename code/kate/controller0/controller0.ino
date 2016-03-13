@@ -73,8 +73,8 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
-double s1_angle = PI/4;      // 0.1;
-double s2_angle = 3 * PI/4;  // 0.4;
+double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
+double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
 
 
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
@@ -143,12 +143,13 @@ void setup() {
   }
   
   // Quick method to dump rotational velocities - manually
-  dumpFRAM();
+  // dumpFRAM();
   
   
   // Initialise Pins
   pinMode(2, INPUT);
   pinMode(13, OUTPUT);
+  pinMode(5, OUTPUT);
   
   // Initialise Gryoscope
   if (gyroscope_installed) {
@@ -237,18 +238,23 @@ void setup() {
   Serial.print((double) c0);
   Serial.println(" cycles");  
   
+  
+  /*
+  // Speed up process  // JOE
   if (fram_installed) {
     Serial.println("Clearing FRAM...");
     clearfram();
     Serial.println("FRAM cleared!");
   }
+  */
 
-  delay(5000);  
+  // delay(5000);  
 
   if (gyroscope_installed) {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
   }
   Serial.println("System Initialised!");  
+  digitalWrite(5, HIGH);
 }
 
 
@@ -262,17 +268,22 @@ void loop() {
   get_latest_rotation_data_all();  
 
   
-  print_time();
+  
   
   // Simulate rotation
   // rotation_vz = rotation_vz + 1 * PI/180;
 
+/* 
+// Do not need all this debugging 
   print_debug(debugging, "# Measurements: " + String(gyro_measurement_count));
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
   print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
-  
+*/  
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
+    print_time();
+    print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+    print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
     print_debug(debugging, "System needs stabilising");
   
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
@@ -284,9 +295,11 @@ void loop() {
     smoother_step_processing();
   }
   
+  /*
+  // DO NOT NEED ALL THIS DEBUGGING
   print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
   print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-
+*/
   
 }
 
@@ -333,20 +346,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
     val[6] = data_time & 0xFF;
     val[7] = (data_time >>8 ) & 0xFF;
     val[8] = (data_time >>16) & 0xFF;
-    val[9] = (data_time >>24) & 0xFF;    
-    Serial.print(zMSB, HEX);
-    Serial.print("   ");    
-    Serial.print(zLSB, HEX);
-    Serial.print("   ");    
-    Serial.print(val[6], HEX);
-    Serial.print("   ");   
-    Serial.print(val[7], HEX);
-    Serial.print("   ");   
-    Serial.print(val[8], HEX);
-    Serial.print("   ");   
-    Serial.print(val[9], HEX);
-    Serial.print("   ");       
-    Serial.println(data_time, HEX);        
+    val[9] = (data_time >>24) & 0xFF;     
   
     fram.writeEnable(true); 
     fram.write(addr, (uint8_t *) &val[0], 10);
@@ -723,14 +723,30 @@ void smoother_step_4()
 	  smoother_step = 5;
         }
 
+
+        // CALCULATE THE FINAL MOVE
 	s1_diff = s1_angle - corrective_angle;
 	s2_diff = s2_angle - corrective_angle;
-					
+	
+
+	mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+        mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
+
+        final_angle_move = abs(corrective_angle - mid_point_distance) - mid_point_angle/2;
+        
+        
+   
+        
+        
+
+/*				
 	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); 
         print_debug(debugging, "debug Final Move: " + String(final_angle_move));
         print_debug(debugging, "s1_angle: " + String(s1_angle));
         print_debug(debugging, "s2_angle: " + String(s2_angle));        
 	final_angle_move = final_angle_move / 2 - offset;
+*/
+        
 
 }
 
@@ -743,6 +759,7 @@ void smoother_step_5()
 		smoother_step = 6;
 		
 	} else {
+  /*
           // Move S1 around
 	  if (s1_diff > PI) {
                 // Move Smoother1 CCW
@@ -759,6 +776,7 @@ void smoother_step_5()
 	  } else { 
                 s1_direction = 0;
 	  }
+
 
 				
 				
@@ -779,7 +797,45 @@ void smoother_step_5()
 		// System.out.println("No Movement required - s2");
                 s2_direction = 0;
 	  }
+*/
+        // DIRECTION TO GET SMOOTHERS TO FINAL POSITION - in FASTEST POSSIBLE WAY!
+        // To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
+        // and see which direction this vector is pointing...up (+ve y) or down (-ve y)
+        // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
+        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+        
+        // Vector pointing in direction of rocket motion (up)
+	double y_vector[] = {0, 1, 0};	
+    
+        // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
+        // Remember the smoothers lie in the X-Z plane
+        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+        double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
 
+        crossproduct(s1_vector, s2_vector);
+        
+        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+        
+        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+        if (zcross > 0 && final_angle_move > PI/2) {
+          s1_direction = 1; // CCW
+	  s2_direction = 2; // CW
+        } else if (zcross > 0 && final_angle_move <= PI/2) {
+          s1_direction = 2; // CW
+	  s2_direction = 1; // CCW
+        } else if (zcross < 0 && final_angle_move > PI/2) {
+          s1_direction = 2; // CW
+	  s2_direction = 1; // CCW
+        } else if (zcross < 0 && final_angle_move <= PI/2) {
+          s1_direction = 1; // CCW
+	  s2_direction = 2; // CW
+        } else  {
+          s1_direction = 0;
+          s2_direction = 0;
+        }
+
+          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
+          print_debug(debugging, "S2 DIR:     " + String(s2_direction));          
           print_debug(debugging, "Final Move: " + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
@@ -841,7 +897,10 @@ void smoother_step_7()
 {
   print_debug(debugging, "Rest Move: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
-  smoother_step = 10;
+  // digitalWrite(5, LOW);
+  // delay(100);
+  // digitalWrite(5, HIGH);
+  smoother_step = 0;   /// JOE
 
 }
 
@@ -1004,6 +1063,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
      s2_angle = angle_reorg(s2_angle);     
    }   
    
+  print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
+  print_debug(debugging, "S2 ANGLE: " + String(s2_angle));   
 }
 
 
