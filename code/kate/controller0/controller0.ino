@@ -281,10 +281,10 @@ void loop() {
 */  
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
+    print_debug(debugging, "------------------------------ System needs stabilising ------------------------------");    
     print_time();
     print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
     print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-    print_debug(debugging, "System needs stabilising");
   
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
@@ -729,12 +729,23 @@ void smoother_step_4()
 	s2_diff = s2_angle - corrective_angle;
 	
 
-	mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+        double val = cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle);
+        if (abs(val) > 1) {
+          Serial.println("FOUND NAN ERRORR!!!!!!!!!!!!!!!!!!!!!!!!!! " + String(val));
+          if (val > 1) { 
+             val = 1;
+          }
+          if (val < -1) {
+             val = -1;
+          }
+        }
+        
+	mid_point_angle = acos(val);  
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
 
-        final_angle_move = abs(corrective_angle - mid_point_distance) - mid_point_angle/2;
+        final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
         
-        
+        print_debug(debugging, "Final Move: " + String(final_angle_move));
    
         
         
@@ -759,45 +770,7 @@ void smoother_step_5()
 		smoother_step = 6;
 		
 	} else {
-  /*
-          // Move S1 around
-	  if (s1_diff > PI) {
-                // Move Smoother1 CCW
-                s1_direction = 1;
-	  } else if (s1_diff <= PI && s1_diff > 0) {
-                // Move Smoother1  CW
-                s1_direction = 2;
-	  } else if (s1_diff < 0 && s1_diff > - PI){
-                // Move Smoother1 CCW
-                s1_direction = 1;
-	  } else if (s1_diff <= -PI) {
-                // Move Smoother1  CW
-                s1_direction = 2;
-	  } else { 
-                s1_direction = 0;
-	  }
-
-
-				
-				
-	  // Move S2 around
-	  if (s2_diff > PI) {
-                // Move Smoother2 CCW
-                s2_direction = 1;
-	  } else if (s2_diff > 0 && s2_diff <= PI) {
-		// Move Smoother2  CW
-                s2_direction = 2;
-	  } else if (s2_diff < 0 && s2_diff > - PI){
-                // Move Smoother2 CCW
-                s2_direction = 1;
-	  } else if (s2_diff <= -PI) {
-                // Move Smoother2 CW
-                s2_direction = 2;
-	  } else { 
-		// System.out.println("No Movement required - s2");
-                s2_direction = 0;
-	  }
-*/
+  
         // DIRECTION TO GET SMOOTHERS TO FINAL POSITION - in FASTEST POSSIBLE WAY!
         // To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
         // and see which direction this vector is pointing...up (+ve y) or down (-ve y)
@@ -818,22 +791,23 @@ void smoother_step_5()
         
         // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
         if (zcross > 0 && final_angle_move > PI/2) {
-          s1_direction = 1; // CCW
-	  s2_direction = 2; // CW
+          s1_direction = 2; // CW
+	  s2_direction = 1; // CCW
         } else if (zcross > 0 && final_angle_move <= PI/2) {
-          s1_direction = 2; // CW
-	  s2_direction = 1; // CCW
-        } else if (zcross < 0 && final_angle_move > PI/2) {
-          s1_direction = 2; // CW
-	  s2_direction = 1; // CCW
-        } else if (zcross < 0 && final_angle_move <= PI/2) {
           s1_direction = 1; // CCW
 	  s2_direction = 2; // CW
+        } else if (zcross < 0 && final_angle_move > PI/2) {
+          s1_direction = 1; // CCW
+	  s2_direction = 2; // CW
+        } else if (zcross < 0 && final_angle_move <= PI/2) {
+          s1_direction = 2; // CW
+	  s2_direction = 1; // C  CW
         } else  {
           s1_direction = 0;
           s2_direction = 0;
         }
 
+          print_debug(debugging, "zcross:     " + String(zcross));
           print_debug(debugging, "S1 DIR:     " + String(s1_direction));
           print_debug(debugging, "S2 DIR:     " + String(s2_direction));          
           print_debug(debugging, "Final Move: " + String(final_angle_move));
