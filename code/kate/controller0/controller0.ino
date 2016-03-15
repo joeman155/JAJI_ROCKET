@@ -574,17 +574,13 @@ void smoother_step_1()
 
       	smoother_step = 2;	
 
-
+/*
         Serial.println("INTERMEDIATE:    " + String(intermediate_move));
 	Serial.println("S1/S2 Angle:       " + String(mid_point_angle));
 	Serial.println("NEUTRAL MOV REQ'D: " + String(move_to_neutral_distance));
 	Serial.println("s1_direction: "    + String(s1_direction));
-
+*/
 	
-/*
-	s1_angle = angle_reorg(s1_angle);
-	s2_angle = angle_reorg(s2_angle);
-*/  
 }
 
 
@@ -603,6 +599,7 @@ void smoother_step_2()
                 print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
         } else {
                 // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
+                print_time();
                 print_debug(debugging, "Neutral Move");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;			
@@ -672,12 +669,12 @@ void smoother_step_3()
           s2_direction = 0;
         }		
 				
-	Serial.println("step3: S1/S2 Angle:                  " + String(mid_point_angle));  
-        Serial.println("step3: mid_point_distance Angle:     " + String(mid_point_distance)); 
+	// Serial.println("step3: S1/S2 Angle:                  " + String(mid_point_angle));  
+        // Serial.println("step3: mid_point_distance Angle:     " + String(mid_point_distance)); 
         // print_debug(debugging, "zcross:     " + String(zcross));
         // print_debug(debugging, "S1 DIR:     " + String(s1_direction));
         // print_debug(debugging, "S2 DIR:     " + String(s2_direction));   
-        Serial.println("step3:  IM: " + String(intermediate_move));
+        // Serial.println("step3:  IM: " + String(intermediate_move));
 	
 	// Signal to code to go on to 'Intermediate' move
 	smoother_step = 4;  
@@ -694,43 +691,19 @@ void smoother_step_4()
 	if (intermediate_move < 0) {				
 		smoother_step = 5;
 	} else {
-          // print_debug(debugging, "Intermediate Move: " + String(intermediate_move));
+          print_time();
+          print_debug(debugging, "IM: " + String(intermediate_move));
 	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
 	  smoother_step = 5;
         }
 
 
         // CALCULATE THE FINAL MOVE
-//	s1_diff = s1_angle - corrective_angle;
-//	s2_diff = s2_angle - corrective_angle;
-	
-
-/*
-        double val = cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle);
-        if (abs(val) > 1) {
-          // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
-          if (val > 1) { 
-             val = 1;
-          }
-          if (val < -1) {
-             val = -1;
-          }
-        }
-        
-	mid_point_angle = acos(val);  
-*/
         mid_point_angle =  angle_between(s1_angle, s2_angle);
         
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
 
-        // final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
-        // final_angle_move = angle_between(corrective_angle, mid_point_distance);
         final_angle_move = angle_between(corrective_angle, s1_angle);
-        
-        // final_angle_move = abs(final_angle_move - mid_point_angle/2);   
-//JOE NEED TO FIX THE LINE IMMEDIATELY ABOVE        
-// SOMETIMES WE NEED TO ADD mid_point_angle/2
-        
 
 }
 
@@ -774,7 +747,8 @@ void smoother_step_5()
 
 //          print_debug(debugging, "zcross:     " + String(zcross));
 //          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
-//          print_debug(debugging, "S2 DIR:     " + String(s2_direction));          
+//          print_debug(debugging, "S2 DIR:     " + String(s2_direction));  
+          print_time();
           print_debug(debugging, "FM: " + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
@@ -816,7 +790,8 @@ void smoother_step_6()
 
 void smoother_step_7() 
 {
-  print_debug(debugging, "Rest Move: " + String(resting_angle_move));
+  print_time();
+  print_debug(debugging, "RM: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
 }
@@ -1314,15 +1289,13 @@ double angle_between(double angle1, double angle2)
   
   val = cos(angle1) * cos(angle2) + sin(angle1) * sin(angle2);
   
-  if (abs(val) > 1) {
     // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
     if (val > 1) { 
        val = 1;
-    }
-    if (val < -1) {
+    } else if (val < -1) {
        val = -1;
     }  
-  }
+
   
   angle = acos(val); 
   
