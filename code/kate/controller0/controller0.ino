@@ -193,7 +193,7 @@ void setup() {
   lower_velocity_threshold = 2 * PI/180;
   
   // KATE System set-up  - TESTING
-  torque_percent = 50;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 75;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
@@ -284,10 +284,11 @@ void loop() {
   
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
+    print_debug(debugging, "Correction Angle: " + String(corrective_angle));    
   }
   
   if (smoother_step > 0) {
-    print_debug(debugging, "Correction Angle: " + String(corrective_angle));
+    
     smoother_step_processing();
   }
   
@@ -723,8 +724,10 @@ void smoother_step_4()
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
 
         // final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
-        final_angle_move = angle_between(corrective_angle, mid_point_distance);
-        final_angle_move = abs(final_angle_move - mid_point_angle/2);   
+        // final_angle_move = angle_between(corrective_angle, mid_point_distance);
+        final_angle_move = angle_between(corrective_angle, s1_angle);
+        
+        // final_angle_move = abs(final_angle_move - mid_point_angle/2);   
 //JOE NEED TO FIX THE LINE IMMEDIATELY ABOVE        
 // SOMETIMES WE NEED TO ADD mid_point_angle/2
         
