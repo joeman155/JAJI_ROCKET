@@ -114,17 +114,17 @@ double intermediate_move = 0;
 double s1_diff = 0, s2_diff = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
-double offset = 0.000; // 1/2 angle between final resting place of smoothers
-
+int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
 
 
 // DEBUGGING
 boolean debugging = true;
 
 
+// Vectors
+double y_vector[] = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
+double vec3[] = {0, 0, 0};         // Result of cross product
 
-//variables to keep track of the timing of recent interrupts
-double vec3[] = {0, 0, 0};
 
 
 // the setup function runs once when you press reset or power the board
@@ -143,7 +143,7 @@ void setup() {
   }
   
   // Quick method to dump rotational velocities - manually
-  // dumpFRAM();
+  // dumpFRAM(); 
   
   
   // Initialise Pins
@@ -239,14 +239,13 @@ void setup() {
   Serial.println(" cycles");  
   
   
-  /*
-  // Speed up process  // JOE
+  // Speed up process  
   if (fram_installed) {
     Serial.println("Clearing FRAM...");
     clearfram();
     Serial.println("FRAM cleared!");
   }
-  */
+
 
   // delay(5000);  
 
@@ -354,7 +353,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
     addr = addr + 10;
   }
 
-} // JOE
+}
 
 int setupL3G4200D(int scale){
   //From  Jim Lindblom of Sparkfun's code
@@ -558,44 +557,9 @@ void smoother_step_1()
                                   
                                                                                                   
         
-
-        // DIRECTION TO GET SMOOTHERS TO NEUTRAL POSITION - in FASTEST POSSIBLE WAY!
-        // To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
-        // and see which direction this vector is pointing...up (+ve y) or down (-ve y)
-        // NOTE: The Smoothers ALWAYS move in opposite directions
-        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
-        
-        // Vector pointing in direction of rocket motion (up)
-	double y_vector[] = {0, 1, 0};	
-    
-        // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
-        // Remember the smoothers lie in the X-Z plane
-        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
-        double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
-
-        crossproduct(s1_vector, s2_vector);
-        
-        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
-        
-        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
-        if (zcross > 0) {
-          s1_direction = 1; // CCW
-	  s2_direction = 2; // CW
-        } else if (zcross < 0) {
-          s1_direction = 2; // CW
-	  s2_direction = 1; // CCW
-        }
+        derive_direction();
         
         
-        
-        
-        				
-/*
-	intermediate_move = abs(corrective_angle - mid_point_distance);                            // Angular distance to get mid-point to corrective angle
-	if (intermediate_move >= PI) {                                                             // If Greater than Pi, then we are being in-efficient
-		intermediate_move = intermediate_move - PI;
-	} 
-*/
 
         // **** CALCULATE WHERE MID POINT OF SMOOTHERS IS AND HOW FAR TO MOVE TO CORRECTIVE ANGLE ****
         //      WE DO THIS BECAUSE IT MIGHT BE QUICKER TO DO THIS INSTEAD OF GOING TO NEUTRAL POSITION 
@@ -731,7 +695,7 @@ void smoother_step_4()
 
         double val = cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle);
         if (abs(val) > 1) {
-          Serial.println("FOUND NAN ERRORR!!!!!!!!!!!!!!!!!!!!!!!!!! " + String(val));
+          // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
           if (val > 1) { 
              val = 1;
           }
@@ -746,18 +710,6 @@ void smoother_step_4()
         final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
         
         print_debug(debugging, "Final Move: " + String(final_angle_move));
-   
-        
-        
-
-/*				
-	final_angle_move = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); 
-        print_debug(debugging, "debug Final Move: " + String(final_angle_move));
-        print_debug(debugging, "s1_angle: " + String(s1_angle));
-        print_debug(debugging, "s2_angle: " + String(s2_angle));        
-	final_angle_move = final_angle_move / 2 - offset;
-*/
-        
 
 }
 
@@ -772,40 +724,32 @@ void smoother_step_5()
 	} else {
   
         // DIRECTION TO GET SMOOTHERS TO FINAL POSITION - in FASTEST POSSIBLE WAY!
-        // To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
-        // and see which direction this vector is pointing...up (+ve y) or down (-ve y)
+        // To assist us in finding directions to move the smoothers we need to get Cross product of the s1 smoother vector and the
+        // Corrective direction vectore.
+        // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
         // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
         // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
         
-        // Vector pointing in direction of rocket motion (up)
-	double y_vector[] = {0, 1, 0};	
-    
-        // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
-        // Remember the smoothers lie in the X-Z plane
-        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
-        double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
 
-        crossproduct(s1_vector, s2_vector);
+        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+        double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
+        
+        crossproduct(s1_vector, c_vector);
         
         double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
         
         // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
-        if (zcross > 0 && final_angle_move > PI/2) {
+        if (zcross > 0 ) {
           s1_direction = 2; // CW
 	  s2_direction = 1; // CCW
-        } else if (zcross > 0 && final_angle_move <= PI/2) {
+        } else if (zcross < 0 ) {
           s1_direction = 1; // CCW
 	  s2_direction = 2; // CW
-        } else if (zcross < 0 && final_angle_move > PI/2) {
-          s1_direction = 1; // CCW
-	  s2_direction = 2; // CW
-        } else if (zcross < 0 && final_angle_move <= PI/2) {
-          s1_direction = 2; // CW
-	  s2_direction = 1; // C  CW
         } else  {
           s1_direction = 0;
           s2_direction = 0;
         }
+
 
           print_debug(debugging, "zcross:     " + String(zcross));
           print_debug(debugging, "S1 DIR:     " + String(s1_direction));
@@ -833,8 +777,10 @@ void smoother_step_6()
 	    smoother_step = 7;
 	    resting_angle_move = PI/2;
 			
-	    s1_angle = angle_reorg(s1_angle);
-	    s2_angle = angle_reorg(s2_angle);
+	    derive_direction();
+                
+        
+/*
 		
 	    if (s2_angle >= s1_angle) {
 		s1_direction = 1; // CW
@@ -843,19 +789,20 @@ void smoother_step_6()
 		s1_direction = 2; // CW
 		s2_direction = 1; // CCW
 	    }		
-				
+*/				
         }
 				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
 	if (abs(rotation_vx) <  lower_velocity_threshold && abs(rotation_vz) <  lower_velocity_threshold) {
 		Serial.println("SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
 	
-		smoother_step = 7;
-		resting_angle_move = PI/2;
-			
-	        s1_angle = angle_reorg(s1_angle);
-	        s2_angle = angle_reorg(s2_angle);
+	     smoother_step = 7;
+             resting_angle_move = PI/2;
 		
+             derive_direction();
+
+            
+/*            
 		if (s2_angle >= s1_angle) {
 			s1_direction = 1; // CW
 			s2_direction = 2; // CCW
@@ -863,6 +810,8 @@ void smoother_step_6()
 			s1_direction = 2; // CW
 			s2_direction = 1; // CCW
 		}
+*/
+
 	}				
 				
 }
@@ -871,10 +820,7 @@ void smoother_step_7()
 {
   print_debug(debugging, "Rest Move: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
-  // digitalWrite(5, LOW);
-  // delay(100);
-  // digitalWrite(5, HIGH);
-  smoother_step = 0;   /// JOE
+  smoother_step = 0;
 
 }
 
@@ -897,13 +843,21 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   s1_stepper_motor_direction(s1_direction);
   s2_stepper_motor_direction(s2_direction);
   
-  
+
   // DO THE MOVE COMMANDS HERE - SPEED UP
-  while (i <= steps/2) { // && notfinished) {
-      
+  while (i < steps/2) { // && notfinished) {
+
+
       // Do first pulse ASAP...no waiting
       if (first_triggered == true) {
           pulse_motors();
+          
+      if (s1_direction == 2) {
+    step_count++;} 
+else {
+step_count--;
+}
+
           last_time_fired = micros();
           first_triggered = false;
           
@@ -912,22 +866,27 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           cx_last = c0;
           
           //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-          Serial.println(String(0));
       } else {
           finished_pulse = false;
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
+                  long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
+                  
+      if (s1_direction == 2) {
+    step_count++;} 
+else {
+step_count--;
+}                  
           
                   // CODE HERE TO DO THE STEP at JUST the right time
                   long next_step = calculate_stepper_interval(0, i);   
                   next_time_fired = last_time_fired + next_step;
                   
                   //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
-                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
+                  Serial.println(actual_step, DEC);   // Comment out to speed up routine!
             
                   finished_pulse = true;
                 
@@ -960,7 +919,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     }
   }
   
-  int steps_remaining = i;
+  int steps_remaining = i+1;
   first_triggered = true;
   i = 0;
   // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
@@ -970,16 +929,22 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
+              long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
+              
+      if (s1_direction == 2) {
+    step_count++;} 
+else {
+step_count--;
+}              
                   
               // CODE HERE TO DO THE STEP at JUST the right time
               long next_step = calculate_stepper_interval(steps_remaining, i);   
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
+              Serial.println(actual_step, DEC);     // Comment out to speed up routine!
            
               finished_pulse = true;
             
@@ -1039,6 +1004,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
    
   print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
   print_debug(debugging, "S2 ANGLE: " + String(s2_angle));   
+  print_debug(debugging, "step_count: " + String(step_count));
 }
 
 
@@ -1292,4 +1258,35 @@ void dumpFRAM()
 }
 
 
-  
+
+// DIRECTION TO GET SMOOTHERS TO REST/NEUTRAL POSITION - in FASTEST POSSIBLE WAY!
+// To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
+// and see which direction this vector is pointing...up (+ve y) or down (-ve y)
+// NOTE: The Smoothers ALWAYS move in opposite directions
+// If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+void derive_direction()
+{      
+            s1_angle = angle_reorg(s1_angle);
+            s2_angle = angle_reorg(s2_angle);
+
+    
+            // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
+            // Remember the smoothers lie in the X-Z plane
+            double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+            double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
+
+            crossproduct(s1_vector, s2_vector);
+        
+            double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+        
+            // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+            if (zcross > 0) {
+              s1_direction = 1; // CCW
+	      s2_direction = 2; // CW
+            } else if (zcross < 0) {
+              s1_direction = 2; // CW
+	      s2_direction = 1; // CCW
+            }
+}  
+
+
