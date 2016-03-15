@@ -192,11 +192,11 @@ void setup() {
   lower_velocity_threshold = 2 * PI/180;
   
   // KATE System set-up  - TESTING
-  torque_percent = 75;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 50;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
-  mass_of_smoother = 0.025;      // Each smoother in kg
+  mass_of_smoother = 0.023;      // Each smoother in kg
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
   distance_to_smoother = 0.015;   // How far from stepper motor axis to the smoother
@@ -272,12 +272,6 @@ void loop() {
   // Simulate rotation
   // rotation_vz = rotation_vz + 1 * PI/180;
 
-/* 
-// Do not need all this debugging 
-  print_debug(debugging, "# Measurements: " + String(gyro_measurement_count));
-  print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
-  print_debug(debugging, "S2 ANGLE: " + String(s2_angle));
-*/  
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     print_debug(debugging, "------------------------------ System needs stabilising ------------------------------");    
@@ -294,11 +288,6 @@ void loop() {
     smoother_step_processing();
   }
   
-  /*
-  // DO NOT NEED ALL THIS DEBUGGING
-  print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-  print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-*/
   
 }
 
@@ -308,7 +297,6 @@ void loop() {
 void gyro_data_available() {
   gotdata = true;
   data_time = micros();
-  // digitalWrite(13, HIGH);
 }
 
 
@@ -608,7 +596,7 @@ void smoother_step_2()
                 print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
         } else {
                 // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
-                print_debug(debugging, "Neutral Move.");
+                print_debug(debugging, "Neutral Move");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;			
 	}
@@ -643,29 +631,41 @@ void smoother_step_3()
 				
 	// s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
 	// s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
-				
-	if (intermediate_move <= PI/2 && corrective_angle <= mid_point_distance) {
-		s1_direction = 2;
-		s2_direction = 2;
-	} else if (intermediate_move > PI/2 && corrective_angle <= mid_point_distance) {
-		s1_direction = 1;
-		s2_direction = 1;
-		intermediate_move = PI - intermediate_move;
-	} else if (intermediate_move <= PI/2 && corrective_angle > mid_point_distance) {
-		s1_direction = 1;
-		s2_direction = 1;
-	} else if (intermediate_move > PI/2 && corrective_angle > mid_point_distance) {
-		s1_direction = 2;
-		s2_direction = 2;
-		intermediate_move = PI - intermediate_move;
-	}
-				
-				
-//	Serial.println("Midpoint Angle: " + mid_point_angle);
-//	Serial.out.println("Intermediate move (distance): " + intermediate_move);
-//	Serial.out.println("S1 Direction: " + s1_direction);
-//	Serial.out.println("S2 Direction: " + s2_direction);
+		
 
+        // DIRECTION TO GET SMOOTHERS TO INTERMEDIATE POSITION - in FASTEST POSSIBLE WAY!
+        // To assist us in finding directions to move the smoothers we need to get Cross product of the midpoint vector and the
+        // Corrective direction vectore.
+        // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
+        // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
+        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+        
+
+        double i_vector[] = {cos(mid_point_distance), 0, -sin(mid_point_distance)};
+        double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
+        
+        crossproduct(i_vector, c_vector);
+        
+        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+        
+        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+        if (zcross > 0 ) {
+          s1_direction = 2; // CW
+	  s2_direction = 2; // CCW
+        } else if (zcross < 0 ) {
+          s1_direction = 1; // CCW
+	  s2_direction = 1; // CW
+        } else  {
+          s1_direction = 0;
+          s2_direction = 0;
+        }		
+				
+	//Serial.println("S1/S2 Angle:                  " + String(mid_point_angle));  
+        //Serial.println("mid_point_distance Angle:     " + String(mid_point_distance)); 
+        // print_debug(debugging, "zcross:     " + String(zcross));
+        // print_debug(debugging, "S1 DIR:     " + String(s1_direction));
+        // print_debug(debugging, "S2 DIR:     " + String(s2_direction));   
+        Serial.println("IM: " + String(intermediate_move));
 	
 	// Signal to code to go on to 'Intermediate' move
 	smoother_step = 4;  
@@ -682,7 +682,7 @@ void smoother_step_4()
 	if (intermediate_move < 0) {				
 		smoother_step = 5;
 	} else {
-          print_debug(debugging, "Intermediate Move: " + String(intermediate_move));
+          // print_debug(debugging, "Intermediate Move: " + String(intermediate_move));
 	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
 	  smoother_step = 5;
         }
@@ -709,7 +709,6 @@ void smoother_step_4()
 
         final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
         
-        print_debug(debugging, "Final Move: " + String(final_angle_move));
 
 }
 
@@ -751,10 +750,10 @@ void smoother_step_5()
         }
 
 
-          print_debug(debugging, "zcross:     " + String(zcross));
-          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
-          print_debug(debugging, "S2 DIR:     " + String(s2_direction));          
-          print_debug(debugging, "Final Move: " + String(final_angle_move));
+//          print_debug(debugging, "zcross:     " + String(zcross));
+//          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
+//          print_debug(debugging, "S2 DIR:     " + String(s2_direction));          
+          print_debug(debugging, "FM: " + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
         }
@@ -778,18 +777,7 @@ void smoother_step_6()
 	    resting_angle_move = PI/2;
 			
 	    derive_direction();
-                
-        
-/*
-		
-	    if (s2_angle >= s1_angle) {
-		s1_direction = 1; // CW
-		s2_direction = 2; // CCW
-	    } else if (s2_angle < s1_angle) {
-		s1_direction = 2; // CW
-		s2_direction = 1; // CCW
-	    }		
-*/				
+                			
         }
 				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
@@ -800,17 +788,6 @@ void smoother_step_6()
              resting_angle_move = PI/2;
 		
              derive_direction();
-
-            
-/*            
-		if (s2_angle >= s1_angle) {
-			s1_direction = 1; // CW
-			s2_direction = 2; // CCW
-		} else if (s2_angle < s1_angle) {
-			s1_direction = 2; // CW
-			s2_direction = 1; // CCW
-		}
-*/
 
 	}				
 				
@@ -908,6 +885,7 @@ step_count--;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
+          print_debug(debugging, "Under Threshold. Slowing down.");
           // And if threshold is met, we need to calculate angle moved
           
           //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
