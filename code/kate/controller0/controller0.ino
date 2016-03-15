@@ -43,7 +43,7 @@ boolean gyroscope_installed = true;
 #define CTRL_REG4 0x23
 #define CTRL_REG5 0x24
 
-int L3G4200D_Address = 105; //I2C address of the L3G4200D
+unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 
 int x;
 int y;
@@ -88,11 +88,12 @@ double distance_to_smoother;
 double max_acceleration;    // Maximum acceleration we can attain
 
 long c0 = 11000;  // Initial timing, if starting from standstill
-long cx;          // Current cx value
-long cx_last;     // Last cx value
-long last_time_fired;   // Last time a step was triggered
-long next_time_fired;   // The next time a step needs to be triggered
-unsigned long data_time;         // Time we receive interrrupt (Data is available)
+long cx_min = 1200; // Minimum wait time
+long cx;              // Current cx value
+long cx_last;         // Last cx value
+long last_time_fired;     // Last time a step was triggered
+long next_time_fired;     // The next time a step needs to be triggered
+unsigned long data_time;  // Time we receive interrrupt (Data is available)
 
 
 
@@ -239,12 +240,14 @@ void setup() {
   Serial.println(" cycles");  
   
   
+  /*
   // Speed up process  
   if (fram_installed) {
     Serial.println("Clearing FRAM...");
     clearfram();
     Serial.println("FRAM cleared!");
   }
+  */
 
 
   // delay(5000);  
@@ -542,11 +545,9 @@ void smoother_step_1()
 	} else {
 		move_to_neutral_distance = 0;
 	}                                                                                                   
-                                  
-                                                                                                  
+                                                                                     
         
         derive_direction();
-        
         
 
         // **** CALCULATE WHERE MID POINT OF SMOOTHERS IS AND HOW FAR TO MOVE TO CORRECTIVE ANGLE ****
@@ -561,23 +562,28 @@ void smoother_step_1()
         mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
         
 
-        intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+        // intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+        intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
                 mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
                 mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
-		intermediate_move = abs(corrective_angle - mid_point_distance);
+		// intermediate_move = abs(corrective_angle - mid_point_distance);
+                intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	} 
 
       	smoother_step = 2;	
+
 
         Serial.println("INTERMEDIATE:    " + String(intermediate_move));
 	Serial.println("S1/S2 Angle:       " + String(mid_point_angle));
 	Serial.println("NEUTRAL MOV REQ'D: " + String(move_to_neutral_distance));
 	Serial.println("s1_direction: "    + String(s1_direction));
+
 	
+/*
 	s1_angle = angle_reorg(s1_angle);
 	s2_angle = angle_reorg(s2_angle);
-  
+*/  
 }
 
 
@@ -604,6 +610,9 @@ void smoother_step_2()
 
 
 
+  
+
+
 void smoother_step_3() 
 {
   
@@ -621,11 +630,13 @@ void smoother_step_3()
         mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
         
         // Deduce the distance we need to move
-        intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+        // intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
+        intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
                 mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
                 mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
-		intermediate_move = abs(corrective_angle - mid_point_distance);
+		// intermediate_move = abs(corrective_angle - mid_point_distance);
+                intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	} 
 				
 				
@@ -660,12 +671,12 @@ void smoother_step_3()
           s2_direction = 0;
         }		
 				
-	//Serial.println("S1/S2 Angle:                  " + String(mid_point_angle));  
-        //Serial.println("mid_point_distance Angle:     " + String(mid_point_distance)); 
+	Serial.println("step3: S1/S2 Angle:                  " + String(mid_point_angle));  
+        Serial.println("step3: mid_point_distance Angle:     " + String(mid_point_distance)); 
         // print_debug(debugging, "zcross:     " + String(zcross));
         // print_debug(debugging, "S1 DIR:     " + String(s1_direction));
         // print_debug(debugging, "S2 DIR:     " + String(s2_direction));   
-        Serial.println("IM: " + String(intermediate_move));
+        Serial.println("step3:  IM: " + String(intermediate_move));
 	
 	// Signal to code to go on to 'Intermediate' move
 	smoother_step = 4;  
@@ -689,10 +700,11 @@ void smoother_step_4()
 
 
         // CALCULATE THE FINAL MOVE
-	s1_diff = s1_angle - corrective_angle;
-	s2_diff = s2_angle - corrective_angle;
+//	s1_diff = s1_angle - corrective_angle;
+//	s2_diff = s2_angle - corrective_angle;
 	
 
+/*
         double val = cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle);
         if (abs(val) > 1) {
           // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
@@ -705,9 +717,16 @@ void smoother_step_4()
         }
         
 	mid_point_angle = acos(val);  
+*/
+        mid_point_angle =  angle_between(s1_angle, s2_angle);
+        
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
 
-        final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
+        // final_angle_move = abs(abs(corrective_angle - mid_point_distance) - mid_point_angle/2);
+        final_angle_move = angle_between(corrective_angle, mid_point_distance);
+        final_angle_move = abs(final_angle_move - mid_point_angle/2);   
+//JOE NEED TO FIX THE LINE IMMEDIATELY ABOVE        
+// SOMETIMES WE NEED TO ADD mid_point_angle/2
         
 
 }
@@ -768,7 +787,7 @@ void smoother_step_6()
 		|| 
 	    (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(rotation_vz) > upper_velocity_threshold)) {
 		
-	    Serial.println("NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
+	    print_debug(debugging, "NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
 			
 // COMMENT this code in this IF blovk FOR TESTING WHEN NOT NOT EXCEPTING ACTUAL CORRECTION OF SYSTEM (because we 'simulate' a movement
 
@@ -788,18 +807,17 @@ void smoother_step_6()
              resting_angle_move = PI/2;
 		
              derive_direction();
-
-	}				
-				
+	}							
 }
+
 
 void smoother_step_7() 
 {
   print_debug(debugging, "Rest Move: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
-
 }
+
 
 
 // We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
@@ -829,11 +847,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       if (first_triggered == true) {
           pulse_motors();
           
-      if (s1_direction == 2) {
-    step_count++;} 
-else {
-step_count--;
-}
+          update_count();
 
           last_time_fired = micros();
           first_triggered = false;
@@ -852,14 +866,12 @@ step_count--;
                   last_time_fired = current_time;
                   pulse_motors();
                   
-      if (s1_direction == 2) {
-    step_count++;} 
-else {
-step_count--;
-}                  
+                  update_count();             
           
                   // CODE HERE TO DO THE STEP at JUST the right time
-                  long next_step = calculate_stepper_interval(0, i);   
+                  long next_step = calculate_stepper_interval(0, i);
+                  next_step = speed_limit(next_step);
+                  
                   next_time_fired = last_time_fired + next_step;
                   
                   //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
@@ -911,14 +923,12 @@ step_count--;
               last_time_fired = current_time;
               pulse_motors();
               
-      if (s1_direction == 2) {
-    step_count++;} 
-else {
-step_count--;
-}              
+              update_count();            
                   
               // CODE HERE TO DO THE STEP at JUST the right time
-              long next_step = calculate_stepper_interval(steps_remaining, i);   
+              long next_step = calculate_stepper_interval(steps_remaining, i);
+              next_step = speed_limit(next_step);
+              
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
@@ -946,7 +956,7 @@ step_count--;
           if (current_time > next_time_fired) {
             finished_pulse = true;
             long actual_step = current_time - last_time_fired;
-            Serial.println("Final Wait: " + String(actual_step));
+            print_debug(debugging, "Final Wait: " + String(actual_step));
           }
   }
   
@@ -1059,6 +1069,17 @@ long calculate_stepper_interval(int starting_step, int next_step)
   }
   
   return cx;
+}
+
+
+// Implement speed restriction...doesn't result in much slow down...but should reduce skipping of steps
+long speed_limit(long speed)
+{
+  if (speed < cx_min) {
+    return cx_min;
+  }
+  
+  return speed;
 }
 
 
@@ -1225,6 +1246,8 @@ void dumpFRAM()
       
       print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       // Serial.println(data_time, HEX);
+      
+      // Print Time
       Serial.print(d4, HEX);
       Serial.print(d3, HEX);
       Serial.print(d2, HEX);
@@ -1268,3 +1291,38 @@ void derive_direction()
 }  
 
 
+
+void update_count()
+{
+  if (s1_direction == 2) {
+    step_count++;
+  } else {
+    step_count--;
+  }
+}
+
+
+
+double angle_between(double angle1, double angle2)
+{
+  double angle;
+  
+  double val;
+  
+  val = cos(angle1) * cos(angle2) + sin(angle1) * sin(angle2);
+  
+  if (abs(val) > 1) {
+    // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
+    if (val > 1) { 
+       val = 1;
+    }
+    if (val < -1) {
+       val = -1;
+    }  
+  }
+  
+  angle = acos(val); 
+  
+  return angle;
+  
+}
