@@ -87,10 +87,10 @@ double mass_of_arm;
 double distance_to_smoother; 
 double max_acceleration;    // Maximum acceleration we can attain
 
-long c0 = 11000;  // Initial timing, if starting from standstill
-long cx_min = 1200; // Minimum wait time
-long cx;              // Current cx value
-long cx_last;         // Last cx value
+long c0;                  // Initial timing, if starting from stand-still - note we calcualte this value in setup()
+long cx_min;             // Minimum wait time
+long cx;                  // Current cx value
+long cx_last;             // Last cx value
 long last_time_fired;     // Last time a step was triggered
 long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
@@ -193,7 +193,7 @@ void setup() {
   lower_velocity_threshold = 2 * PI/180;
   
   // KATE System set-up  - TESTING
-  torque_percent = 75;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 50;            // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
@@ -229,6 +229,10 @@ void setup() {
   
   // Calculate Initial timing constant
   c0 = 1000000 * pow(2 * 1.8 * PI/180/max_acceleration, 0.5);
+  
+  // Min delay
+  cx_min = 1000L;
+  
   Serial.print("Moment of Inertia:    ");
   Serial.print((double) moment_of_inertia, 9);
   Serial.println(" kgm^2");
@@ -236,8 +240,11 @@ void setup() {
   Serial.print((double) max_acceleration);
   Serial.println(" rad/s/s");
   Serial.print("C0:                   ");
-  Serial.print((double) c0);
+  Serial.print((long) c0);
   Serial.println(" cycles");  
+  Serial.print("CX Min:                   ");
+  Serial.print((long) cx_min);
+  Serial.println(" cycles");    
   
   
   /*
@@ -278,13 +285,13 @@ void loop() {
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     print_debug(debugging, "------------------------------ System needs stabilising ------------------------------");    
+    print_debug(debugging, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+    print_debug(debugging, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
     print_time();
-    print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-    print_debug(debugging, "Rotation accel: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-  
+    
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
-    print_debug(debugging, "Correction Angle: " + String(corrective_angle));    
+    print_debug(debugging, "CA: " + String(corrective_angle));    
   }
   
   if (smoother_step > 0) {
@@ -770,7 +777,12 @@ void smoother_step_6()
 
 	    // So. let's assume we are over-correcting
 	    smoother_step = 7;
-	    resting_angle_move = PI/2;
+
+	    
+            //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
+            mid_point_angle = angle_between(s1_angle, s2_angle);
+            resting_angle_move = (PI - mid_point_angle)/2;
+            // resting_angle_move = PI/2;
 			
 	    derive_direction();
                 			
@@ -781,7 +793,22 @@ void smoother_step_6()
 		Serial.println("SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
 	
 	     smoother_step = 7;
-             resting_angle_move = PI/2;
+             // resting_angle_move = PI/2;  // This is not right if we have slowed down and stopped trying to move to final 
+                                            // position when smoothers are over each other
+             
+             // JOE
+             //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
+             mid_point_angle = angle_between(s1_angle, s2_angle);
+
+             resting_angle_move = (PI - mid_point_angle)/2;
+/*
+	     // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
+	     if (mid_point_angle < PI) {
+		resting_angle_move = (PI - abs(mid_point_angle))/2;
+	     } else {
+	  	resting_angle_move = 0;
+	     }  
+*/
 		
              derive_direction();
 	}							
@@ -818,6 +845,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
+  // Serial.println("speed up");
   while (i < steps/2) { // && notfinished) {
 
 
@@ -891,6 +919,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   first_triggered = true;
   i = 0;
   // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
+  // Serial.println("speed down");
   while (i < steps_remaining) {
         
       finished_pulse = false;
@@ -942,12 +971,12 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   long end_time = micros();
   double move_time = (end_time - start_time) / (double) 1000000;
-  Serial.print("MOVE TIME: ");
+  Serial.print("MT: ");
   printDouble(move_time, 10000);
   double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
-  Serial.print("MOVE SPEED: ");
+  Serial.print("MS: ");
   printDouble(move_speed, 10000);  
-  Serial.print("Angle Moved: ");
+  Serial.print("AM: ");
   Serial.println(String(angle_moved));
   
   
@@ -1044,6 +1073,7 @@ long calculate_stepper_interval(int starting_step, int next_step)
   } else {
     cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
     cx_last = cx;
+    // Serial.print("cx_last: "); Serial.println(cx_last);
   }
   
   return cx;
