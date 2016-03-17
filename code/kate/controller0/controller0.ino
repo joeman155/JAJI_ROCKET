@@ -193,7 +193,7 @@ void setup() {
   lower_velocity_threshold = 2 * PI/180;
   
   // KATE System set-up  - TESTING
-  torque_percent = 50;            // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 100;            // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
@@ -543,16 +543,15 @@ void smoother_step_1()
 {
   
         //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
+        mid_point_angle = angle_between(s1_angle, s2_angle);
+        
+/*        
  	mid_point_angle     = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); // Find angle between smoothers... ALWAYS returns angle of 0..PI. This is
                                                                                                    // used to determine how far we need to move the smoothers to be back in the
                                                                                                    // neutral position.
-                                                                                                   
-	// We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
-	if (mid_point_angle < PI) {
-		move_to_neutral_distance = (PI - abs(mid_point_angle))/2;
-	} else {
-		move_to_neutral_distance = 0;
-	}                                                                                                   
+*/                                                                                                   
+        // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product
+        move_to_neutral_distance = (PI - mid_point_angle)/2;                                                                                                                                                                                                     
                                                                                      
         
         derive_direction();
@@ -800,15 +799,8 @@ void smoother_step_6()
              //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
              mid_point_angle = angle_between(s1_angle, s2_angle);
 
+             // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product
              resting_angle_move = (PI - mid_point_angle)/2;
-/*
-	     // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product				
-	     if (mid_point_angle < PI) {
-		resting_angle_move = (PI - abs(mid_point_angle))/2;
-	     } else {
-	  	resting_angle_move = 0;
-	     }  
-*/
 		
              derive_direction();
 	}							
@@ -845,8 +837,10 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
-  // Serial.println("speed up");
-  while (i < steps/2) { // && notfinished) {
+  Serial.print("speed up: ");
+  int s = steps/2;
+  Serial.println(s, DEC);
+  while (i < steps/2) { 
 
 
       // Do first pulse ASAP...no waiting
@@ -898,8 +892,6 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     
     
     
-    
-    i++;
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
@@ -913,13 +905,16 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           break;
        }     
     }
+    i++;
+    
   }
   
-  int steps_remaining = i+1;
+  int steps_remaining = i;
   first_triggered = true;
   i = 0;
   // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
-  // Serial.println("speed down");
+  Serial.print("speed down: ");
+  Serial.println(steps_remaining);
   while (i < steps_remaining) {
         
       finished_pulse = false;
@@ -1047,13 +1042,11 @@ void stepper_motor_direction(int motor, int direction)
 
 void s1_stepper_motor_direction(int direction)
 {
-  // Serial.println("MOTOR1: " + String(direction));
   stepper_motor_direction(MOTOR1_DIRECTION, direction);
 }
 
 void s2_stepper_motor_direction(int direction)
 {
-  // Serial.println("MOTOR2: " + String(direction));
   stepper_motor_direction(MOTOR2_DIRECTION, direction);
 }
 
@@ -1073,7 +1066,6 @@ long calculate_stepper_interval(int starting_step, int next_step)
   } else {
     cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
     cx_last = cx;
-    // Serial.print("cx_last: "); Serial.println(cx_last);
   }
   
   return cx;
