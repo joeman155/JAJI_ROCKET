@@ -83,7 +83,8 @@ double moment_of_inertia;   // Moment of Inertia of arm and weight
 double steps_per_rotation;  // # of Steps per revolution
 double mass_of_smoother;    // How much each sphererical smoother weights
 double smoother_radius;     // How many meteres it is 
-double mass_of_arm;
+double mass_of_arm;         // Mass of arm
+double arm_length;          // Lenght of arm. We treat arm as if  it is a Rod
 double distance_to_smoother; 
 double max_acceleration;    // Maximum acceleration we can attain
 
@@ -96,6 +97,8 @@ long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
 
 
+// Pins
+int LED_INDICATOR_PIN = 5;
 
 // TIME TRACKING
 long time;
@@ -119,12 +122,13 @@ int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is
 
 
 // DEBUGGING
-boolean debugging = true;
+boolean debugging = false;
+boolean info      = true;
 
 
 // Vectors
 double y_vector[] = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
-double vec3[] = {0, 0, 0};         // Result of cross product
+double vec3[]     = {0, 0, 0};     // Result of cross product
 
 
 
@@ -150,11 +154,11 @@ void setup() {
   // Initialise Pins
   pinMode(2, INPUT);
   pinMode(13, OUTPUT);
-  pinMode(5, OUTPUT);
+  pinMode(LED_INDICATOR_PIN, OUTPUT);
   
   // Initialise Gryoscope
   if (gyroscope_installed) {
-    Serial.println("starting up L3G4200D");
+    Serial.println("Starting up L3G4200D");
     setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
     delay(1500); //wait for the sensor to be ready
     Serial.println("Start calibrating...");
@@ -173,7 +177,7 @@ void setup() {
   
   
   
-  digitalWrite(MOTOR1_DIRECTION, LOW);
+  // digitalWrite(MOTOR1_DIRECTION, LOW);
   
   // Calculate Stepper timing constant c0
   // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
@@ -192,15 +196,22 @@ void setup() {
   upper_velocity_threshold = 5 * PI/180;
   lower_velocity_threshold = 2 * PI/180;
   
+  
+  
+  
   // KATE System set-up  - TESTING
-  torque_percent = 100;            // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 50;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   steps_per_rotation = 200;      // # of Steps per revolution
-  mass_of_smoother = 0.023;      // Each smoother in kg
-  smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
-  mass_of_arm = 0.01;            // How much mass of each arm weights
-  distance_to_smoother = 0.015;   // How far from stepper motor axis to the smoother
+  // SMOOTHER
+  mass_of_smoother = 0.023;      // Mass of each smoother (kg)
+  smoother_radius = 0.005;       // Bolts with two nuts... and approximation        (m)
+  distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother (m)
+  // ARM
+  mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
+  arm_length  = 0.035;           // Approximate length of arm (m)
+  
   upper_velocity_threshold = 5 * PI/180;
   lower_velocity_threshold = 2 * PI/180;  
   
@@ -223,6 +234,15 @@ void setup() {
   moment_of_inertia = 0.005 * 0.002 * 0.002 /2;   // Moment of inertia of shaft...assuming it is steel (densisty = 8050), is a cylinder of length 45mm and radius 2mm)
   moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass  THIS WORKS WELL...DO NO DELETE....works best with torque_percent = 50
   moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2   + (0.025 *0.02 * 0.02);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
+  moment_of_inertia = 0  +  (1.5 * mass_of_arm * distance_to_smoother * distance_to_smoother)  + (mass_of_smoother * distance_to_smoother * distance_to_smoother);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
+
+
+  //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother
+  // NOTE HERE WE ASSUME SMOOTHER IS A CYLINDER WITH RADIUS 5 mm!!
+  moment_of_inertia =  (mass_of_arm * arm_length * arm_length/3) + (0.5 * mass_of_smoother * smoother_radius * smoother_radius)   +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
+  
+  
+  
   
   // Deduce maximum rotational acceleration
   max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
@@ -263,7 +283,7 @@ void setup() {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
   }
   Serial.println("System Initialised!");  
-  digitalWrite(5, HIGH);
+  digitalWrite(LED_INDICATOR_PIN, HIGH);
 }
 
 
@@ -284,14 +304,15 @@ void loop() {
 
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
-    print_debug(debugging, "------------------------------ System needs stabilising ------------------------------");    
-    print_debug(debugging, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-    print_debug(debugging, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
+    digitalWrite(LED_INDICATOR_PIN, LOW);
+    print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
+    print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+    print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
     print_time();
     
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
-    print_debug(debugging, "CA: " + String(corrective_angle));    
+    print_debug(info, "CA: " + String(corrective_angle));    
   }
   
   if (smoother_step > 0) {
@@ -597,16 +618,16 @@ void smoother_step_2()
 	if (move_to_neutral_distance <= 0) {
                 // Already 180 degrees out of phase, so no need to move
 		smoother_step = 3;
-                print_debug(debugging, "No need to move to neutral position, already in neutral position");
+                print_debug(info, "No need to move to neutral position, already in neutral position");
 	} else if (intermediate_move < PI/4) { 
                 // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
                 // position outweighs the imbalances that might be caused.
 		smoother_step = 3;
-                print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
+                print_debug(info, "Only a small movement required, so we will move straight to that position");                
         } else {
                 // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
                 print_time();
-                print_debug(debugging, "Neutral Move");
+                print_debug(info, "Neutral Move");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;			
 	}
@@ -698,7 +719,7 @@ void smoother_step_4()
 		smoother_step = 5;
 	} else {
           print_time();
-          print_debug(debugging, "IM: " + String(intermediate_move));
+          print_debug(info, "IM: " + String(intermediate_move));
 	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
 	  smoother_step = 5;
         }
@@ -755,7 +776,7 @@ void smoother_step_5()
 //          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
 //          print_debug(debugging, "S2 DIR:     " + String(s2_direction));  
           print_time();
-          print_debug(debugging, "FM: " + String(final_angle_move));
+          print_debug(info, "FM: " + String(final_angle_move));
           move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
         }
@@ -789,7 +810,7 @@ void smoother_step_6()
 				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
 	if (abs(rotation_vx) <  lower_velocity_threshold && abs(rotation_vz) <  lower_velocity_threshold) {
-		Serial.println("SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
+		print_debug(debugging, "SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
 	
 	     smoother_step = 7;
              // resting_angle_move = PI/2;  // This is not right if we have slowed down and stopped trying to move to final 
@@ -810,9 +831,10 @@ void smoother_step_6()
 void smoother_step_7() 
 {
   print_time();
-  print_debug(debugging, "RM: " + String(resting_angle_move));
+  print_debug(info, "RM: " + String(resting_angle_move));
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
+  digitalWrite(LED_INDICATOR_PIN, HIGH);
 }
 
 
@@ -837,9 +859,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
-  Serial.print("speed up: ");
-  int s = steps/2;
-  Serial.println(s, DEC);
+  // Serial.print("speed up: ");
+  // int s = steps/2;
+  // Serial.println(s, DEC);
   while (i < steps/2) { 
 
 
@@ -874,8 +896,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                   
                   next_time_fired = last_time_fired + next_step;
                   
-                  //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
-                  Serial.println(actual_step, DEC);   // Comment out to speed up routine!
+                  // Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
+                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
+                  print_debug(debugging, String(actual_step));
             
                   finished_pulse = true;
                 
@@ -913,8 +936,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   first_triggered = true;
   i = 0;
   // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
-  Serial.print("speed down: ");
-  Serial.println(steps_remaining);
+  // Serial.print("speed down: ");
+  // Serial.println(steps_remaining);
   while (i < steps_remaining) {
         
       finished_pulse = false;
@@ -934,7 +957,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              Serial.println(actual_step, DEC);     // Comment out to speed up routine!
+              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
+              print_debug(debugging, String(actual_step));
            
               finished_pulse = true;
             
@@ -952,27 +976,31 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   
   
   // Finished our pulses, but we need to wait until Step motor has completely stopped.
-  finished_pulse = false;
-  while (! finished_pulse) {  
+  // ONLY do this wait if steps_remaining > 0.    No point waiting if no steps moved.
+  if (steps_remaining > 0) {
+    finished_pulse = false;
+    while (! finished_pulse) {  
     unsigned long current_time = micros();
-          if (current_time > next_time_fired) {
-            finished_pulse = true;
-            long actual_step = current_time - last_time_fired;
-            print_debug(debugging, "Final Wait: " + String(actual_step));
-          }
+            if (current_time > next_time_fired) {
+              finished_pulse = true;
+              long actual_step = current_time - last_time_fired;
+              print_debug(info, "FW: " + String(actual_step));
+            }
+    }
   }
   
   
-  
-  long end_time = micros();
-  double move_time = (end_time - start_time) / (double) 1000000;
-  Serial.print("MT: ");
-  printDouble(move_time, 10000);
-  double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
-  Serial.print("MS: ");
-  printDouble(move_speed, 10000);  
-  Serial.print("AM: ");
-  Serial.println(String(angle_moved));
+  if (info) {
+    long end_time = micros();
+    double move_time = (end_time - start_time) / (double) 1000000;
+    Serial.print("MT: ");
+    printDouble(move_time, 10000);
+    double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
+    Serial.print("MS: ");
+    printDouble(move_speed, 10000);  
+    Serial.print("AM: ");
+    Serial.println(String(angle_moved));
+  }
   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
@@ -992,8 +1020,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
      s2_angle = angle_reorg(s2_angle);     
    }   
    
-  print_debug(debugging, "S1 ANGLE: " + String(s1_angle));
-  print_debug(debugging, "S2 ANGLE: " + String(s2_angle));   
+  print_debug(info, "S1 ANGLE: " + String(s1_angle));
+  print_debug(info, "S2 ANGLE: " + String(s2_angle));   
   print_debug(debugging, "step_count: " + String(step_count));
 }
 
@@ -1061,6 +1089,8 @@ long calculate_stepper_interval(int starting_step, int next_step)
   if (next_step - starting_step == 1) {
     cx = cx_last * 0.4142;
     cx_last = cx;
+  } else if (starting_step > 0 && next_step == 0) {
+    cx = cx_last;
   } else if (next_step - starting_step == -1 ) {
     cx = cx_last / 0.4142;
   } else {
@@ -1085,6 +1115,11 @@ long speed_limit(long speed)
 
 void pulse_motors()
 {
+//  long ts = micros();
+  
+//  Serial.print("TS: ");
+//  Serial.println(ts, DEC);
+  print_debug(debugging, "PULSE");
   PORTB = PORTB | B00000011;
   delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   PORTB = PORTB & B11111100;
