@@ -73,6 +73,9 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
+double degrees_per_step;
+unsigned int steps_per_rev;
+
 double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
 double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
 
@@ -103,6 +106,8 @@ int LED_INDICATOR_PIN = 5;
 // TIME TRACKING
 long time;
 long last_time;
+long start_time1 = 0;
+long end_time1 = 0;
 
 
 // BALANCING VARIABLES
@@ -115,7 +120,6 @@ double mid_point_distance = 0;
 double move_to_neutral_distance = 0;
 double s1_direction = 0, s2_direction = 0;
 double intermediate_move = 0;
-double s1_diff = 0, s2_diff = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
 int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
@@ -123,7 +127,8 @@ int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is
 
 // DEBUGGING
 boolean debugging = false;
-boolean info      = true;
+boolean info      = true  ;
+boolean print_timing = false;
 
 
 // Vectors
@@ -240,15 +245,19 @@ void setup() {
   //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother
   // NOTE HERE WE ASSUME SMOOTHER IS A CYLINDER WITH RADIUS 5 mm!!
   moment_of_inertia =  (mass_of_arm * arm_length * arm_length/3) + (0.5 * mass_of_smoother * smoother_radius * smoother_radius)   +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
-  
-  
-  
-  
+   
   // Deduce maximum rotational acceleration
   max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
   
+  
+  // Stepping characteristics of motor
+  degrees_per_step = 0.45;   // 1/4 step
+  steps_per_rev = 360 / 0.45;
+  
+  
+  
   // Calculate Initial timing constant
-  c0 = 1000000 * pow(2 * 1.8 * PI/180/max_acceleration, 0.5);
+  c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
   
   // Min delay
   cx_min = 1000L;
@@ -304,6 +313,7 @@ void loop() {
 
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
+    start_time1 = micros();
     digitalWrite(LED_INDICATOR_PIN, LOW);
     print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
     print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
@@ -312,7 +322,8 @@ void loop() {
     
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
-    print_debug(info, "CA: " + String(corrective_angle));    
+    print_debug(info, "CA: " + String(corrective_angle));  
+  
   }
   
   if (smoother_step > 0) {
@@ -320,6 +331,14 @@ void loop() {
     smoother_step_processing();
   }
   
+  if (info) {
+    if (end_time1 > 0) {
+      long total_time = end_time1 - start_time1;
+      Serial.print("TOTAL TIME: ");
+      Serial.println(total_time, DEC);
+      end_time1 = 0;
+    }
+  }
   
 }
 
@@ -436,6 +455,7 @@ int readRegister(int deviceAddress, byte address){
 
 // Time Functions
 void print_time() {
+  if (! print_timing) return;
   
   time = micros();
   double  time_display = time/(double) 1000000;
@@ -802,7 +822,6 @@ void smoother_step_6()
             //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
             mid_point_angle = angle_between(s1_angle, s2_angle);
             resting_angle_move = (PI - mid_point_angle)/2;
-            // resting_angle_move = PI/2;
 			
 	    derive_direction();
                 			
@@ -813,10 +832,7 @@ void smoother_step_6()
 		print_debug(debugging, "SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
 	
 	     smoother_step = 7;
-             // resting_angle_move = PI/2;  // This is not right if we have slowed down and stopped trying to move to final 
-                                            // position when smoothers are over each other
              
-             // JOE
              //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
              mid_point_angle = angle_between(s1_angle, s2_angle);
 
@@ -835,6 +851,7 @@ void smoother_step_7()
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
+  end_time1 = micros();
 }
 
 
@@ -845,7 +862,7 @@ void smoother_step_7()
 void move_stepper_motors(short s1_direction, short s2_direction, double angle, double threshold)
 {
   // CALCULATE # OF STEPS
-  int steps = round((angle * 180 / PI) / 1.8);
+  int steps = round((angle * 180 / PI) / degrees_per_step);
   boolean finished_pulse;
   int i = 0;
   double angle_moved = angle;
@@ -922,9 +939,9 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           // And if threshold is met, we need to calculate angle moved
           
           //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
-          //         360/200   (degrees per step) - 200 steps per revolution
+          //         degrees per step - whatever it is defined as
           //         PI/180     Convert from degress to radians
-          angle_moved = 2 * i * (360 / 200) * (PI/180);   // Total angle that is moved (speed up + slow down)
+          angle_moved = 2 * i * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
           break;
        }     
     }
