@@ -22,7 +22,7 @@ uint8_t FRAM_CS = 10;
 
 //Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
 
-uint8_t FRAM_SCK= 13;
+uint8_t FRAM_SCK  = 13;
 uint8_t FRAM_MISO = 12;
 uint8_t FRAM_MOSI = 11;
 //Or use software SPI, any pins!
@@ -90,10 +90,10 @@ double arm_length;          // Lenght of arm. We treat arm as if  it is a Rod
 double distance_to_smoother; 
 double max_acceleration;    // Maximum acceleration we can attain
 
-long c0;                  // Initial timing, if starting from stand-still - note we calcualte this value in setup()
-long cx_min;             // Minimum wait time
-long cx;                  // Current cx value
-long cx_last;             // Last cx value
+unsigned int c0;                  // Initial timing, if starting from stand-still - note we calcualte this value in setup()
+unsigned int cx_min;             // Minimum wait time
+int cx;                  // Current cx value
+int cx_last;             // Last cx value
 long last_time_fired;     // Last time a step was triggered
 long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
@@ -257,7 +257,7 @@ void setup() {
   c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
   
   // Min delay
-  cx_min = 250L;
+  cx_min = 250;
   
   Serial.print("Moment of Inertia:    ");
   Serial.print((double) moment_of_inertia, 9);
@@ -266,10 +266,10 @@ void setup() {
   Serial.print((double) max_acceleration);
   Serial.println(" rad/s/s");
   Serial.print("C0:                   ");
-  Serial.print((long) c0);
+  Serial.print(c0);
   Serial.println(" cycles");  
   Serial.print("CX Min:                   ");
-  Serial.print((long) cx_min);
+  Serial.print(cx_min);
   Serial.println(" cycles");    
   
   
@@ -308,12 +308,12 @@ void loop() {
 
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
-    start_time1 = micros();
     digitalWrite(LED_INDICATOR_PIN, LOW);
     print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
     print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
     print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
     print_time();
+    start_time1 = micros();
     
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
@@ -851,6 +851,8 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / degrees_per_step);
+  long next_step;
+  long actual_step;
   boolean finished_pulse;
   int i = 0;
   double angle_moved = angle;
@@ -889,14 +891,14 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
+                  // actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
                   
                   // update_count();             
           
                   // CODE HERE TO DO THE STEP at JUST the right time
-                  long next_step = calculate_stepper_interval(0, i);
+                  next_step = calculate_stepper_interval_up(i);
                   // next_step = speed_limit(next_step);
                   
                   next_time_fired = last_time_fired + next_step;
@@ -904,6 +906,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
                   // Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
                   // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
                   // print_debug(debugging, String(actual_step));
+                  // print_debug(info, String(next_step));                  
             
                   finished_pulse = true;
                 
@@ -951,21 +954,22 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
+              // actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
               
               // update_count();            
                   
               // CODE HERE TO DO THE STEP at JUST the right time
-              long next_step = calculate_stepper_interval(steps_remaining, i);
+              next_step = calculate_stepper_interval(steps_remaining, i);
               // next_step = speed_limit(next_step);
               
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
               // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
-              // print_debug(debugging, String(actual_step));
+              // print_debug(info, String(actual_step));
+              // print_debug(info, String(next_step));
            
               finished_pulse = true;
             
@@ -1091,9 +1095,9 @@ void s2_stepper_motor_direction(int direction)
 // Provides the time to wait
 // - updown - 1 for speeding up, 0 for speeding down
 // - step   - The step number we are up to
-long calculate_stepper_interval(int starting_step, int next_step)
+int calculate_stepper_interval(int starting_step, int next_step)
 {
-  long cx;
+  int cx;
 
   if (next_step - starting_step == 1) {
     cx = cx_last * 0.4142;
@@ -1111,8 +1115,30 @@ long calculate_stepper_interval(int starting_step, int next_step)
 }
 
 
+
+// Provides the time to wait
+// - updown - 1 for speeding up, 0 for speeding down
+// - step   - The step number we are up to
+int calculate_stepper_interval_up(int next_step)
+{
+  int cx;
+
+  if (next_step == 1) {
+    cx = cx_last * 0.4142;
+    cx_last = cx;
+  } else {
+    cx = cx_last - (2 * cx_last)/(4 * next_step + 1);
+    cx_last = cx;
+  }
+  
+  return cx;
+}
+
+
+
+
 // Implement speed restriction...doesn't result in much slow down...but should reduce skipping of steps
-long speed_limit(long speed)
+int speed_limit(int speed)
 {
   if (speed < cx_min) {
     return cx_min;
