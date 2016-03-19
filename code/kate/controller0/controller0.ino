@@ -73,8 +73,6 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
-double degrees_per_step;
-unsigned int steps_per_rev;
 
 double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
 double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
@@ -83,6 +81,7 @@ double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
 double torque_percent;      // How much of max_torque we want to use
 double moment_of_inertia;   // Moment of Inertia of arm and weight
+double degrees_per_step;    // How many degrees the motor rotates per step
 double steps_per_rotation;  // # of Steps per revolution
 double mass_of_smoother;    // How much each sphererical smoother weights
 double smoother_radius;     // How many meteres it is 
@@ -193,7 +192,6 @@ void setup() {
 
   // KATE System set-up  
   torque_percent = 75;           // Safety margin...don't want to exceed max_torque
-  steps_per_rotation = 200;      // # of Steps per revolution
   mass_of_smoother = 0.025;      // Each smoother in kg
   smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
@@ -208,7 +206,6 @@ void setup() {
   torque_percent = 50;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
-  steps_per_rotation = 200;      // # of Steps per revolution
   // SMOOTHER
   mass_of_smoother = 0.023;      // Mass of each smoother (kg)
   smoother_radius = 0.005;       // Bolts with two nuts... and approximation        (m)
@@ -252,7 +249,7 @@ void setup() {
   
   // Stepping characteristics of motor
   degrees_per_step = 0.45;   // 1/4 step
-  steps_per_rev = 360 / 0.45;
+  steps_per_rotation = 360 / 0.45;
   
   
   
@@ -260,7 +257,7 @@ void setup() {
   c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
   
   // Min delay
-  cx_min = 1000L;
+  cx_min = 250L;
   
   Serial.print("Moment of Inertia:    ");
   Serial.print((double) moment_of_inertia, 9);
@@ -285,8 +282,6 @@ void setup() {
   }
   */
 
-
-  // delay(5000);  
 
   if (gyroscope_installed) {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
@@ -586,17 +581,10 @@ void smoother_step_1()
         //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
         mid_point_angle = angle_between(s1_angle, s2_angle);
         
-/*        
- 	mid_point_angle     = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle)); // Find angle between smoothers... ALWAYS returns angle of 0..PI. This is
-                                                                                                   // used to determine how far we need to move the smoothers to be back in the
-                                                                                                   // neutral position.
-*/                                                                                                   
         // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product
         move_to_neutral_distance = (PI - mid_point_angle)/2;                                                                                                                                                                                                     
                                                                                      
-        
-        derive_direction();
-        
+        derive_direction(); 
 
         // **** CALCULATE WHERE MID POINT OF SMOOTHERS IS AND HOW FAR TO MOVE TO CORRECTIVE ANGLE ****
         //      WE DO THIS BECAUSE IT MIGHT BE QUICKER TO DO THIS INSTEAD OF GOING TO NEUTRAL POSITION 
@@ -886,7 +874,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       if (first_triggered == true) {
           pulse_motors();
           
-          update_count();
+          // update_count();
 
           last_time_fired = micros();
           first_triggered = false;
@@ -901,30 +889,32 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
           while (! finished_pulse) {
               unsigned long current_time = micros();
               if (current_time > next_time_fired) {
-                  long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
+                  // long actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
                   last_time_fired = current_time;
                   pulse_motors();
                   
-                  update_count();             
+                  // update_count();             
           
                   // CODE HERE TO DO THE STEP at JUST the right time
                   long next_step = calculate_stepper_interval(0, i);
-                  next_step = speed_limit(next_step);
+                  // next_step = speed_limit(next_step);
                   
                   next_time_fired = last_time_fired + next_step;
                   
                   // Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
                   // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
-                  print_debug(debugging, String(actual_step));
+                  // print_debug(debugging, String(actual_step));
             
                   finished_pulse = true;
                 
+/*                
                   // If there is data available...get it now...we have some spare time (until next pulse) to get it!
                   if (dataneedsprocessing) {
                      get_latest_rotation_data2(true);
                   } else {
                      get_latest_rotation_data1(true);
                   }
+*/                  
               }
           }              
     }
@@ -961,30 +951,32 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
       while (! finished_pulse) {
           unsigned long current_time = micros();
           if (current_time > next_time_fired) {
-              long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
+              // long actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
               last_time_fired = current_time;
               pulse_motors();
               
-              update_count();            
+              // update_count();            
                   
               // CODE HERE TO DO THE STEP at JUST the right time
               long next_step = calculate_stepper_interval(steps_remaining, i);
-              next_step = speed_limit(next_step);
+              // next_step = speed_limit(next_step);
               
               next_time_fired = last_time_fired + next_step;
                   
               //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
               // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
-              print_debug(debugging, String(actual_step));
+              // print_debug(debugging, String(actual_step));
            
               finished_pulse = true;
             
+/*            
               // If there is data available...get it now...we have some spare time (until next pulse) to get it!
               if (dataneedsprocessing) {
                  get_latest_rotation_data2(true);
               } else {
                  get_latest_rotation_data1(true);
-              }     
+              } 
+*/    
           }
       } 
     
@@ -1132,11 +1124,7 @@ long speed_limit(long speed)
 
 void pulse_motors()
 {
-//  long ts = micros();
-  
-//  Serial.print("TS: ");
-//  Serial.println(ts, DEC);
-  print_debug(debugging, "PULSE");
+//  print_debug(debugging, "PULSE");
   PORTB = PORTB | B00000011;
   delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   PORTB = PORTB & B11111100;
