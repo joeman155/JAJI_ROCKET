@@ -29,14 +29,14 @@ uint8_t FRAM_MOSI = 11;
 Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_CS);
 
 uint16_t          addr = 0;
-int fram_size = 8192;
+// int fram_size = 8192;
 boolean fram_installed;
 
 
 
 
 // Gyroscope Variables
-boolean gyroscope_installed = true;
+boolean gyroscope_installed = false;
 #define CTRL_REG1 0x20
 #define CTRL_REG2 0x21
 #define CTRL_REG3 0x22
@@ -51,7 +51,6 @@ int z;
 volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
 boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
 boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
-int gyroZero = 0;
 int gyroHigh = 0;
 int gyroLow = 0;
 double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec - got from datasheet)
@@ -82,7 +81,6 @@ double max_torque;          // Maximum torque the motor can provide at maximum s
 double torque_percent;      // How much of max_torque we want to use
 double moment_of_inertia;   // Moment of Inertia of arm and weight
 double degrees_per_step;    // How many degrees the motor rotates per step
-double steps_per_rotation;  // # of Steps per revolution
 double mass_of_smoother;    // How much each sphererical smoother weights
 double smoother_radius;     // How many meteres it is 
 double mass_of_arm;         // Mass of arm
@@ -90,10 +88,25 @@ double arm_length;          // Lenght of arm. We treat arm as if  it is a Rod
 double distance_to_smoother; 
 double max_acceleration;    // Maximum acceleration we can attain
 
-unsigned int c0;                  // Initial timing, if starting from stand-still - note we calcualte this value in setup()
-unsigned int cx_min;             // Minimum wait time
-int cx;                  // Current cx value
-int cx_last;             // Last cx value
+
+// BUFFER VARIABLES
+int i_write = 0;          // Write position in the buffer
+int i_read = 0;           // Read position in the buffer
+int buffer_len = 50;
+int buffer_high_waterlevel = 45; // Point at which we turn off calcs
+int buffer_low_waterlevel = 20;  // Point at which we resume calcs
+int buffer_level = 0;            // How far we are above the read level
+boolean buffer_get_data = true;   // Variable set false when we rise above high water level and set true when we fall below
+unsigned int buf[50];
+
+boolean timer_set = false;
+unsigned int timer1;
+int i_step = 0;           // Step we are up to
+unsigned int c0;          // Initial timing, if starting from stand-still - note we calcualte this value in setup()
+unsigned int cx_min;      // Minimum wait time
+long cx_total = 0;
+int cx;                   // Current cx value
+int cx_last;              // Last cx value
 long last_time_fired;     // Last time a step was triggered
 long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
@@ -105,8 +118,8 @@ int LED_INDICATOR_PIN = 5;
 // TIME TRACKING
 long time;
 long last_time;
-long start_time1 = 0;
-long end_time1 = 0;
+long start_time;
+long end_time;
 
 
 // BALANCING VARIABLES
@@ -117,7 +130,7 @@ double corrective_angle = 0;
 double mid_point_angle = 0;
 double mid_point_distance = 0;
 double move_to_neutral_distance = 0;
-double s1_direction = 0, s2_direction = 0;
+byte s1_direction = 0, s2_direction = 0;
 double intermediate_move = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
@@ -125,8 +138,8 @@ int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is
 
 
 // DEBUGGING
-boolean debugging = false;
-boolean info      = true  ;
+boolean debugging    = false;
+boolean info         = false  ;
 boolean print_timing = false;
 
 
@@ -178,13 +191,11 @@ void setup() {
   pinMode(MOTOR1_STEP, OUTPUT);
   pinMode(MOTOR2_DIRECTION, OUTPUT);
   pinMode(MOTOR2_STEP, OUTPUT); 
-  
-  
-  
-  // digitalWrite(MOTOR1_DIRECTION, LOW);
+ 
   
   // Calculate Stepper timing constant c0
   // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
+/*  
   max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
   
   // SH2141-5541.pdf from POLOLU
@@ -193,22 +204,23 @@ void setup() {
   // KATE System set-up  
   torque_percent = 75;           // Safety margin...don't want to exceed max_torque
   mass_of_smoother = 0.025;      // Each smoother in kg
-  smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3)
   mass_of_arm = 0.01;            // How much mass of each arm weights
   distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother
   upper_velocity_threshold = 5 * PI/180;
   lower_velocity_threshold = 2 * PI/180;
-  
+*/  
   
   
   
   // KATE System set-up  - TESTING
+  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
   torque_percent = 50;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   // SMOOTHER
   mass_of_smoother = 0.023;      // Mass of each smoother (kg)
-  smoother_radius = 0.005;       // Bolts with two nuts... and approximation        (m)
+  smoother_radius = 0.005;       // Bolts with two nuts... and approximation        (m)  -- IF A CYLINDER
+  // smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3) - IF A SPHERE
   distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother (m)
   // ARM
   mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
@@ -232,12 +244,13 @@ void setup() {
   //     - Moment of inertia of smoother weight
   //
   //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother                         
+  /*
   moment_of_inertia =  (mass_of_arm * distance_to_smoother * distance_to_smoother/3)  + (2 * mass_of_smoother * smoother_radius * smoother_radius/5) +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
   moment_of_inertia = 0.005 * 0.002 * 0.002 /2;   // Moment of inertia of shaft...assuming it is steel (densisty = 8050), is a cylinder of length 45mm and radius 2mm)
   moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass  THIS WORKS WELL...DO NO DELETE....works best with torque_percent = 50
   moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2   + (0.025 *0.02 * 0.02);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
   moment_of_inertia = 0  +  (1.5 * mass_of_arm * distance_to_smoother * distance_to_smoother)  + (mass_of_smoother * distance_to_smoother * distance_to_smoother);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
-
+  */
 
   //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother
   // NOTE HERE WE ASSUME SMOOTHER IS A CYLINDER WITH RADIUS 5 mm!!
@@ -249,7 +262,6 @@ void setup() {
   
   // Stepping characteristics of motor
   degrees_per_step = 0.45;   // 1/4 step
-  steps_per_rotation = 360 / 0.45;
   
   
   
@@ -258,6 +270,8 @@ void setup() {
   
   // Min delay
   cx_min = 250;
+  
+  
   
   Serial.print("Moment of Inertia:    ");
   Serial.print((double) moment_of_inertia, 9);
@@ -282,10 +296,14 @@ void setup() {
   }
   */
 
+  delay(3000);
 
   if (gyroscope_installed) {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
   }
+  
+  
+  
   Serial.println("System Initialised!");  
   digitalWrite(LED_INDICATOR_PIN, HIGH);
 }
@@ -304,20 +322,22 @@ void loop() {
   
   
   // Simulate rotation
-  // rotation_vz = rotation_vz + 1 * PI/180;
+  rotation_vz = rotation_vz + 1 * PI/180;
 
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
-    print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
-    print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-    print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
-    print_time();
-    start_time1 = micros();
+//    start_time1 = micros();
     
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
     smoother_step = 1;
-    print_debug(info, "CA: " + String(corrective_angle));  
+    if (info) {
+      print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
+      print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+      print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
+      print_time();    
+      print_debug(info, "CA: " + String(corrective_angle));  
+    }
   
   }
   
@@ -326,6 +346,7 @@ void loop() {
     smoother_step_processing();
   }
   
+/*  
   if (info) {
     if (end_time1 > 0) {
       long total_time = end_time1 - start_time1;
@@ -334,6 +355,7 @@ void loop() {
       end_time1 = 0;
     }
   }
+*/  
   
 }
 
@@ -598,12 +620,10 @@ void smoother_step_1()
         mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
         
 
-        // intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
         intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
                 mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
                 mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
-		// intermediate_move = abs(corrective_angle - mid_point_distance);
                 intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	} 
 
@@ -663,12 +683,10 @@ void smoother_step_3()
         mid_point_distance  = angle_reorg(mid_point_distance);                                     // Convert this distance to 0...2PI 
         
         // Deduce the distance we need to move
-        // intermediate_move = abs(corrective_angle - mid_point_distance);                             // Angular distance we must move to get mid-point at corrective angle
         intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	if (intermediate_move > PI/2) {                                                             // If Greater than PI/2, then we are being in-efficient
                 mid_point_distance = mid_point_distance + PI;                                       // So we consider moving opposite side (180 out of phase) 
                 mid_point_distance = angle_reorg(mid_point_distance);                               // towards corrective angle direction
-		// intermediate_move = abs(corrective_angle - mid_point_distance);
                 intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	} 
 				
@@ -720,8 +738,6 @@ void smoother_step_3()
 void smoother_step_4() 
 {
 	// Intermediate move - moving both weights together
-	// intermediate_move = intermediate_move - interval.doubleValue() * s1.getMax_angular_speed();
-        // Determine # of steps required for intermediate_move
 			
 	if (intermediate_move < 0) {				
 		smoother_step = 5;
@@ -839,7 +855,7 @@ void smoother_step_7()
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
-  end_time1 = micros();
+//  end_time1 = micros();
 }
 
 
@@ -847,7 +863,7 @@ void smoother_step_7()
 // We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
 // We will want to move the same angle.
 // If threshold == 0, then we ignore this
-void move_stepper_motors(short s1_direction, short s2_direction, double angle, double threshold)
+void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, double threshold)
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / degrees_per_step);
@@ -860,12 +876,120 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
   boolean first_triggered = true;
   long start_time = micros();
   
+  // Our little collection...which we read/write from
+  i_write = 0;
+  i_read = 0;
+  i_step = 0;
+  buffer_level = 0;
+  int i_step_calc = 0;
+  
   // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
   s1_stepper_motor_direction(s1_direction);
   s2_stepper_motor_direction(s2_direction);
   
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
+  finished_pulse = false;
+  
+  int s = steps/2;
+  Serial.print("Steps to step: "); Serial.println(String(s));
+  Serial.println();
+  Serial.println("r,    w,    buffer level");
+  start_time = micros();
+  while (! finished_pulse) { 
+  
+//    Serial.print(i_read, DEC);
+//    Serial.print(" ");
+//    Serial.print(i_write);
+//     Serial.print(" ");
+//    Serial.println(buffer_level, DEC);
+    
+    // Calculate values
+    // if (i_step_calc < steps/2 && buffer_get_data)  {
+    if (buffer_get_data && i_step_calc < steps/2) {
+        buf[i_write] = calculate_stepper_interval_new(i_step_calc);
+        i_step_calc++; 
+        increment_i_write();     
+        buffer_level++;
+    } 
+    
+    // Regulate calculation of next interval
+    if (buffer_get_data) {
+       if (buffer_level > buffer_high_waterlevel) {
+          buffer_get_data = false;
+          // Serial.println("h");
+       }
+    } else {
+       if (buffer_level < buffer_low_waterlevel) {
+          buffer_get_data = true;
+          // Serial.println("");      
+       }
+    }
+    
+    
+    
+    // Initialise next Interrupt
+    if (! timer_set) {
+      timer_set = true;
+      
+      cx_total = cx_total + buf[i_read];
+      timer1 = 8 * buf[i_read] -1;
+      Serial.println(buf[i_read]);
+      // Serial.print("v "); Serial.println(val, DEC);
+      
+      cli();
+      buffer_level--;
+      
+      if (i_read == buffer_len - 1) {
+        i_read = 0;
+      } else {
+        i_read++;
+      }
+      
+      
+      // TIMER1
+      TCCR1A = 0;// set entire TCCR1A register to 0
+      TCCR1B = 0;// same for TCCR1B
+      TCNT1  = 0;//initialize counter value to 0
+      // set compare match register for 1hz increments
+      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)
+      // turn on CTC mode
+      TCCR1B |= (1 << WGM12);
+      // Set CS10 and CS12 bits for 256 prescaler
+      //  TCCR1B |= (1 << CS12) | (1 << CS10);  
+
+      // No scaling
+      TCCR1B |= (1 << CS10);
+
+      // enable timer compare interrupt
+      TIMSK1 |= (1 << OCIE1A);      
+      
+      sei(); 
+
+    }
+    
+    if (i_step >= s) {
+      finished_pulse = true;
+    }
+   
+    
+  }
+  end_time = micros();
+  
+  Serial.print("Start time: "); Serial.println(start_time);  
+  Serial.print("Finish time: "); Serial.println(end_time);  
+  long tdiff = end_time - start_time;
+  Serial.print("Time taken: "); Serial.println(tdiff);
+  Serial.print("Steps moved: "); Serial.println(String(i_step));
+  Serial.print("cx_total: "); Serial.println(cx_total);
+  
+//  for (i = 0; i <= i_step; i++) {
+//    Serial.println(buf[i], DEC);
+//  }
+  delay(1000000);
+  
+  
+  /*
   // Serial.print("speed up: ");
   // int s = steps/2;
   // Serial.println(s, DEC);
@@ -910,14 +1034,14 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
             
                   finished_pulse = true;
                 
-/*                
-                  // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-                  if (dataneedsprocessing) {
-                     get_latest_rotation_data2(true);
-                  } else {
-                     get_latest_rotation_data1(true);
-                  }
-*/                  
+                
+//                  // If there is data available...get it now...we have some spare time (until next pulse) to get it!
+//                  if (dataneedsprocessing) {
+//                     get_latest_rotation_data2(true);
+//                  } else {
+//                     get_latest_rotation_data1(true);
+//                  }
+                  
               }
           }              
     }
@@ -941,6 +1065,7 @@ void move_stepper_motors(short s1_direction, short s2_direction, double angle, d
     i++;
     
   }
+  */
   
   int steps_remaining = i;
   first_triggered = true;
@@ -1136,7 +1261,32 @@ int calculate_stepper_interval_up(int next_step)
 
 
 
+// Provides the time to wait
+// - updown - 1 for speeding up, 0 for speeding down
+// - step   - The step number we are up to
+int calculate_stepper_interval_new(int next_step)
+{
+  int cx;
 
+  if (next_step == 0) {
+    cx = c0;
+    cx_last = cx;
+  } else if (next_step == 1) {
+    cx = cx_last * 0.4142;
+    cx_last = cx;
+  } else {
+    cx = cx_last - (2 * cx_last)/(4 * next_step + 1);
+    cx_last = cx;
+  }
+  
+  return cx;
+}
+
+
+
+
+
+/*
 // Implement speed restriction...doesn't result in much slow down...but should reduce skipping of steps
 int speed_limit(int speed)
 {
@@ -1146,6 +1296,7 @@ int speed_limit(int speed)
   
   return speed;
 }
+*/
 
 
 void pulse_motors()
@@ -1388,5 +1539,25 @@ double angle_between(double angle1, double angle2)
   angle = acos(val); 
   
   return angle;
+  
+}
+
+
+ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
+  timer_set = false;
+  i_step++;
+  TIMSK1 &= ~_BV(OCIE1A);
+}
+
+
+
+
+void increment_i_write()
+{
+ if (i_write >=  buffer_len - 1) {
+   i_write = 0;
+ } else {
+   i_write++;
+ }
   
 }
