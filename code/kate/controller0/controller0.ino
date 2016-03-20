@@ -99,6 +99,8 @@ int buffer_level = 0;            // How far we are above the read level
 boolean buffer_get_data = true;   // Variable set false when we rise above high water level and set true when we fall below
 unsigned int buf[50];
 
+boolean pulse_firsttime;
+boolean pulse_lasttime;
 boolean timer_set = false;
 unsigned int timer1;
 int i_step = 0;           // Step we are up to
@@ -883,6 +885,8 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   buffer_level = 0;
   int i_step_calc = 0;
   
+  long tdiff;
+  
   // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
   s1_stepper_motor_direction(s1_direction);
   s2_stepper_motor_direction(s2_direction);
@@ -890,12 +894,13 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
   finished_pulse = false;
+  pulse_lasttime = false;
   
   int s = steps/2;
   Serial.print("Steps to step: "); Serial.println(String(s));
   Serial.println();
-  Serial.println("r,    w,    buffer level");
   start_time = micros();
+  pulse_firsttime = true;
   while (! finished_pulse) { 
   
 //    Serial.print(i_read, DEC);
@@ -903,11 +908,15 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
 //    Serial.print(i_write);
 //     Serial.print(" ");
 //    Serial.println(buffer_level, DEC);
+    if (pulse_firsttime) {
+       pulse_motors();
+       pulse_firsttime = false;
+    }
     
     // Calculate values
-    // if (i_step_calc < steps/2 && buffer_get_data)  {
-    if (buffer_get_data && i_step_calc < steps/2) {
-        buf[i_write] = calculate_stepper_interval_new(i_step_calc);
+    if (buffer_get_data && i_step_calc < s) {
+        buf[i_write] = calculate_stepper_interval_new_up(i_step_calc);
+        // Serial.print("i_write = "); Serial.print(i_write); Serial.print("val = "); Serial.println(buf[i_write]);
         i_step_calc++; 
         increment_i_write();     
         buffer_level++;
@@ -917,26 +926,23 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
     if (buffer_get_data) {
        if (buffer_level > buffer_high_waterlevel) {
           buffer_get_data = false;
-          // Serial.println("h");
        }
     } else {
        if (buffer_level < buffer_low_waterlevel) {
-          buffer_get_data = true;
-          // Serial.println("");      
+          buffer_get_data = true;   
        }
     }
     
     
     
     // Initialise next Interrupt
-    if (! timer_set) {
+    if (! timer_set && i_step < s) {
       timer_set = true;
       
       cx_total = cx_total + buf[i_read];
-      timer1 = 8 * buf[i_read] -1;
-      Serial.println(buf[i_read]);
-      // Serial.print("v "); Serial.println(val, DEC);
-      
+      timer1 = 8 * buf[i_read] - 1;
+      // Serial.print("t1:"); Serial.println(timer1);
+
       cli();
       buffer_level--;
       
@@ -945,19 +951,16 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
       } else {
         i_read++;
       }
-      
+      i_step++; 
       
       // TIMER1
       TCCR1A = 0;// set entire TCCR1A register to 0
       TCCR1B = 0;// same for TCCR1B
       TCNT1  = 0;//initialize counter value to 0
       // set compare match register for 1hz increments
-      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)
+      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
       // turn on CTC mode
       TCCR1B |= (1 << WGM12);
-      // Set CS10 and CS12 bits for 256 prescaler
-      //  TCCR1B |= (1 << CS12) | (1 << CS10);  
-
       // No scaling
       TCCR1B |= (1 << CS10);
 
@@ -974,18 +977,129 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
    
     
   }
+  
+  /*
   end_time = micros();
   
   Serial.print("Start time: "); Serial.println(start_time);  
   Serial.print("Finish time: "); Serial.println(end_time);  
-  long tdiff = end_time - start_time;
+  tdiff = end_time - start_time;
+  Serial.print("Time taken: "); Serial.println(tdiff);
+  Serial.print("Steps moved: "); Serial.println(String(i_step));
+  Serial.print("cx_total: "); Serial.println(cx_total);
+  */
+
+  // NOW WE WANT TO GO BACKWARDS. We want to use the timing values that we got before!
+  // We use the buffer backawards!!
+  timer_set = false;
+  finished_pulse = false;
+  buffer_level = buffer_len - buffer_level;
+  unsigned int i_step_calc_skip = s - buffer_level;     // Start from someway ahead....we are reusing values we calculated on the way down
+  i_step_calc = 0;
+  i_step = 0;                         // Reset steps back to zero
+  cx_total = 0;  
+  
+  i_read--;
+  if (i_read < 0) i_read = buffer_len - 1; 
+  
+  i_write = i_read + 1;               // Position the i_write ahead (numerically) of i_read by one...this is where we will start writing our values
+  if (i_write >= buffer_len) i_write = 0;
+  
+  cx_last = buf[i_write];
+  
+  /*
+  Serial.print("Steps to step: "); Serial.println(String(s));
+  Serial.print("Buffer Level: ");  Serial.println(buffer_level);
+  Serial.print("i_step_calc:  ");  Serial.println(i_step_calc);
+  Serial.print("i_read:  ");  Serial.println(i_read);
+  Serial.print("i_write:  ");  Serial.println(i_write);
+  Serial.println();
+  start_time = micros();
+  */
+  
+  while (! finished_pulse) { 
+  
+    
+    if (i_step >= s-1) {
+      finished_pulse = true;
+    }  
+    
+    // Initialise next Interrupt
+    if (! timer_set && i_step < s) {
+      timer_set = true;
+      
+      cx_total = cx_total + buf[i_read];
+      timer1 = 8 * buf[i_read] - 1;
+      // Serial.print("t2:"); Serial.println(timer1);
+
+      if (i_step == s - 2) {
+        // Serial.println("last pulse");
+        pulse_lasttime = true;
+      }
+
+      cli();
+      buffer_level--;
+      
+      if (i_read == 0) {
+        i_read = buffer_len - 1;
+      } else {
+        i_read--;
+      }
+      i_step++; 
+      
+      // TIMER1
+      TCCR1A = 0;// set entire TCCR1A register to 0
+      TCCR1B = 0;// same for TCCR1B
+      TCNT1  = 0;//initialize counter value to 0
+      // set compare match register for 1hz increments
+      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
+      // turn on CTC mode
+      TCCR1B |= (1 << WGM12);
+      // No scaling
+      TCCR1B |= (1 << CS10);
+
+      // enable timer compare interrupt
+      TIMSK1 |= (1 << OCIE1A);      
+      
+      sei(); 
+    }    
+    
+    // Calculate values
+    if (buffer_get_data && (i_step_calc + i_step_calc_skip) < s ) {
+        // Serial.print("cx_last: "); Serial.println(cx_last);
+        buf[i_write] = calculate_stepper_interval_new_down(s, i_step_calc, i_step_calc_skip);
+        // Serial.print(i_write); Serial.print("   -   "); Serial.println(buf[i_write]);        
+        i_step_calc++; 
+        decrement_i_write();     
+        buffer_level++;
+    } 
+    
+    // Regulate calculation of next interval
+    if (buffer_get_data) {
+       if (buffer_level > buffer_high_waterlevel) {
+          buffer_get_data = false;
+       }
+    } else {
+       if (buffer_level < buffer_low_waterlevel) {
+          buffer_get_data = true;   
+       }
+    }
+  
+  
+
+  }  
+  end_time = micros();
+  
+  
+  Serial.print("Start time: "); Serial.println(start_time);  
+  Serial.print("Finish time: "); Serial.println(end_time);  
+  tdiff = end_time - start_time;
   Serial.print("Time taken: "); Serial.println(tdiff);
   Serial.print("Steps moved: "); Serial.println(String(i_step));
   Serial.print("cx_total: "); Serial.println(cx_total);
   
-//  for (i = 0; i <= i_step; i++) {
-//    Serial.println(buf[i], DEC);
-//  }
+  
+
   delay(1000000);
   
   
@@ -1067,6 +1181,8 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   }
   */
   
+  
+  /*
   int steps_remaining = i;
   first_triggered = true;
   i = 0;
@@ -1098,14 +1214,14 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
            
               finished_pulse = true;
             
-/*            
-              // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-              if (dataneedsprocessing) {
-                 get_latest_rotation_data2(true);
-              } else {
-                 get_latest_rotation_data1(true);
-              } 
-*/    
+            
+//             // If there is data available...get it now...we have some spare time (until next pulse) to get it!
+//              if (dataneedsprocessing) {
+//                 get_latest_rotation_data2(true);
+//              } else {
+//                 get_latest_rotation_data1(true);
+//              } 
+    
           }
       } 
     
@@ -1126,7 +1242,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
             }
     }
   }
-  
+  */
   
   if (info) {
     long end_time = micros();
@@ -1264,7 +1380,7 @@ int calculate_stepper_interval_up(int next_step)
 // Provides the time to wait
 // - updown - 1 for speeding up, 0 for speeding down
 // - step   - The step number we are up to
-int calculate_stepper_interval_new(int next_step)
+int calculate_stepper_interval_new_up(int next_step)
 {
   int cx;
 
@@ -1283,6 +1399,26 @@ int calculate_stepper_interval_new(int next_step)
 }
 
 
+// Provides the time to wait
+// - updown - 1 for speeding up, 0 for speeding down
+// - step   - The step number we are up to
+int calculate_stepper_interval_new_down(int starting_step, int next_step, int step_skip)
+{
+  int cx;
+
+  if (next_step  == 0) {
+    cx = cx_last;
+    cx_last = cx;
+  } else if (next_step + step_skip - starting_step == -1) {
+    cx = cx_last / 0.4142;
+    cx_last = cx;
+  } else {
+    cx = cx_last - (2 * cx_last)/(4 * (next_step + step_skip - starting_step) + 1);
+    cx_last = cx;
+  }
+  
+  return cx;
+}
 
 
 
@@ -1301,7 +1437,7 @@ int speed_limit(int speed)
 
 void pulse_motors()
 {
-//  print_debug(debugging, "PULSE");
+  // print_debug(info, "PULSE");
   PORTB = PORTB | B00000011;
   delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   PORTB = PORTB & B11111100;
@@ -1544,9 +1680,11 @@ double angle_between(double angle1, double angle2)
 
 
 ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
-  timer_set = false;
-  i_step++;
-  TIMSK1 &= ~_BV(OCIE1A);
+  timer_set = false;      // Allow next interrupt to be set.
+  if (! pulse_lasttime)   pulse_motors();
+  
+  // i_step++;               // Increment Step taken
+  TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
 }
 
 
@@ -1559,5 +1697,15 @@ void increment_i_write()
  } else {
    i_write++;
  }
-  
 }
+
+
+void decrement_i_write()
+{
+ if (i_write ==  0) {
+   i_write = buffer_len - 1;
+ } else {
+   i_write--;
+ }
+}
+
