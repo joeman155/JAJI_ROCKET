@@ -148,7 +148,7 @@ double resting_angle_move = 0;
 
 // DEBUGGING
 boolean debugging    = false;
-boolean info         = false  ;
+boolean info         = true  ;
 boolean print_timing = false;
 
 
@@ -300,14 +300,13 @@ void setup() {
   Serial.println(" cycles");    
   
   
-  /*
   // Speed up process  
   if (fram_installed) {
     Serial.println("Clearing FRAM...");
     clearfram();
     Serial.println("FRAM cleared!");
   }
-  */
+
 
   delay(3000);
 
@@ -404,6 +403,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
   
   
   if (write_gyro_to_fram && fram_installed && addr < 8180) {
+//    Serial.println("ss");
     byte val[10];
     val[0] = xMSB;
     val[1] = xLSB;
@@ -420,7 +420,7 @@ void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
     fram.write(addr, (uint8_t *) &val[0], 10);
     fram.writeEnable(false);   
     addr = addr + 10;
-  }
+  } ;
 
 }
 
@@ -1484,7 +1484,6 @@ int calculate_stepper_interval_new_down(int starting_step, int next_step, int st
 
   if (next_step  == 0) {
     cx = cx_last;
-    // cx_last = cx;
   } else if (next_step + step_skip - starting_step == -1) {
     cx = cx_last / 0.4142;
     cx_last = cx;
@@ -1630,7 +1629,7 @@ void get_latest_rotation_data2(boolean exclude_y)
   }
 } 
 
-/*
+
 void clearfram()
 {
     for (uint16_t a = 0; a < 8192; a++) {
@@ -1639,18 +1638,16 @@ void clearfram()
     fram.writeEnable(false);
   }
 }
-*/
 
 
-/*
+
+
 void dumpFRAM()
 {
     byte xmsb, xlsb, ymsb, ylsb, zmsb, zlsb;
     byte d1, d2, d3, d4;
     // unsigned long data_time;
-    for (uint16_t a = 0; a < 819; a=a+10) {
-      d1 = fram.read8(a);
-      Serial.println(d1, HEX);
+    for (uint16_t a = 0; a < 8180; a=a+10) {
       xmsb = fram.read8(a);
       xlsb = fram.read8(a+1);
     
@@ -1675,7 +1672,7 @@ void dumpFRAM()
       rotation_vy = y * factor;
       rotation_vz = z * factor;
       
-      print_debug(debugging, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+      print_debug(info, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       // Serial.println(data_time, HEX);
       
       // Print Time
@@ -1686,9 +1683,9 @@ void dumpFRAM()
       
     }
     
-    delay(1000000);
+    delay(10000000);
 }
-*/
+
 
 
 
