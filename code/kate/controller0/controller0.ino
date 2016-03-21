@@ -36,7 +36,7 @@ boolean fram_installed;
 
 
 // Gyroscope Variables
-boolean gyroscope_installed = false;
+boolean gyroscope_installed = true;
 #define CTRL_REG1 0x20
 #define CTRL_REG2 0x21
 #define CTRL_REG3 0x22
@@ -216,7 +216,7 @@ void setup() {
   
   // KATE System set-up  - TESTING
   max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  torque_percent = 50;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 40;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   // SMOOTHER
@@ -319,12 +319,11 @@ void loop() {
   
   // Data available!
   get_latest_rotation_data_all();  
-
   
-  
-  
-  // Simulate rotation
-  rotation_vz = rotation_vz + 1 * PI/180;
+  // Simulate rotation - but ONLY if gyroscope disabled
+  if (! gyroscope_installed) {
+     rotation_vz = rotation_vz + 1 * PI/180;
+  }
 
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
@@ -874,6 +873,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   long actual_step;
   boolean finished_pulse;
   double angle_moved = angle;
+  cx_total = 0;
   // boolean first_triggered = true;
   // int i = 0;  
 
@@ -897,7 +897,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   pulse_lasttime = false;
   
 
-  Serial.print("Steps to step: "); Serial.println(String(half_steps));
+  Serial.print("Steps to start: "); Serial.println(String(half_steps));
   Serial.println();
   start_time = micros();
   pulse_firsttime = true;
@@ -908,12 +908,9 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
 //    Serial.print(i_write);
 //     Serial.print(" ");
 //    Serial.println(buffer_level, DEC);
-    if (pulse_firsttime) {
-       pulse_motors();
-       pulse_firsttime = false;
-    }
+
     
-    // Calculate values
+    // Calculate timings and push on to buffer
     if (buffer_get_data && i_step_calc < half_steps) {
         buf[i_write] = calculate_stepper_interval_new_up(i_step_calc);
         // Serial.print("i_write = "); Serial.print(i_write); Serial.print("val = "); Serial.println(buf[i_write]);
@@ -935,12 +932,19 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
     }
     
     
+    // Do this AFTER we have had a chance to calculate the next timing...to better our chances of a smooth ride.
+    if (pulse_firsttime) {
+        // Serial.println("First Pulse");
+        pulse_motors();
+        i_step++; 
+        pulse_firsttime = false;
+    }    
     
     // Initialise next Interrupt
     if (! timer_set && i_step < half_steps) {
       timer_set = true;
       
-      cx_total = cx_total + buf[i_read];
+      //cx_total = cx_total + buf[i_read];
       timer1 = 8 * buf[i_read] - 1;
       // Serial.print("t1:"); Serial.println(buf[i_read]);
           
@@ -976,90 +980,88 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
       finished_pulse = true;
     }
    
-   
+
     // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-    if (dataneedsprocessing) {
-       get_latest_rotation_data2(true);
-    } else {
-       get_latest_rotation_data1(true);
-    }   
-    
+    // ONLY do this, if we are only in the first 20 steps...where we have enough time to get data.
+    //      OR if we already have to process data 
+    /*
+    if (dataneedsprocessing || i_step < 20) {
+      if (dataneedsprocessing) {
+         get_latest_rotation_data2(true);
+      } else {
+         get_latest_rotation_data1(true);
+      }   
+    }
+    */
+  
     
     // Testing out partial moves
-    if (i_step == 500) {
-       angle_moved = 2 * i_step * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down);
-       break;
-    }
+//    if (i_step == 500) {
+//       angle_moved = 2 * i_step * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down);
+//       break;
+//    }
     
     if (threshold > 0) {
        // Threshold value > 0, this means we should do some threshold checks.
        if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
-          print_debug(debugging, "Under Threshold. Slowing down.");
+          // print_debug(debugging, "Under Threshold. Slowing down.");
           // And if threshold is met, we need to calculate angle moved
           
           //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
           //         degrees per step - whatever it is defined as
           //         PI/180     Convert from degress to radians
           angle_moved = 2 * i_step * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
-          // break;
+          break;
        }     
     }
     
   }
+  
+  
 //  Serial.print("fin_i_read:  ");  Serial.println(i_read);
 //  Serial.print("fin_i_write:  ");  Serial.println(i_write);
 //  Serial.print("fin_buffer_level:  ");  Serial.println(buffer_level);  
   
-  /*
-  end_time = micros();
   
+/*  
   Serial.print("Start time: "); Serial.println(start_time);  
   Serial.print("Finish time: "); Serial.println(end_time);  
   tdiff = end_time - start_time;
   Serial.print("Time taken: "); Serial.println(tdiff);
+  
   Serial.print("Steps moved: "); Serial.println(String(i_step));
   Serial.print("cx_total: "); Serial.println(cx_total);
-  */
+  Serial.println();
+  Serial.println();
+*/
+
 
   // NOW WE WANT TO GO BACKWARDS. We want to use the timing values that we got before!
   // We use the buffer backawards!!
   buffer_get_data = true;                     // Very eagar to get data... assume we are on the way up...not way down in the buffer.
-  int steps_remaining = i_step;
+  int steps_remaining = i_step;               // steps - i_step;       // Remaining steps to do
   timer_set = false;                          // Ready to set and enable timer1
   finished_pulse = false;                     // Starting while loop all over again
   buffer_level = buffer_len - buffer_level;   // Calculating new buffer_level
-  // unsigned int i_step_calc_skip = s - buffer_level;     // Start from someway ahead....we are reusing values we calculated on the way down
-  // We need to determine from what step we start calculating wait times. If there are more that buffer_len steps, then we need to start buffer_len 
-  // steps into it. If the number of steps is less then buffer_len, then we don't need to do an calc!
-  int i_step_calc_skip = buffer_level;
-  // if ((buffer_len - steps_remaining > 0) {
-  //   i_step_calc_skip = i_step_calc_skip + (buffer_len - steps_remaining);
-  // }
-  
-  // int i_step_calc_skip = buffer_level;
 
-  
-  i_step_calc = 0;                            // Iterator....for getting step timing
-  i_step = 0;                                 // Reset steps back to zero....this is number of steps we do
+  // How many steps we need to skip over...from where we start calculating values
+  int i_step_calc_skip = buffer_level;
   
   // Set the read position back one (because we have advanced one in previous while loop)
   i_read--;
   if (i_read < 0) i_read = buffer_len - 1; 
 
-
   // The first delay in the slow down is the last one written....cx_last. So we need this.
   cx_last = buf[i_write];
-  
-  // We set the write postion immediately above the read position, so we save (and use) as many calculated values as possible (This is where we start writing our values)
-  // i_write = i_read + 1;
-  // if (i_write >= buffer_len) i_write = 0;
-  // i_write--;
-  // if (i_write < 0) i_write = buffer_len - 1;
+
+  // i_write - Continue from where we were...but we go in opposite direction!  
+
+  i_step_calc = 0;                            // Iterator....for getting step timing
+  i_step = 0;                                 // Reset steps back to zero....this is number of steps we do
   
 
-  
 /*
-  Serial.print("Steps to step: "); Serial.println(steps_remaining, DEC);
+  Serial.print("Steps to stop: "); Serial.println(steps_remaining, DEC);
   Serial.print("Buffer Level: ");  Serial.println(buffer_level);
   Serial.print("i_step_calc:  ");  Serial.println(i_step_calc);
   Serial.print("i_step_calc_skip:  ");  Serial.println(i_step_calc_skip);
@@ -1071,21 +1073,17 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   
   while (! finished_pulse) { 
   
-    
-    if (i_step >= steps_remaining-1) {
-      finished_pulse = true;
-    }  
-    
+        
     // Initialise next Interrupt
     if (! timer_set && i_step < steps_remaining-1) {
       timer_set = true;
       
-      cx_total = cx_total + buf[i_read];
+      //cx_total = cx_total + buf[i_read];
       timer1 = 8 * buf[i_read] - 1;
       // Serial.print("t2:"); Serial.println(buf[i_read]);
 
       if (i_step == steps_remaining - 2) {
-        // Serial.println("last pulse");
+        // Serial.print("lp"); Serial.println(buf[i_read]);
         pulse_lasttime = true;
       }
 
@@ -1116,6 +1114,10 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
       sei(); 
     }    
     
+    if (i_step >= steps_remaining-1) {
+      finished_pulse = true;
+    }      
+    
     // Calculate values
     if (buffer_get_data && (i_step_calc + i_step_calc_skip) < steps_remaining && i_step_calc_skip > 0 ) {
         // Serial.print("cx_last: "); Serial.println(cx_last);
@@ -1137,30 +1139,31 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
        }
     }
   
-  
+  /*
+  // I see no point in getting data while we are slowing down. We can't respond to it 
     // If there is data available...get it now...we have some spare time (until next pulse) to get it!
     if (dataneedsprocessing) {
        get_latest_rotation_data2(true);
     } else {
        get_latest_rotation_data1(true);
     }     
-  
+*/  
 
   }  
+  
+  
+  
+/*
   end_time = micros();
-  
-  
   Serial.print("Start time: "); Serial.println(start_time);  
   Serial.print("Finish time: "); Serial.println(end_time);  
   tdiff = end_time - start_time;
   Serial.print("Time taken: "); Serial.println(tdiff);
   Serial.print("Steps moved: "); Serial.println(String(i_step));
   Serial.print("cx_total: "); Serial.println(cx_total);
-  
-  
 
-  delay(1000000);
-  
+  // delay(10000000);
+*/
   
   /*
   // Serial.print("speed up: ");
@@ -1304,8 +1307,9 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   */
   
   if (info) {
-    long end_time = micros();
+    end_time = micros();
     double move_time = (end_time - start_time) / (double) 1000000;
+    Serial.print("cx_total: "); Serial.println(cx_total);
     Serial.print("MT: ");
     printDouble(move_time, 10000);
     double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
