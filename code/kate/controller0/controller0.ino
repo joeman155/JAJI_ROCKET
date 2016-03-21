@@ -99,14 +99,14 @@ int buffer_level = 0;            // How far we are above the read level
 boolean buffer_get_data = true;   // Variable set false when we rise above high water level and set true when we fall below
 unsigned int buf[50];
 
-boolean pulse_firsttime;
+// boolean pulse_firsttime;
 boolean pulse_lasttime;
 boolean timer_set = false;
 unsigned int timer1;
 int i_step = 0;           // Step we are up to
 unsigned int c0;          // Initial timing, if starting from stand-still - note we calcualte this value in setup()
 unsigned int cx_min;      // Minimum wait time
-long cx_total = 0;
+//long cx_total = 0;
 int cx;                   // Current cx value
 int cx_last;              // Last cx value
 long last_time_fired;     // Last time a step was triggered
@@ -122,6 +122,10 @@ long time;
 long last_time;
 long start_time;
 long end_time;
+long start_time1;
+long end_time1;
+long ts1, ts2, ts3;
+
 
 
 // BALANCING VARIABLES
@@ -136,7 +140,7 @@ byte s1_direction = 0, s2_direction = 0;
 double intermediate_move = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
-int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
+// int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
 
 
 // DEBUGGING
@@ -215,14 +219,14 @@ void setup() {
   
   
   // KATE System set-up  - TESTING
-  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  torque_percent = 40;          // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  max_torque     = 100;          // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
+  torque_percent = 40;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   // SMOOTHER
-  mass_of_smoother = 0.023;      // Mass of each smoother (kg)
-  smoother_radius = 0.005;       // Bolts with two nuts... and approximation        (m)  -- IF A CYLINDER
-  // smoother_radius  = 0.00905;    // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3) - IF A SPHERE
+  mass_of_smoother     = 0.023;  // Mass of each smoother (kg)
+  smoother_radius      = 0.005;  // Bolts with two nuts... and approximation        (m)  -- IF A CYLINDER
+  // smoother_radius  = 0.00905;   // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3) - IF A SPHERE
   distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother (m)
   // ARM
   mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
@@ -328,10 +332,12 @@ void loop() {
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
-//    start_time1 = micros();
+    start_time1 = micros();
     
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
+
     smoother_step = 1;
+    /*
     if (info) {
       print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
@@ -339,6 +345,7 @@ void loop() {
       print_time();    
       print_debug(info, "CA: " + String(corrective_angle));  
     }
+    */
   
   }
   
@@ -347,7 +354,7 @@ void loop() {
     smoother_step_processing();
   }
   
-/*  
+ 
   if (info) {
     if (end_time1 > 0) {
       long total_time = end_time1 - start_time1;
@@ -356,7 +363,7 @@ void loop() {
       end_time1 = 0;
     }
   }
-*/  
+  
   
 }
 
@@ -600,14 +607,14 @@ void smoother_step_processing()
 
 void smoother_step_1() 
 {
-  
+    ts1 = micros();    
+
         //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
         mid_point_angle = angle_between(s1_angle, s2_angle);
         
         // We know that mid_point_angle MUST be less then OR Equal to 180 degrees BECAUSE this angle is got from dot-product
         move_to_neutral_distance = (PI - mid_point_angle)/2;                                                                                                                                                                                                     
                                                                                      
-        derive_direction(); 
 
         // **** CALCULATE WHERE MID POINT OF SMOOTHERS IS AND HOW FAR TO MOVE TO CORRECTIVE ANGLE ****
         //      WE DO THIS BECAUSE IT MIGHT BE QUICKER TO DO THIS INSTEAD OF GOING TO NEUTRAL POSITION 
@@ -646,15 +653,17 @@ void smoother_step_2()
 
 	if (move_to_neutral_distance <= 0) {
                 // Already 180 degrees out of phase, so no need to move
-		smoother_step = 3;
-                print_debug(info, "No need to move to neutral position, already in neutral position");
+		smoother_step = 4;
+                print_debug(debugging, "No need to move to neutral position, already in neutral position");
 	} else if (intermediate_move < PI/4) { 
                 // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
                 // position outweighs the imbalances that might be caused.
-		smoother_step = 3;
-                print_debug(info, "Only a small movement required, so we will move straight to that position");                
+		smoother_step = 4;
+                print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
         } else {
                 // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
+                derive_direction(); 
+                
                 print_time();
                 print_debug(info, "Neutral Move");
                 move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
@@ -666,13 +675,13 @@ void smoother_step_2()
 
   
 
-
+// This is run if smoothers moved to get into neutral position. We will need to re-calc some values
 void smoother_step_3() 
 {
-  
 	// Find angle between the two smoothers...then halve...this is the mid-point
         // (We need to re-calculate because we may have moved in smoothers in previous step)
-	mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+  	// mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
+        mid_point_angle =  angle_between(s1_angle, s2_angle);
 
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
         
@@ -691,37 +700,7 @@ void smoother_step_3()
                 intermediate_move = angle_between(corrective_angle, mid_point_distance);
 	} 
 				
-				
-	// s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
-	// s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
-		
-
-        // DIRECTION TO GET SMOOTHERS TO INTERMEDIATE POSITION - in FASTEST POSSIBLE WAY!
-        // To assist us in finding directions to move the smoothers we need to get Cross product of the midpoint vector and the
-        // Corrective direction vectore.
-        // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
-        // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
-        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
-        
-
-        double i_vector[] = {cos(mid_point_distance), 0, -sin(mid_point_distance)};
-        double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
-        
-        crossproduct(i_vector, c_vector);
-        
-        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
-        
-        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
-        if (zcross > 0 ) {
-          s1_direction = 2; // CW
-	  s2_direction = 2; // CCW
-        } else if (zcross < 0 ) {
-          s1_direction = 1; // CCW
-	  s2_direction = 1; // CW
-        } else  {
-          s1_direction = 0;
-          s2_direction = 0;
-        }		
+						
 				
 	// Serial.println("step3: S1/S2 Angle:                  " + String(mid_point_angle));  
         // Serial.println("step3: mid_point_distance Angle:     " + String(mid_point_distance)); 
@@ -735,14 +714,47 @@ void smoother_step_3()
 }
 
 
-
+// Perform immediate move (if required) and then calculate the final move.
 void smoother_step_4() 
 {
 	// Intermediate move - moving both weights together
-			
+	   
+    	
 	if (intermediate_move < 0) {				
 		smoother_step = 5;
 	} else {
+  
+	  // s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
+	  // s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
+		
+
+          // DIRECTION TO GET SMOOTHERS TO INTERMEDIATE POSITION - in FASTEST POSSIBLE WAY!
+          // To assist us in finding directions to move the smoothers we need to get Cross product of the midpoint vector and the
+          // Corrective direction vectore.
+          // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
+          // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
+          // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+        
+
+          double i_vector[] = {cos(mid_point_distance), 0, -sin(mid_point_distance)};
+          double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
+        
+          crossproduct(i_vector, c_vector);
+        
+          double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+        
+          // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+          if (zcross > 0 ) {
+            s1_direction = 2; // CW
+	    s2_direction = 2; // CCW
+          } else if (zcross < 0 ) {
+            s1_direction = 1; // CCW
+	    s2_direction = 1; // CW
+          } else  {
+            s1_direction = 0;
+            s2_direction = 0;
+          }  
+  
           print_time();
           print_debug(info, "IM: " + String(intermediate_move));
 	  move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
@@ -756,7 +768,6 @@ void smoother_step_4()
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
 
         final_angle_move = angle_between(corrective_angle, s1_angle);
-
 }
 
 
@@ -769,32 +780,32 @@ void smoother_step_5()
 		
 	} else {
   
-        // DIRECTION TO GET SMOOTHERS TO FINAL POSITION - in FASTEST POSSIBLE WAY!
-        // To assist us in finding directions to move the smoothers we need to get Cross product of the s1 smoother vector and the
-        // Corrective direction vectore.
-        // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
-        // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
-        // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+          // DIRECTION TO GET SMOOTHERS TO FINAL POSITION - in FASTEST POSSIBLE WAY!
+          // To assist us in finding directions to move the smoothers we need to get Cross product of the s1 smoother vector and the
+          // Corrective direction vectore.
+          // The direction this resultant vector...up (+ve y) or down (-ve y) tells us which way to rotate the smoothers
+          // NOTE: The Smoothers ALWAYS move in opposite directions with respect to each other
+          // If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
         
 
-        double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
-        double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
+          double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+          double c_vector[]  = {cos(corrective_angle), 0, -sin(corrective_angle)};
         
-        crossproduct(s1_vector, c_vector);
+          crossproduct(s1_vector, c_vector);
         
-        double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+          double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
         
-        // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
-        if (zcross > 0 ) {
-          s1_direction = 2; // CW
-	  s2_direction = 1; // CCW
-        } else if (zcross < 0 ) {
-          s1_direction = 1; // CCW
-	  s2_direction = 2; // CW
-        } else  {
-          s1_direction = 0;
-          s2_direction = 0;
-        }
+          // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+          if (zcross > 0 ) {
+            s1_direction = 2; // CW
+	    s2_direction = 1; // CCW
+          } else if (zcross < 0 ) {
+            s1_direction = 1; // CCW
+	    s2_direction = 2; // CW
+          } else  {
+            s1_direction = 0;
+            s2_direction = 0;
+          }
 
 
 //          print_debug(debugging, "zcross:     " + String(zcross));
@@ -856,7 +867,7 @@ void smoother_step_7()
   move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
-//  end_time1 = micros();
+  end_time1 = micros();
 }
 
 
@@ -869,11 +880,13 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / degrees_per_step);
   int half_steps = steps/2;  
-  long next_step;
-  long actual_step;
   boolean finished_pulse;
   double angle_moved = angle;
-  cx_total = 0;
+  
+  // Old variables, used in old timing routine
+  // long next_step;
+  // long actual_step;
+  // cx_total = 0;
   // boolean first_triggered = true;
   // int i = 0;  
 
@@ -885,22 +898,19 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   buffer_level = 0;
   int i_step_calc = 0;
   
-  long tdiff;
-  
   // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
   s1_stepper_motor_direction(s1_direction);
   s2_stepper_motor_direction(s2_direction);
-  
 
   // DO THE MOVE COMMANDS HERE - SPEED UP
   finished_pulse = false;
   pulse_lasttime = false;
+  // pulse_firsttime = true;
   
 
-  Serial.print("Steps to start: "); Serial.println(String(half_steps));
-  Serial.println();
+  // Serial.print("Steps to start: "); Serial.println(String(half_steps));
+  // Serial.println();
   start_time = micros();
-  pulse_firsttime = true;
   while (! finished_pulse) { 
   
 //    Serial.print(i_read, DEC);
@@ -933,11 +943,10 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
     
     
     // Do this AFTER we have had a chance to calculate the next timing...to better our chances of a smooth ride.
-    if (pulse_firsttime) {
-        // Serial.println("First Pulse");
+    if (i_step == 0) {
         pulse_motors();
         i_step++; 
-        pulse_firsttime = false;
+        // pulse_firsttime = false;
     }    
     
     // Initialise next Interrupt
@@ -1309,7 +1318,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
   if (info) {
     end_time = micros();
     double move_time = (end_time - start_time) / (double) 1000000;
-    Serial.print("cx_total: "); Serial.println(cx_total);
+    // Serial.print("cx_total: "); Serial.println(cx_total);
     Serial.print("MT: ");
     printDouble(move_time, 10000);
     double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
@@ -1339,7 +1348,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
    
   print_debug(info, "S1 ANGLE: " + String(s1_angle));
   print_debug(info, "S2 ANGLE: " + String(s2_angle));   
-  print_debug(debugging, "step_count: " + String(step_count));
+  // print_debug(debugging, "step_count: " + String(step_count));
 }
 
 
@@ -1500,7 +1509,6 @@ int speed_limit(int speed)
 
 void pulse_motors()
 {
-  // print_debug(info, "PULSE");
   PORTB = PORTB | B00000011;
   delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
   PORTB = PORTB & B11111100;
@@ -1687,7 +1695,6 @@ void derive_direction()
 {      
             s1_angle = angle_reorg(s1_angle);
             s2_angle = angle_reorg(s2_angle);
-
     
             // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
             // Remember the smoothers lie in the X-Z plane
@@ -1721,7 +1728,24 @@ void update_count()
 */
 
 
+// The routine Assumes that angle1, angle2 are between 0 and 2PI
 double angle_between(double angle1, double angle2)
+{
+  double angle;
+
+  angle = abs(angle1 - angle2);  
+  angle = angle_reorg(angle);
+  
+  if (angle > PI) angle -= PI;
+  
+  return angle;
+}
+
+
+
+/*
+// Keep, just incase angle_between is not up to the task
+double angle_between_old(double angle1, double angle2)
 {
   double angle;
   
@@ -1742,13 +1766,12 @@ double angle_between(double angle1, double angle2)
   return angle;
   
 }
+*/
 
 
 ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
   timer_set = false;      // Allow next interrupt to be set.
   if (! pulse_lasttime)   pulse_motors();
-  
-  // i_step++;               // Increment Step taken
   TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
 }
 
