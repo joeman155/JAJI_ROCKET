@@ -223,7 +223,7 @@ void setup() {
   
   // KATE System set-up  - TESTING
   max_torque     = 100;          // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  torque_percent = 40;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
+  torque_percent = 35;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
                                  // allowing for additional time...should some other force on system be acting on the mass.
                                  // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
   // SMOOTHER
@@ -277,8 +277,8 @@ void setup() {
   // Calculate Initial timing constants - for various speeds
   c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
   c0_normal = c0;
-  c0_fast = c0/1.15;
-  c0_slow = c0 * 1.15;
+  c0_fast = c0/1.22;
+  c0_slow = c0 * 1.22;
   
   
   // Min delay
