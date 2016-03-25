@@ -72,6 +72,8 @@ double rotation_ax, rotation_ay, rotation_az;
 #define cw HIGH
 #define ccw LOW
 
+boolean s2_motor_inverted = true;
+
 
 double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
 double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
@@ -147,7 +149,7 @@ double resting_angle_move = 0;
 
 
 // DEBUGGING
-boolean debugging    = false;
+boolean debugging    = true;
 boolean info         = true  ;
 boolean print_timing = false;
 
@@ -878,6 +880,8 @@ void smoother_step_7()
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
   end_time1 = micros();
+  
+  // delay(10000000);
 }
 
 
@@ -1322,7 +1326,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
     Serial.print("AM: ");
     Serial.println(String(angle_moved));
   }
-  
+   
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
    if (s1_direction == 1) {
@@ -1341,6 +1345,7 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
      s2_angle = angle_reorg(s2_angle);     
    }   
    
+  print_debug(info, "Angles are in local reference frame of S1 motor");
   print_debug(info, "S1 ANGLE: " + String(s1_angle));
   print_debug(info, "S2 ANGLE: " + String(s2_angle));   
   // print_debug(debugging, "step_count: " + String(step_count));
@@ -1396,7 +1401,14 @@ void s1_stepper_motor_direction(int direction)
 
 void s2_stepper_motor_direction(int direction)
 {
-  stepper_motor_direction(MOTOR2_DIRECTION, direction);
+  unsigned local_dir;
+  if (s2_motor_inverted) {
+     local_dir = invert_direction(direction);
+  } else {
+     local_dir = direction;
+  }
+  
+  stepper_motor_direction(MOTOR2_DIRECTION, local_dir);
 }
 
 /*
@@ -1794,12 +1806,34 @@ void decrement_i_write()
 }
 
 
+
+// Used to adjust speed....we want the smoothers to run at different speeds to try
+// and ensure least amount of skipped steps.
 void derive_speed(double angle)
 {
-  
   if (angle < 0.3) {
     c0 = c0_slow; 
    } else {
     c0 = c0_fast;
   }
 }
+
+
+
+// Invert direction of motor. Used for the 'bottom' motor, which is S2. This is connected to the bottom driver on the 
+// Driver board.
+unsigned int invert_direction(unsigned int direction)
+{
+  unsigned int local_dir;
+  
+  // Invert direction (because s2 is inverted inside the rocket)
+  if (direction == 1) {
+     local_dir = 2;
+  } else if (direction == 2) {
+     local_dir = 1;
+  } else {
+     local_dir = direction;
+  }
+  
+  return local_dir;
+}  
