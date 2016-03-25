@@ -180,18 +180,24 @@ void setup() {
   
   
   // Initialise Pins
-  pinMode(2, INPUT);
-  pinMode(13, OUTPUT);
-  pinMode(LED_INDICATOR_PIN, OUTPUT);
+  pinMode(2, INPUT);                    // Interrupts pin...for IMU
+  pinMode(13, OUTPUT);                  // Debugging...but actually used by FRAM
+  pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
+  pinMode(A0, INPUT);                   // S1 Motor sensor (0 degrees)
+  pinMode(A1, INPUT);                   // S1 Motor sensor (PI degrees)  
+  pinMode(A2, INPUT);                   // S2 Motor sensor (0 degrees)
+  pinMode(A3, INPUT);                   // S2 Motor sensor (PI degrees)    
+  
+  
   
   // Initialise Gryoscope
   if (gyroscope_installed) {
     Serial.println("Starting up L3G4200D");
     setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
     delay(1500); //wait for the sensor to be ready
-    Serial.println("Start calibrating...");
+    Serial.println("Start calibrating IMU...");
     calibrate();
-    Serial.println("Finished calibrating...");    
+    Serial.println("Finished calibrating IMU.");    
     delay(1000);
   }
   
@@ -300,7 +306,13 @@ void setup() {
   Serial.print("CX Min:               ");
   Serial.print(cx_min);
   Serial.println(" cycles");    
+
   
+  // Calibrate Smoothers (move them into position)
+  Serial.println("Start calibrating Smoothers...");
+  calibrate_smoothers();
+  Serial.println("Finished calibrating Smoothers...");  
+  delay(10000000);  // Just to stop execution of rest of program...  
   
   // Speed up process  
   if (fram_installed) {
@@ -1515,11 +1527,36 @@ int speed_limit(int speed)
 
 void pulse_motors()
 {
-  PORTB = PORTB | B00000011;
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...
+  // First bit (bit on very right) is for D8 == step motor 2
+  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
+  PORTB = PORTB | B00000011; 
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
   PORTB = PORTB & B11111100;
-  delayMicroseconds(1);     // Double what spec says we need min of 1 microsecond...  
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...  
 }
+
+void pulse_motor_s1()
+{
+  // First bit (bit on very right) is for D8 == step motor 2
+  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
+  PORTB = PORTB | B00000010; 
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
+  PORTB = PORTB & B11111100;
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...   
+}
+
+
+
+void pulse_motor_s2()
+{
+  // First bit (bit on very right) is for D8 == step motor 2
+  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
+  PORTB = PORTB | B00000001; 
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
+  PORTB = PORTB & B11111100;
+  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...   
+}
+
 
 
 void printDouble( double val, unsigned int precision){
@@ -1837,3 +1874,86 @@ unsigned int invert_direction(unsigned int direction)
   
   return local_dir;
 }  
+
+
+
+
+// Rotate smoothers indivually, s2 first, then s1
+// We rotate each smoother about axis twice. We look for ON.... then OFF
+// We get a reading of the steps at each side one...then we move backwards to get into the correct position.
+// Note: If the sensor starts off as high, we go for a second revolution.
+void calibrate_smoothers()
+{
+ int i, steps_to_move_back;
+ int step_on ;        // Where the sensor goes on.
+ int step_off;        // Where the sensor goes off
+ int middle_position; // Where we want to place the smoother
+ int a0_value;
+ boolean found_position;  // Set false...until position is found.
+
+ // S2 Motor
+ i = 0;
+ step_on = -1;
+ step_off = -1;
+ found_position = false;
+ s2_stepper_motor_direction(1);
+ while(i < 1600 && ! found_position) {
+   pulse_motor_s2();
+   delay(10); 
+   i++;
+   
+   // Get value on Hall sensor.  A3 pin == S2 Sensor at PI
+   a0_value = digitalRead(A0);
+   
+   if (a0_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
+      step_on = i;
+   }
+   
+   if (a0_value == HIGH && step_on >= 0 && step_off < 0) {
+      step_off  = i;
+   }
+   
+   if (step_on >= 0 && step_off >= 0) {
+      middle_position = (step_on + step_off)/2;
+      found_position = true;
+   }
+   
+ } 
+  
+ if (found_position) {
+    steps_to_move_back = i/2;
+    Serial.println("Found position! Moving backward to it now");
+    s2_stepper_motor_direction(2);
+    i = 0;
+    while(i < steps_to_move_back) {
+      pulse_motor_s2();
+      delay(10);
+    }
+    
+    
+ } else {
+    Serial.println("Been unable to calibrate Stepper Motor S2");
+ }
+ 
+  
+  
+/*  
+ // S1 Motor
+ i = 0;
+ step_on = -1;
+ step_off = -1;
+ found_position = false; 
+ while(i < 1600 && ! found_position) {
+   pulse_motor_s1();
+   delay(10); 
+   i++;
+   
+   // Get value on Hall sensor.  A0 pin == S1 Sensor at 0
+   
+   
+   
+ }   
+*/  
+
+  
+}
