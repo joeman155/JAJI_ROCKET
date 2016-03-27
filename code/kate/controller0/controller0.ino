@@ -65,9 +65,12 @@ double rotation_ax, rotation_ay, rotation_az;
 
 // STEPPER MOTOR
 #define MOTOR1_DIRECTION 6
+byte motor1_dir = B01000000;    // Used to turning bits HIGH/LOW fast!
 #define MOTOR1_STEP 8
+byte motor2_dir = B10000000;    // Used to turning bits HIGH/LOW fast!
 #define MOTOR2_DIRECTION 7
 #define MOTOR2_STEP 9
+
 
 #define cw_motor HIGH
 #define ccw_motor LOW
@@ -1394,36 +1397,27 @@ void crossproduct(double vec1[], double vec2[])
 
 
 
-void stepper_motor_direction(int motor, boolean direction)
+void stepper_motor_direction(byte motor, boolean direction)
 {
-  
   if (! direction) {
-     digitalWrite(motor, cw_motor);
+     PORTD = PORTD | motor;
   } else if (direction) {
-     digitalWrite(motor, ccw_motor);
+     PORTD = PORTD & ~motor;
   }
 }
 
 
 void s1_stepper_motor_direction(boolean direction)
 {
-  stepper_motor_direction(MOTOR1_DIRECTION, direction);
+  stepper_motor_direction(motor1_dir, direction);
 }
 
 void s2_stepper_motor_direction(boolean direction)
 {
-  /*
-  unsigned local_dir;
   if (s2_motor_inverted) {
-     local_dir = invert_direction(direction);
+    stepper_motor_direction(motor2_dir, ! direction);
   } else {
-     local_dir = direction;
-  }
-  */
-  if (s2_motor_inverted) {
-    stepper_motor_direction(MOTOR2_DIRECTION, ! direction);
-  } else {
-    stepper_motor_direction(MOTOR2_DIRECTION, direction);
+    stepper_motor_direction(motor2_dir, direction);
   }
 }
 
