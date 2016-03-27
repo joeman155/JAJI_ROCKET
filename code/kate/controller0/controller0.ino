@@ -69,8 +69,11 @@ double rotation_ax, rotation_ay, rotation_az;
 #define MOTOR2_DIRECTION 7
 #define MOTOR2_STEP 9
 
-#define cw HIGH
-#define ccw LOW
+#define cw_motor HIGH
+#define ccw_motor LOW
+
+#define cw true
+#define ccw false
 
 boolean s2_motor_inverted = true;
 
@@ -141,7 +144,7 @@ double corrective_angle = 0;
 double mid_point_angle = 0;
 double mid_point_distance = 0;
 double move_to_neutral_distance = 0;
-byte s1_direction = 0, s2_direction = 0;
+boolean s1_direction, s2_direction;
 double intermediate_move = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
@@ -706,7 +709,7 @@ void smoother_step_3()
 	// Find angle between the two smoothers...then halve...this is the mid-point
         // (We need to re-calculate because we may have moved in smoothers in previous step)
   	// mid_point_angle = acos(cos(s1_angle) * cos(s2_angle) + sin(s1_angle) * sin(s2_angle));  
-        mid_point_angle =  angle_between(s1_angle, s2_angle);  // JOE
+        mid_point_angle =  angle_between(s1_angle, s2_angle); 
 
         mid_point_distance  = (s1_angle + s2_angle)/2;	                                           // Angular distance mid-way between s1 and s2
         
@@ -749,8 +752,8 @@ void smoother_step_4()
 		smoother_step = 5;
 	} else {
   
-	  // s1_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
-	  // s2_direction = 1;  // 0 - No movement, 1 = CCW, 2 = CW
+	  // s1_direction = 1;  // FALSE = CCW, TRUE = CW
+	  // s2_direction = 1;  // FALSE = CCW, TRUE = CW
 		
 
           // DIRECTION TO GET SMOOTHERS TO INTERMEDIATE POSITION - in FASTEST POSSIBLE WAY!
@@ -770,15 +773,12 @@ void smoother_step_4()
         
           // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
           if (zcross > 0 ) {
-            s1_direction = 2; // CW
-	    s2_direction = 2; // CCW
+            s1_direction = cw;
+	    s2_direction = cw;
           } else if (zcross < 0 ) {
-            s1_direction = 1; // CCW
-	    s2_direction = 1; // CW
-          } else  {
-            s1_direction = 0;
-            s2_direction = 0;
-          }  
+            s1_direction = ccw;
+	    s2_direction = ccw;
+          } 
   
           print_time();
           derive_speed(intermediate_move);
@@ -823,16 +823,12 @@ void smoother_step_5()
         
           // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
           if (zcross > 0 ) {
-            s1_direction = 2; // CW
-	    s2_direction = 1; // CCW
+            s1_direction = cw; 
+	    s2_direction = ccw;
           } else if (zcross < 0 ) {
-            s1_direction = 1; // CCW
-	    s2_direction = 2; // CW
-          } else  {
-            s1_direction = 0;
-            s2_direction = 0;
-          }
-
+            s1_direction = ccw;
+	    s2_direction = cw;
+          } 
 
 //          print_debug(debugging, "zcross:     " + String(zcross));
 //          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
@@ -905,7 +901,7 @@ void smoother_step_7()
 // We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
 // We will want to move the same angle.
 // If threshold == 0, then we ignore this
-void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, double threshold)
+void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angle, double threshold)
 {
   // CALCULATE # OF STEPS
   int steps = round((angle * 180 / PI) / degrees_per_step);
@@ -1345,18 +1341,18 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
    
   
    // We want to keep track of where the smoothers are...no feedback..we just count steps
-   if (s1_direction == 1) {
+   if (! s1_direction) {
      s1_angle = s1_angle + angle_moved;
      s1_angle = angle_reorg(s1_angle);
-   } else if (s1_direction == 2) {
+   } else if (s1_direction) {
      s1_angle = s1_angle - angle_moved;
      s1_angle = angle_reorg(s1_angle);     
    }
    
-   if (s2_direction == 1) {
+   if (! s2_direction) {
      s2_angle = s2_angle + angle_moved;
      s2_angle = angle_reorg(s2_angle);
-   } else if (s2_direction == 2) {
+   } else if (s2_direction) {
      s2_angle = s2_angle - angle_moved;
      s2_angle = angle_reorg(s2_angle);     
    }   
@@ -1398,32 +1394,37 @@ void crossproduct(double vec1[], double vec2[])
 
 
 
-void stepper_motor_direction(int motor, int direction)
+void stepper_motor_direction(int motor, boolean direction)
 {
   
-  if (direction == 1) {
-     digitalWrite(motor, cw);
-  } else if (direction == 2) {
-     digitalWrite(motor, ccw);
+  if (! direction) {
+     digitalWrite(motor, cw_motor);
+  } else if (direction) {
+     digitalWrite(motor, ccw_motor);
   }
 }
 
 
-void s1_stepper_motor_direction(int direction)
+void s1_stepper_motor_direction(boolean direction)
 {
   stepper_motor_direction(MOTOR1_DIRECTION, direction);
 }
 
-void s2_stepper_motor_direction(int direction)
+void s2_stepper_motor_direction(boolean direction)
 {
+  /*
   unsigned local_dir;
   if (s2_motor_inverted) {
      local_dir = invert_direction(direction);
   } else {
      local_dir = direction;
   }
-  
-  stepper_motor_direction(MOTOR2_DIRECTION, local_dir);
+  */
+  if (s2_motor_inverted) {
+    stepper_motor_direction(MOTOR2_DIRECTION, ! direction);
+  } else {
+    stepper_motor_direction(MOTOR2_DIRECTION, direction);
+  }
 }
 
 /*
@@ -1753,11 +1754,11 @@ void derive_direction()
         
             // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
             if (zcross > 0) {
-              s1_direction = 1; // CCW
-	      s2_direction = 2; // CW
+              s1_direction = ccw;
+	      s2_direction = cw;
             } else if (zcross < 0) {
-              s1_direction = 2; // CW
-	      s2_direction = 1; // CCW
+              s1_direction = cw;
+	      s2_direction = ccw;
             }
 }  
 
@@ -1900,7 +1901,7 @@ void calibrate_smoothers()
  step_on = -1;
  step_off = -1;
  found_position = false;
- s2_stepper_motor_direction(1);
+ s2_stepper_motor_direction(ccw);
  while(i < 1600 && ! found_position) {
    pulse_motor_s2();
    delay(5); 
@@ -1930,7 +1931,7 @@ void calibrate_smoothers()
  if (found_position) {
     steps_to_move_back = (i - middle_position);
     // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
-    s2_stepper_motor_direction(2);
+    s2_stepper_motor_direction(cw);
     i = 0;
     while(i < steps_to_move_back) {
       pulse_motor_s2();
@@ -1951,7 +1952,7 @@ void calibrate_smoothers()
  step_on = -1;
  step_off = -1;
  found_position = false;
- s1_stepper_motor_direction(1);
+ s2_stepper_motor_direction(ccw);
  while(i < 1600 && ! found_position) {
    pulse_motor_s1();
    delay(5); 
@@ -1981,7 +1982,7 @@ void calibrate_smoothers()
  if (found_position) {
     steps_to_move_back = (i - middle_position);
     // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
-    s1_stepper_motor_direction(2);
+    s1_stepper_motor_direction(cw);
     i = 0;
     while(i < steps_to_move_back) {
       pulse_motor_s1();
