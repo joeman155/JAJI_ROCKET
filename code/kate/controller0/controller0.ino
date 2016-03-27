@@ -1175,160 +1175,6 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   }  
   
   
-  
-/*
-  end_time = micros();
-  Serial.print("Start time: "); Serial.println(start_time);  
-  Serial.print("Finish time: "); Serial.println(end_time);  
-  tdiff = end_time - start_time;
-  Serial.print("Time taken: "); Serial.println(tdiff);
-  Serial.print("Steps moved: "); Serial.println(String(i_step));
-  Serial.print("cx_total: "); Serial.println(cx_total);
-
-  // delay(10000000);
-*/
-  
-  /*
-  // Serial.print("speed up: ");
-  // int s = steps/2;
-  // Serial.println(s, DEC);
-  while (i < steps/2) { 
-
-
-      // Do first pulse ASAP...no waiting
-      if (first_triggered == true) {
-          pulse_motors();
-          
-          // update_count();
-
-          last_time_fired = micros();
-          first_triggered = false;
-          
-          // CODE HERE TO DO THE STEP at JUST the right time
-          next_time_fired = last_time_fired + c0;
-          cx_last = c0;
-          
-          //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-      } else {
-          finished_pulse = false;
-          while (! finished_pulse) {
-              unsigned long current_time = micros();
-              if (current_time > next_time_fired) {
-                  // actual_step = current_time - last_time_fired;  // Comment out to speed up routine!
-                  last_time_fired = current_time;
-                  pulse_motors();
-                  
-                  // update_count();             
-          
-                  // CODE HERE TO DO THE STEP at JUST the right time
-                  next_step = calculate_stepper_interval_up(i);
-                  // next_step = speed_limit(next_step);
-                  
-                  next_time_fired = last_time_fired + next_step;
-                  
-                  // Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));   // Comment out to speed up routine!
-                  // Serial.println(actual_step, DEC);   // Comment out to speed up routine!
-                  // print_debug(debugging, String(actual_step));
-                  // print_debug(info, String(next_step));                  
-            
-                  finished_pulse = true;
-                
-                
-//                  // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-//                  if (dataneedsprocessing) {
-//                     get_latest_rotation_data2(true);
-//                  } else {
-//                     get_latest_rotation_data1(true);
-//                  }
-                  
-              }
-          }              
-    }
-    
-    
-    
-    
-    if (threshold > 0) {
-       // Threshold value > 0, this means we should do some threshold checks.
-       if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
-          print_debug(debugging, "Under Threshold. Slowing down.");
-          // And if threshold is met, we need to calculate angle moved
-          
-          //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
-          //         degrees per step - whatever it is defined as
-          //         PI/180     Convert from degress to radians
-          angle_moved = 2 * i * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
-          break;
-       }     
-    }
-    i++;
-    
-  }
-  */
-  
-  
-  /*
-  int steps_remaining = i;
-  first_triggered = true;
-  i = 0;
-  // DO THE MOVE COMMANDS HERE - TO SPEED DOWN
-  // Serial.print("speed down: ");
-  // Serial.println(steps_remaining);
-  while (i < steps_remaining) {
-        
-      finished_pulse = false;
-      while (! finished_pulse) {
-          unsigned long current_time = micros();
-          if (current_time > next_time_fired) {
-              // actual_step = current_time - last_time_fired;   // Comment out to speed up routine!
-              last_time_fired = current_time;
-              pulse_motors();
-              
-              // update_count();            
-                  
-              // CODE HERE TO DO THE STEP at JUST the right time
-              next_step = calculate_stepper_interval(steps_remaining, i);
-              // next_step = speed_limit(next_step);
-              
-              next_time_fired = last_time_fired + next_step;
-                  
-              //Serial.print("STEP: " + String(i) + String("/") + String(steps/2) + String(", "));
-              // Serial.println(actual_step, DEC);     // Comment out to speed up routine!
-              // print_debug(info, String(actual_step));
-              // print_debug(info, String(next_step));
-           
-              finished_pulse = true;
-            
-            
-//             // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-//              if (dataneedsprocessing) {
-//                 get_latest_rotation_data2(true);
-//              } else {
-//                 get_latest_rotation_data1(true);
-//              } 
-    
-          }
-      } 
-    
-    i++;
-  }
-  
-  
-  // Finished our pulses, but we need to wait until Step motor has completely stopped.
-  // ONLY do this wait if steps_remaining > 0.    No point waiting if no steps moved.
-  if (steps_remaining > 0) {
-    finished_pulse = false;
-    while (! finished_pulse) {  
-    unsigned long current_time = micros();
-            if (current_time > next_time_fired) {
-              finished_pulse = true;
-              long actual_step = current_time - last_time_fired;
-              print_debug(info, "FW: " + String(actual_step));
-            }
-    }
-  }
-  */
-  
   if (info) {
     end_time = micros();
     double move_time = (end_time - start_time) / (double) 1000000;
@@ -1421,49 +1267,6 @@ void s2_stepper_motor_direction(boolean direction)
   }
 }
 
-/*
-// Provides the time to wait
-// - updown - 1 for speeding up, 0 for speeding down
-// - step   - The step number we are up to
-int calculate_stepper_interval(int starting_step, int next_step)
-{
-  int cx;
-
-  if (next_step - starting_step == 1) {
-    cx = cx_last * 0.4142;
-    cx_last = cx;
-  } else if (starting_step > 0 && next_step == 0) {
-    cx = cx_last;
-  } else if (next_step - starting_step == -1 ) {
-    cx = cx_last / 0.4142;
-  } else {
-    cx = cx_last - (2 * cx_last)/(4 * (next_step - starting_step) + 1);
-    cx_last = cx;
-  }
-  
-  return cx;
-}
-
-
-
-// Provides the time to wait
-// - updown - 1 for speeding up, 0 for speeding down
-// - step   - The step number we are up to
-int calculate_stepper_interval_up(int next_step)
-{
-  int cx;
-
-  if (next_step == 1) {
-    cx = cx_last * 0.4142;
-    cx_last = cx;
-  } else {
-    cx = cx_last - (2 * cx_last)/(4 * next_step + 1);
-    cx_last = cx;
-  }
-  
-  return cx;
-}
-*/
 
 
 // Provides the time to wait
@@ -1786,32 +1589,6 @@ double angle_between(double angle1, double angle2)
 
 
 
-/*
-// Keep, just incase angle_between is not up to the task
-double angle_between_old(double angle1, double angle2)
-{
-  double angle;
-  
-  double val;
-  
-  val = cos(angle1) * cos(angle2) + sin(angle1) * sin(angle2);
-  
-    // Yes, we get rounding errors that result in val being slightly > 1 or slightly less then -1. We deal with them here. Else we get NAN errors.
-    if (val > 1) { 
-       val = 1;
-    } else if (val < -1) {
-       val = -1;
-    }  
-
-  
-  angle = acos(val); 
-  
-  return angle;
-  
-}
-*/
-
-
 ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
   timer_set = false;      // Allow next interrupt to be set.
   if (! pulse_lasttime)   pulse_motors();
@@ -1852,28 +1629,6 @@ void derive_speed(double angle)
     c0 = c0_fast;
   }
 }
-
-
-
-// Invert direction of motor. Used for the 'bottom' motor, which is S2. This is connected to the bottom driver on the 
-// Driver board.
-unsigned int invert_direction(unsigned int direction)
-{
-  unsigned int local_dir;
-  
-  // Invert direction (because s2 is inverted inside the rocket)
-  if (direction == 1) {
-     local_dir = 2;
-  } else if (direction == 2) {
-     local_dir = 1;
-  } else {
-     local_dir = direction;
-  }
-  
-  return local_dir;
-}  
-
-
 
 
 // Rotate smoothers indivually, s2 first, then s1
