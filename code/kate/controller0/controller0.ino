@@ -149,8 +149,8 @@ double resting_angle_move = 0;
 
 
 // DEBUGGING
-boolean debugging    = true;
-boolean info         = true  ;
+boolean debugging    = false;
+boolean info         = false  ;
 boolean print_timing = false;
 
 
@@ -294,10 +294,10 @@ void setup() {
   
   
   
-  Serial.print("Moment of Inertia:    ");
+  Serial.print("MoI:    ");
   Serial.print((double) moment_of_inertia, 9);
   Serial.println(" kgm^2");
-  Serial.print("Maximum Acceleration: ");
+  Serial.print("Max Accel: ");
   Serial.print((double) max_acceleration);
   Serial.println(" rad/s/s");
   Serial.print("C0:                   ");
@@ -308,12 +308,14 @@ void setup() {
   Serial.println(" cycles");    
 
   
+
   // Calibrate Smoothers (move them into position)
   Serial.println("Start calibrating Smoothers...");
   calibrate_smoothers();
   Serial.println("Finished calibrating Smoothers...");  
-  delay(10000000);  // Just to stop execution of rest of program...  
   
+  
+
   // Speed up process  
   if (fram_installed) {
     Serial.println("Clearing FRAM...");
@@ -360,7 +362,7 @@ void loop() {
 
     smoother_step = 1;
     if (info) {
-      print_debug(info, "------------------------------ System needs stabilising ------------------------------");    
+      print_debug(info, "-- System needs stabilising --");    
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
       print_time();    
@@ -378,7 +380,7 @@ void loop() {
   if (info) {
     if (end_time1 > 0) {
       long total_time = end_time1 - start_time1;
-      Serial.print("TOTAL TIME: ");
+      Serial.print("TT: ");
       Serial.println(total_time, DEC);
       end_time1 = 0;
     }
@@ -674,12 +676,14 @@ void smoother_step_2()
 	if (move_to_neutral_distance <= 0) {
                 // Already 180 degrees out of phase, so no need to move
 		smoother_step = 4;
-                print_debug(debugging, "No need to move to neutral position, already in neutral position");
+                // No need to move to neutral position, already in neutral position
+                // print_debug(debugging, "No need to move to neutral position, already in neutral position");
 	} else if (intermediate_move < PI/4) { 
                 // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
                 // position outweighs the imbalances that might be caused.
 		smoother_step = 4;
-                print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
+                // Only a small movement required, so we will move straight to that position
+                // print_debug(debugging, "Only a small movement required, so we will move straight to that position");                
         } else {
                 // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
                 derive_direction(); 
@@ -1357,7 +1361,6 @@ void move_stepper_motors(byte s1_direction, byte s2_direction, double angle, dou
      s2_angle = angle_reorg(s2_angle);     
    }   
    
-  print_debug(info, "Angles are in local reference frame of S1 motor");
   print_debug(info, "S1 ANGLE: " + String(s1_angle));
   print_debug(info, "S2 ANGLE: " + String(s2_angle));   
   // print_debug(debugging, "step_count: " + String(step_count));
@@ -1884,11 +1887,12 @@ unsigned int invert_direction(unsigned int direction)
 // Note: If the sensor starts off as high, we go for a second revolution.
 void calibrate_smoothers()
 {
+
  int i, steps_to_move_back;
  int step_on ;        // Where the sensor goes on.
  int step_off;        // Where the sensor goes off
  int middle_position; // Where we want to place the smoother
- int a0_value;
+ int sensor_value;
  boolean found_position;  // Set false...until position is found.
 
  // S2 Motor
@@ -1899,61 +1903,97 @@ void calibrate_smoothers()
  s2_stepper_motor_direction(1);
  while(i < 1600 && ! found_position) {
    pulse_motor_s2();
-   delay(10); 
+   delay(5); 
    i++;
    
    // Get value on Hall sensor.  A3 pin == S2 Sensor at PI
-   a0_value = digitalRead(A0);
+   sensor_value = digitalRead(A3);
    
-   if (a0_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
+   if (sensor_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
       step_on = i;
+      // Serial.print("Step on: "); Serial.println(step_on);      
    }
    
-   if (a0_value == HIGH && step_on >= 0 && step_off < 0) {
+   if (sensor_value == HIGH && step_on >= 0 && step_off < 0) {
       step_off  = i;
+      // Serial.print("Step off: "); Serial.println(step_off);
    }
    
    if (step_on >= 0 && step_off >= 0) {
       middle_position = (step_on + step_off)/2;
       found_position = true;
+      // Serial.print("Finished finding Step on and Step off. Middle Position: "); Serial.println(middle_position);
    }
    
  } 
   
  if (found_position) {
-    steps_to_move_back = i/2;
-    Serial.println("Found position! Moving backward to it now");
+    steps_to_move_back = (i - middle_position);
+    // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
     s2_stepper_motor_direction(2);
     i = 0;
     while(i < steps_to_move_back) {
       pulse_motor_s2();
-      delay(10);
+      delay(5);
+      i++;
     }
     
     
  } else {
     Serial.println("Been unable to calibrate Stepper Motor S2");
  }
- 
+
   
   
-/*  
+
  // S1 Motor
  i = 0;
  step_on = -1;
  step_off = -1;
- found_position = false; 
+ found_position = false;
+ s1_stepper_motor_direction(1);
  while(i < 1600 && ! found_position) {
    pulse_motor_s1();
-   delay(10); 
+   delay(5); 
    i++;
    
-   // Get value on Hall sensor.  A0 pin == S1 Sensor at 0
+   // Get value on Hall sensor.  A0 pin == S1 Sensor at 0 radians
+   sensor_value = digitalRead(A0);
    
+   if (sensor_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
+      step_on = i;
+      // Serial.print("Step on: "); Serial.println(step_on);      
+   }
    
+   if (sensor_value == HIGH && step_on >= 0 && step_off < 0) {
+      step_off  = i;
+      // Serial.print("Step off: "); Serial.println(step_off);
+   }
    
- }   
-*/  
+   if (step_on >= 0 && step_off >= 0) {
+      middle_position = (step_on + step_off)/2;
+      found_position = true;
+      // Serial.print("Finished finding Step on and Step off. Middle Position: "); Serial.println(middle_position);
+   }
+   
+ } 
+  
+ if (found_position) {
+    steps_to_move_back = (i - middle_position);
+    // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
+    s1_stepper_motor_direction(2);
+    i = 0;
+    while(i < steps_to_move_back) {
+      pulse_motor_s1();
+      delay(5);
+      i++;
+    }
+    
+    
+ } else {
+    Serial.println("Been unable to calibrate Stepper Motor S1");
+ }
+
 
   
 }
