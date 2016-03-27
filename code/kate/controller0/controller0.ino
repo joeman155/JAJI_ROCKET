@@ -1,13 +1,15 @@
 /*
-  Controller0
+  Controller0 - KATE  (Kinetic Attitude Thruster Engine)
   Loaded on to the main Arduino board that gets gyro data, sends to 
   other Arduino to save.
   Also controls stepper motors
   
 
   created 16 Feb 2016
-  modified 16 Feb 2016
+  modified 27 Mar 2016
   by Joseph Turner
+  
+  Named in memory of Aunti Kate who passed away on 17th of March 2016.
  */
 
 
@@ -135,7 +137,7 @@ long start_time;
 long end_time;
 long start_time1;
 long end_time1;
-long ts1, ts2, ts3;
+// long ts1, ts2, ts3;
 
 
 
@@ -636,7 +638,6 @@ void smoother_step_processing()
 
 void smoother_step_1() 
 {
-    ts1 = micros();    
 
         //   **** CALCULATE HOW FAR AND IN WHAT DIRECTIONS TO GET BACK TO NEUTRAL POSITION ****
         mid_point_angle = angle_between(s1_angle, s2_angle);  
@@ -1011,9 +1012,6 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
 
     }
     
-//    if (buffer_level < 2 && i_step >10) {
-//      Serial.println("z");
-//    }
     
     if (i_step >= half_steps) {
       finished_pulse = true;
@@ -1049,9 +1047,6 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   }
   
   
-//  Serial.print("fin_i_read:  ");  Serial.println(i_read);
-//  Serial.print("fin_i_write:  ");  Serial.println(i_write);
-//  Serial.print("fin_buffer_level:  ");  Serial.println(buffer_level);  
   
   
 /*  
