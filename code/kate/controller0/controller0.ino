@@ -198,7 +198,8 @@ void setup() {
   
   
   
-  // Initialise Gryoscope
+  // Initialise Gryoscope and calibrate
+  // NOTE: We don't use the values from the calibration just yet....
   if (gyroscope_installed) {
     Serial.println("Starting up L3G4200D");
     setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
@@ -257,6 +258,7 @@ void setup() {
   
   // This is quite a complicated equation. Below is a representation
   //       ||
+  //       ||  
   //  axle ||             **
   //       ||           ******
   //       ||----------********    <<--- Smoother  (Assume it is a sphere....radius = 9mm)
@@ -297,7 +299,7 @@ void setup() {
   c0_slow = c0 * 1.22;
   
   
-  // Min delay
+  // Min delay  (Unlikely to get this fast without motor slipping!!)
   cx_min = 250;
   
   
@@ -531,15 +533,16 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
 {
   
   time = micros();
-  rotation_ax = 1000000 * (vx - old_rotation_vx)/(time - last_time);
+  long tdiff = time - last_time;
+  rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
   old_rotation_vx = vx;
   
   if (! exclude_y) {
-    rotation_ay = 1000000 * (vy - old_rotation_vy)/(time - last_time);
+    rotation_ay = 1000000 * (vy - old_rotation_vy)/tdiff;
     old_rotation_vy = vy;  
   }
   
-  rotation_az = 1000000 * (vz - old_rotation_vz)/(time - last_time);
+  rotation_az = 1000000 * (vz - old_rotation_vz)/tdiff;
   old_rotation_vz = vz;  
   
   
