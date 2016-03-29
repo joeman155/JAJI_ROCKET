@@ -159,10 +159,12 @@ double resting_angle_move = 0;
 // DEBUGGING
 boolean debugging    = false;
 boolean info         = false  ;
-boolean print_timing = false;
+boolean print_timing = true;
 
 
 // Vectors
+double thrust_vector[] = {0, 1, 0};
+double x_vector[] = {1, 0, 0};
 double y_vector[] = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
 double vec3[]     = {0, 0, 0};     // Result of cross product
 
@@ -387,7 +389,7 @@ void loop() {
   }
   
  
-  if (info) {
+  if (print_timing) {
     if (end_time1 > 0) {
       long total_time = end_time1 - start_time1;
       Serial.print("TT: ");
@@ -581,21 +583,20 @@ void calculate_smoother_location(double vx, double vy, double vz)
 	// We Already have the Rotational velocity co-ordinate in the local system
 	// RealVector corrective_torque_direction = utils.revolveVector(0, Math.PI,  0, rotation_velocity_local);
 	double corrective_torque_direction[] = { -1 * vx , -1 * vy, -1 * vz};
-	double dist = pow(pow(vx, 2) + pow(vy, 2) + pow(vz, 2), 0.5);
 								
 				
 	// Create Unit Correction'Vector'
-	double corrective_rotation[] = {corrective_torque_direction[0]/dist, corrective_torque_direction[1]/dist, corrective_torque_direction[2]/dist};
+        double corrective_rotation[] = {corrective_torque_direction[0], corrective_torque_direction[1], corrective_torque_direction[2]};
 				
 	// Generate the thrust vector ... not caring about magnitude...only direction...in local coordinate system
-	double thrust_vector[] = {0, 1, 0};
+	// DECLARED AT BEGINNING
 			
 	// Determine the direction of the CG vector...needed to produce torque to oppose the current motion
         crossproduct(thrust_vector, corrective_rotation);
         double corrective_cg_vector[] = { vec3[0], vec3[1], vec3[2] };
 						
 	// Determine angle vector in X-direction in local reference frame... Use this later to find angle the CG vector makes with X-axis
-	double x_vector[] = {1, 0, 0};		
+	// DECLARED AT BEGINNING	
 				
 	// Determine the angle this CG makes 
 	double corrective_cg_vector_size = pow(pow(corrective_cg_vector[0], 2) + pow(corrective_cg_vector[1], 2) + pow(corrective_cg_vector[2], 2), 0.5 );
