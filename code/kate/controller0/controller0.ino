@@ -326,7 +326,6 @@ void setup() {
   calibrate_smoothers();
   Serial.println("Finished calibrating Smoothers...");  
   
-  
 
   // Speed up process  
   if (fram_installed) {
@@ -336,7 +335,8 @@ void setup() {
   }
 
 
-  delay(3000);
+  delay(1000);
+
 
   if (gyroscope_installed) {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
@@ -1700,7 +1700,7 @@ void calibrate_smoothers()
  step_on = -1;
  step_off = -1;
  found_position = false;
- s2_stepper_motor_direction(ccw);
+ s1_stepper_motor_direction(ccw);
  while(i < 1600 && ! found_position) {
    pulse_motor_s1();
    delay(5); 
