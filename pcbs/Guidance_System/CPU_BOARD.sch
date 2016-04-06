@@ -9147,6 +9147,60 @@ Source: www.kingbright.com</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="solpad">
+<description>&lt;b&gt;Solder Pads/Test Points&lt;/b&gt;&lt;p&gt;
+&lt;author&gt;Created by librarian@cadsoft.de&lt;/author&gt;</description>
+<packages>
+<package name="LSP10">
+<description>&lt;b&gt;SOLDER PAD&lt;/b&gt;&lt;p&gt;
+drill 1.0 mm</description>
+<wire x1="-1.27" y1="0.254" x2="-1.27" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="0.254" x2="1.27" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="0.254" x2="1.143" y2="0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="-0.254" x2="1.143" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="-1.27" y1="-0.254" x2="-1.143" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="-1.27" y1="0.254" x2="-1.143" y2="0.254" width="0.1524" layer="21"/>
+<wire x1="1.143" y1="0.254" x2="0.635" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="-1.143" y1="-0.254" x2="-0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="0.254" x2="0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="0.254" x2="-0.635" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="-0.254" x2="1.143" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="0.254" x2="-0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="0.254" x2="-1.143" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="-0.254" x2="0.635" y2="-0.254" width="0.1524" layer="51"/>
+<pad name="MP" x="0" y="0" drill="1.016" diameter="2.159" shape="octagon"/>
+<text x="-1.27" y="1.27" size="1.27" layer="25" ratio="10">&gt;NAME</text>
+<text x="0" y="0.254" size="0.0254" layer="27">&gt;VALUE</text>
+</package>
+</packages>
+<symbols>
+<symbol name="LSP">
+<wire x1="-1.016" y1="2.032" x2="1.016" y2="0" width="0.254" layer="94"/>
+<wire x1="-1.016" y1="0" x2="1.016" y2="2.032" width="0.254" layer="94"/>
+<circle x="0" y="1.016" radius="1.016" width="0.4064" layer="94"/>
+<text x="-1.27" y="2.921" size="1.778" layer="95">&gt;NAME</text>
+<pin name="MP" x="0" y="-2.54" visible="off" length="short" direction="pas" rot="R90"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="LSP10" prefix="LSP">
+<description>&lt;b&gt;SOLDER PAD&lt;/b&gt;&lt;p&gt; drill 1.0 mm, distributor Buerklin, 12H555</description>
+<gates>
+<gate name="1" symbol="LSP" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="LSP10">
+<connects>
+<connect gate="1" pin="MP" pad="MP"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 </libraries>
 <attributes>
 </attributes>
@@ -9185,6 +9239,10 @@ Source: www.kingbright.com</description>
 <part name="J15" library="con-molex" deviceset="22-?-04" device="27-2041"/>
 <part name="J16" library="con-molex" deviceset="22-?-04" device="27-2041"/>
 <part name="J17" library="con-molex" deviceset="22-?-02" device="27-2021"/>
+<part name="LSP1" library="solpad" deviceset="LSP10" device=""/>
+<part name="LSP2" library="solpad" deviceset="LSP10" device=""/>
+<part name="LSP3" library="solpad" deviceset="LSP10" device=""/>
+<part name="LSP4" library="solpad" deviceset="LSP10" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -9300,6 +9358,10 @@ Source: www.kingbright.com</description>
 <instance part="J16" gate="-4" x="60.96" y="220.98" rot="R90"/>
 <instance part="J17" gate="-1" x="-15.24" y="215.9" rot="R90"/>
 <instance part="J17" gate="-2" x="-10.16" y="215.9" rot="R90"/>
+<instance part="LSP1" gate="1" x="-106.68" y="182.88"/>
+<instance part="LSP2" gate="1" x="-106.68" y="172.72"/>
+<instance part="LSP3" gate="1" x="-12.7" y="185.42"/>
+<instance part="LSP4" gate="1" x="-22.86" y="170.18"/>
 </instances>
 <busses>
 </busses>
@@ -9778,6 +9840,38 @@ Source: www.kingbright.com</description>
 <pinref part="J10" gate="-1" pin="S"/>
 <wire x1="-101.6" y1="195.58" x2="-101.6" y2="185.42" width="0.1524" layer="91"/>
 <wire x1="-111.76" y1="195.58" x2="-101.6" y2="195.58" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$25" class="0">
+<segment>
+<pinref part="J10" gate="-4" pin="S"/>
+<wire x1="-101.6" y1="170.18" x2="-106.68" y2="170.18" width="0.1524" layer="91"/>
+<pinref part="LSP2" gate="1" pin="MP"/>
+</segment>
+</net>
+<net name="N$30" class="0">
+<segment>
+<pinref part="J10" gate="-2" pin="S"/>
+<wire x1="-101.6" y1="180.34" x2="-106.68" y2="180.34" width="0.1524" layer="91"/>
+<pinref part="LSP1" gate="1" pin="MP"/>
+</segment>
+</net>
+<net name="N$36" class="0">
+<segment>
+<pinref part="J13" gate="-4" pin="S"/>
+<wire x1="-7.62" y1="172.72" x2="-10.16" y2="172.72" width="0.1524" layer="91"/>
+<pinref part="LSP4" gate="1" pin="MP"/>
+<wire x1="-10.16" y1="172.72" x2="-12.7" y2="172.72" width="0.1524" layer="91"/>
+<wire x1="-22.86" y1="167.64" x2="-17.78" y2="167.64" width="0.1524" layer="91"/>
+<wire x1="-17.78" y1="167.64" x2="-17.78" y2="172.72" width="0.1524" layer="91"/>
+<wire x1="-17.78" y1="172.72" x2="-12.7" y2="172.72" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="N$45" class="0">
+<segment>
+<pinref part="J13" gate="-2" pin="S"/>
+<wire x1="-7.62" y1="182.88" x2="-12.7" y2="182.88" width="0.1524" layer="91"/>
+<pinref part="LSP3" gate="1" pin="MP"/>
 </segment>
 </net>
 </nets>
