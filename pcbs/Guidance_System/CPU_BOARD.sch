@@ -9524,6 +9524,7 @@ drill 1.0 mm</description>
 <wire x1="33.02" y1="86.36" x2="33.02" y2="96.52" width="0.1524" layer="91"/>
 <wire x1="12.7" y1="88.9" x2="12.7" y2="86.36" width="0.1524" layer="91"/>
 <wire x1="12.7" y1="86.36" x2="33.02" y2="86.36" width="0.1524" layer="91"/>
+<junction x="33.02" y="86.36"/>
 </segment>
 </net>
 <net name="N$7" class="0">
@@ -9813,6 +9814,7 @@ drill 1.0 mm</description>
 <pinref part="J17" gate="-2" pin="S"/>
 <wire x1="-10.16" y1="203.2" x2="-78.74" y2="203.2" width="0.1524" layer="91"/>
 <wire x1="-10.16" y1="213.36" x2="-10.16" y2="203.2" width="0.1524" layer="91"/>
+<junction x="-10.16" y="203.2"/>
 </segment>
 </net>
 <net name="N$34" class="0">
@@ -9827,6 +9829,7 @@ drill 1.0 mm</description>
 <wire x1="30.48" y1="182.88" x2="30.48" y2="198.12" width="0.1524" layer="91"/>
 <pinref part="J17" gate="-1" pin="S"/>
 <wire x1="-15.24" y1="213.36" x2="-15.24" y2="198.12" width="0.1524" layer="91"/>
+<junction x="-15.24" y="198.12"/>
 </segment>
 </net>
 <net name="N$35" class="0">
@@ -9840,6 +9843,7 @@ drill 1.0 mm</description>
 <pinref part="J10" gate="-1" pin="S"/>
 <wire x1="-101.6" y1="195.58" x2="-101.6" y2="185.42" width="0.1524" layer="91"/>
 <wire x1="-111.76" y1="195.58" x2="-101.6" y2="195.58" width="0.1524" layer="91"/>
+<junction x="-101.6" y="195.58"/>
 </segment>
 </net>
 <net name="N$25" class="0">
