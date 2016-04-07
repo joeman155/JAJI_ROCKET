@@ -68,10 +68,10 @@ double rotation_ax, rotation_ay, rotation_az;
 // STEPPER MOTOR
 #define MOTOR1_DIRECTION 6
 byte motor1_dir = B01000000;    // Used to turning bits HIGH/LOW fast!
-#define MOTOR1_STEP 8
+#define MOTOR1_STEP 9
 byte motor2_dir = B10000000;    // Used to turning bits HIGH/LOW fast!
 #define MOTOR2_DIRECTION 7
-#define MOTOR2_STEP 9
+#define MOTOR2_STEP 8
 
 
 #define cw_motor HIGH
