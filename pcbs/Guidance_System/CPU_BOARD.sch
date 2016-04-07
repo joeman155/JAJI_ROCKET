@@ -9172,6 +9172,27 @@ drill 1.0 mm</description>
 <text x="-1.27" y="1.27" size="1.27" layer="25" ratio="10">&gt;NAME</text>
 <text x="0" y="0.254" size="0.0254" layer="27">&gt;VALUE</text>
 </package>
+<package name="LSP11">
+<description>&lt;b&gt;SOLDER PAD&lt;/b&gt;&lt;p&gt;
+drill 1.1 mm</description>
+<wire x1="-1.27" y1="0.254" x2="-1.27" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="0.254" x2="1.27" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="0.254" x2="1.143" y2="0.254" width="0.1524" layer="21"/>
+<wire x1="1.27" y1="-0.254" x2="1.143" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="-1.27" y1="-0.254" x2="-1.143" y2="-0.254" width="0.1524" layer="21"/>
+<wire x1="-1.27" y1="0.254" x2="-1.143" y2="0.254" width="0.1524" layer="21"/>
+<wire x1="1.143" y1="0.254" x2="0.635" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="-1.143" y1="-0.254" x2="-0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="0.254" x2="0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="0.254" x2="-0.635" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="0.635" y1="-0.254" x2="1.143" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="0.254" x2="-0.635" y2="-0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="0.254" x2="-1.143" y2="0.254" width="0.1524" layer="51"/>
+<wire x1="-0.635" y1="-0.254" x2="0.635" y2="-0.254" width="0.1524" layer="51"/>
+<pad name="MP" x="0" y="0" drill="1.1176" diameter="2.159" shape="octagon"/>
+<text x="-1.27" y="1.27" size="1.27" layer="25" ratio="10">&gt;NAME</text>
+<text x="0" y="0.254" size="0.0254" layer="27">&gt;VALUE</text>
+</package>
 </packages>
 <symbols>
 <symbol name="LSP">
@@ -9190,6 +9211,23 @@ drill 1.0 mm</description>
 </gates>
 <devices>
 <device name="" package="LSP10">
+<connects>
+<connect gate="1" pin="MP" pad="MP"/>
+</connects>
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+<deviceset name="LSP11" prefix="LSP">
+<description>&lt;b&gt;SOLDER PAD&lt;/b&gt;&lt;p&gt;
+drill 1.1 mm</description>
+<gates>
+<gate name="1" symbol="LSP" x="0" y="0"/>
+</gates>
+<devices>
+<device name="" package="LSP11">
 <connects>
 <connect gate="1" pin="MP" pad="MP"/>
 </connects>
@@ -9243,6 +9281,9 @@ drill 1.0 mm</description>
 <part name="LSP2" library="solpad" deviceset="LSP10" device=""/>
 <part name="LSP3" library="solpad" deviceset="LSP10" device=""/>
 <part name="LSP4" library="solpad" deviceset="LSP10" device=""/>
+<part name="R7" library="rcl" deviceset="R-US_" device="0204/5"/>
+<part name="R8" library="rcl" deviceset="R-US_" device="0204/5"/>
+<part name="LSP5" library="solpad" deviceset="LSP11" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -9362,6 +9403,9 @@ drill 1.0 mm</description>
 <instance part="LSP2" gate="1" x="-106.68" y="172.72"/>
 <instance part="LSP3" gate="1" x="-12.7" y="185.42"/>
 <instance part="LSP4" gate="1" x="-22.86" y="170.18"/>
+<instance part="R7" gate="G$1" x="-25.4" y="73.66" rot="R90"/>
+<instance part="R8" gate="G$1" x="-25.4" y="86.36" rot="R90"/>
+<instance part="LSP5" gate="1" x="-30.48" y="83.82"/>
 </instances>
 <busses>
 </busses>
@@ -9428,9 +9472,12 @@ drill 1.0 mm</description>
 <net name="N$5" class="0">
 <segment>
 <pinref part="U$1" gate="G$1" pin="RAW"/>
-<wire x1="-50.8" y1="68.58" x2="33.02" y2="68.58" width="0.1524" layer="91"/>
+<wire x1="-50.8" y1="68.58" x2="-25.4" y2="68.58" width="0.1524" layer="91"/>
+<wire x1="-25.4" y1="68.58" x2="33.02" y2="68.58" width="0.1524" layer="91"/>
 <wire x1="33.02" y1="68.58" x2="33.02" y2="78.74" width="0.1524" layer="91"/>
 <pinref part="J8" gate="-2" pin="S"/>
+<pinref part="R7" gate="G$1" pin="1"/>
+<junction x="-25.4" y="68.58"/>
 </segment>
 </net>
 <net name="N$6" class="0">
@@ -9641,7 +9688,8 @@ drill 1.0 mm</description>
 <wire x1="68.58" y1="66.04" x2="35.56" y2="66.04" width="0.1524" layer="91"/>
 <pinref part="J3" gate="-2" pin="S"/>
 <wire x1="35.56" y1="66.04" x2="7.62" y2="66.04" width="0.1524" layer="91"/>
-<wire x1="7.62" y1="66.04" x2="-50.8" y2="66.04" width="0.1524" layer="91"/>
+<wire x1="7.62" y1="66.04" x2="-15.24" y2="66.04" width="0.1524" layer="91"/>
+<wire x1="-15.24" y1="66.04" x2="-50.8" y2="66.04" width="0.1524" layer="91"/>
 <wire x1="15.24" y1="7.62" x2="15.24" y2="27.94" width="0.1524" layer="91"/>
 <wire x1="15.24" y1="27.94" x2="35.56" y2="27.94" width="0.1524" layer="91"/>
 <wire x1="35.56" y1="27.94" x2="35.56" y2="66.04" width="0.1524" layer="91"/>
@@ -9651,6 +9699,9 @@ drill 1.0 mm</description>
 <junction x="35.56" y="66.04"/>
 <wire x1="7.62" y1="88.9" x2="7.62" y2="66.04" width="0.1524" layer="91"/>
 <junction x="7.62" y="66.04"/>
+<pinref part="R8" gate="G$1" pin="2"/>
+<wire x1="-25.4" y1="91.44" x2="-15.24" y2="91.44" width="0.1524" layer="91"/>
+<wire x1="-15.24" y1="91.44" x2="-15.24" y2="66.04" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$4" class="0">
@@ -9876,6 +9927,15 @@ drill 1.0 mm</description>
 <pinref part="J13" gate="-2" pin="S"/>
 <wire x1="-7.62" y1="182.88" x2="-12.7" y2="182.88" width="0.1524" layer="91"/>
 <pinref part="LSP3" gate="1" pin="MP"/>
+</segment>
+</net>
+<net name="N$47" class="0">
+<segment>
+<pinref part="R7" gate="G$1" pin="2"/>
+<pinref part="R8" gate="G$1" pin="1"/>
+<wire x1="-25.4" y1="78.74" x2="-25.4" y2="81.28" width="0.1524" layer="91"/>
+<wire x1="-25.4" y1="81.28" x2="-30.48" y2="81.28" width="0.1524" layer="91"/>
+<pinref part="LSP5" gate="1" pin="MP"/>
 </segment>
 </net>
 </nets>
