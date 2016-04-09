@@ -50,9 +50,9 @@ unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 int x;
 int y;
 int z;
-int angle_x = 0;
-int angle_y = 0;
-int angle_z = 0;
+double angle_x = 0;
+double angle_y = 0;
+double angle_z = 0;
 volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
 boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
 boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
@@ -60,10 +60,13 @@ int gyroHigh = 0;
 int gyroLow = 0;
 double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec - got from datasheet)
 int gyro_measurement_count = 0;
+boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 
 // Measurements from the Gyroscope
 double rotation_vx, rotation_vy, rotation_vz;
-double old_rotation_vx, old_rotation_vy, old_rotation_vz;
+double old_rotation_vx = 0;
+double old_rotation_vy = 0;
+double old_rotation_vz = 0;
 
 // Calculated quantities
 double rotation_ax, rotation_ay, rotation_az;
@@ -159,9 +162,11 @@ double resting_angle_move = 0;
 // int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
 
 
+
+
 // DEBUGGING
 boolean debugging    = false;
-boolean info         = false  ;
+boolean info         = true  ;
 boolean print_timing = true;
 
 
@@ -323,7 +328,7 @@ void setup() {
   Serial.println(" cycles");    
 
   
-
+/*
   // Calibrate Smoothers (move them into position)
   Serial.println("Start calibrating Smoothers...");
   calibrate_smoothers();
@@ -339,7 +344,7 @@ void setup() {
 
 
   delay(1000);
-
+*/
 
   if (gyroscope_installed) {
     attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
@@ -368,6 +373,12 @@ void loop() {
      rotation_vz = rotation_vz + 1 * PI/180;
   }
 
+  // PRINT ORIENTATION
+  double angle_x_deg = angle_x * 180/PI;
+  double angle_y_deg = angle_y * 180/PI;
+  double angle_z_deg = angle_z * 180/PI;  
+  print_debug(info, " X: " + String(angle_x_deg)     + ", " + String(angle_y_deg) + ", " + String(angle_z_deg)); 
+  
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
@@ -378,6 +389,7 @@ void loop() {
     smoother_step = 1;
     if (info) {
       print_debug(info, "-- System needs stabilising --");    
+      print_debug(info, " X: " + String(angle_x)     + ", " + String(angle_y) + ", " + String(angle_z));      
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
       print_time();    
@@ -540,19 +552,29 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
   time = micros();
   long tdiff = time - last_time;
   
-  // Calculate Average velocity over time interval
-  vx_avg = (vx + old_rotation_vx)/2;
-  vz_avg = (vz + old_rotation_vz)/2;  
-  
-  // Numerical integrate to get angle
-  angle_x = angle_x + vx_avg * tdiff;
-  angle_z = angle_z + vz_avg * tdiff;
+  // Want to skip first data point... (tdiff is unreliable)
+  if (! is_first_iteration) {
+    // Calculate Average velocity over time interval
+    vx_avg = (vx + old_rotation_vx)/2;
+    vz_avg = (vz + old_rotation_vz)/2;  
+    /*
+    Serial.print("angle_x BEFORE = "); Serial.println(angle_x);
+    Serial.print("vx_avg = " ); Serial.println(vx_avg);
+    Serial.print("tdiff  = ");  Serial.println(tdiff);
+    Serial.print("angle_x AFTER = "); Serial.println(angle_x);  
+    */
+    // Numerical integrate to get angle
+    angle_x = angle_x + vx_avg * tdiff/1000000;
+    angle_z = angle_z + vz_avg * tdiff/1000000;
 
-  // Only get y value IF we want it!
-  if (! exclude_y) {
-     vy_avg = (vy + old_rotation_vy)/2;
-     angle_y = angle_y + vy_avg * tdiff;
-  }  
+    // Only get y value IF we want it!
+    if (! exclude_y) {
+       vy_avg = (vy + old_rotation_vy)/2;
+       angle_y = angle_y + vy_avg * tdiff/1000000;
+    }  
+  } else {
+    is_first_iteration = false;
+  }
   
   // Calculate Acceleration
   rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
@@ -1708,7 +1730,7 @@ void calibrate_smoothers()
     
     
  } else {
-    Serial.println("Been unable to calibrate Stepper Motor S2");
+    Serial.println("Unable to calibrate Stepper Motor S2");
  }
 
   
@@ -1759,7 +1781,7 @@ void calibrate_smoothers()
     
     
  } else {
-    Serial.println("Been unable to calibrate Stepper Motor S1");
+    Serial.println("Unable to calibrate Stepper Motor S1");
  }
 
 
