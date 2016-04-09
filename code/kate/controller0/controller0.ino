@@ -50,6 +50,9 @@ unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 int x;
 int y;
 int z;
+int angle_x = 0;
+int angle_y = 0;
+int angle_z = 0;
 volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
 boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
 boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
@@ -533,9 +536,25 @@ void print_debug(boolean debug, String str) {
   
 void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
 {
-  
+  double vx_avg, vy_avg, vz_avg;
   time = micros();
   long tdiff = time - last_time;
+  
+  // Calculate Average velocity over time interval
+  vx_avg = (vx + old_rotation_vx)/2;
+  vz_avg = (vz + old_rotation_vz)/2;  
+  
+  // Numerical integrate to get angle
+  angle_x = angle_x + vx_avg * tdiff;
+  angle_z = angle_z + vz_avg * tdiff;
+
+  // Only get y value IF we want it!
+  if (! exclude_y) {
+     vy_avg = (vy + old_rotation_vy)/2;
+     angle_y = angle_y + vy_avg * tdiff;
+  }  
+  
+  // Calculate Acceleration
   rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
   old_rotation_vx = vx;
   
