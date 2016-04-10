@@ -9,7 +9,7 @@
   modified 27 Mar 2016
   by Joseph Turner
   
-  Named in memory of Aunti Kate who passed away on 17th of March 2016.
+  Named in memory of Aunti Kate who passed away on 17th of March 2016 at 8am EST.
  */
 
 
@@ -44,21 +44,30 @@ boolean gyroscope_installed = true;
 #define CTRL_REG3 0x22
 #define CTRL_REG4 0x23
 #define CTRL_REG5 0x24
+#define STATUS_REG 0x27
+#define ZYXOR_REG 0b10000000
+#define ZYXDA_REG 0b00001000
+byte _buff[6];   // Used to get lots of data from Gyroscope at once!
 
 unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 
 int x;
 int y;
 int z;
+double avg_x = 0, avg_y = 0, avg_z = 0;
+double var_x = 0, var_y = 0, var_z = 0;
 double angle_x = 0;
 double angle_y = 0;
 double angle_z = 0;
 volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
 boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
 boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
-int gyroHigh = 0;
-int gyroLow = 0;
-double factor = 0.007 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.0070 is for +-2000deg/sec - got from datasheet)
+int gyroZHigh = 0;
+int gyroZLow = 0;
+int gyroXHigh = 0;
+int gyroXLow = 0;
+boolean gyro_calibrated = false;
+double factor = 0.07 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
 int gyro_measurement_count = 0;
 boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 
@@ -214,12 +223,21 @@ void setup() {
     Serial.println("Starting up L3G4200D");
     setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
     delay(1500); //wait for the sensor to be ready
+  }
+  
+  // Enable interrupts
+  if (gyroscope_installed) {
+    attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
+  }
+  
+  // Perform calibration
+  if (gyroscope_installed) {   
     Serial.println("Start calibrating IMU...");
-    calibrate();
+    calibrateGyro();
+    gyro_calibrated = true;
     Serial.println("Finished calibrating IMU.");    
     delay(1000);
   }
-  
   
   
   // INITIALIZE STEPPER MOTOR CONTROL PINS
@@ -312,7 +330,30 @@ void setup() {
   // Min delay  (Unlikely to get this fast without motor slipping!!)
   cx_min = 250;
   
+  Serial.print("gyroXLow:    ");
+  Serial.println(gyroXLow);
+  Serial.print("gyroXHigh:    ");
+  Serial.println(gyroXHigh);
+  Serial.print("gyroZLow:    ");
+  Serial.println(gyroZLow);
+  Serial.print("gyroZHigh:    ");
+  Serial.println(gyroZHigh);
   
+  Serial.print("average x: ");
+  Serial.println(avg_x);
+  Serial.print("average y: ");
+  Serial.println(avg_y);  
+  Serial.print("average z: ");
+  Serial.println(avg_z);
+  
+  Serial.print("variance x: ");
+  Serial.println(var_x);
+  Serial.print("variance y: ");
+  Serial.println(var_y);  
+  Serial.print("variance z: ");
+  Serial.println(var_z);
+  
+  Serial.println();  
   
   Serial.print("MoI:    ");
   Serial.print((double) moment_of_inertia, 9);
@@ -327,8 +368,7 @@ void setup() {
   Serial.print(cx_min);
   Serial.println(" cycles");    
 
-  
-/*
+
   // Calibrate Smoothers (move them into position)
   Serial.println("Start calibrating Smoothers...");
   calibrate_smoothers();
@@ -344,11 +384,10 @@ void setup() {
 
 
   delay(1000);
-*/
 
-  if (gyroscope_installed) {
-    attachInterrupt(0, gyro_data_available, RISING);  // Interrupt from Gyroscope
-  }
+
+
+
   
   
   Serial.println("S1 ANGLE: " + String(s1_angle));
@@ -368,16 +407,19 @@ void loop() {
   // Data available!
   get_latest_rotation_data_all();  
   
+  // TEMPORARY LINE - DEBUGGING Rotation data.
+  // print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+  
   // Simulate rotation - but ONLY if gyroscope disabled
   if (! gyroscope_installed) {
      rotation_vz = rotation_vz + 1 * PI/180;
   }
 
   // PRINT ORIENTATION
-  double angle_x_deg = angle_x * 180/PI;
-  double angle_y_deg = angle_y * 180/PI;
-  double angle_z_deg = angle_z * 180/PI;  
-  print_debug(info, " X: " + String(angle_x_deg)     + ", " + String(angle_y_deg) + ", " + String(angle_z_deg)); 
+//  double angle_x_deg = angle_x * 180/PI;
+//  double angle_y_deg = angle_y * 180/PI;
+//  double angle_z_deg = angle_z * 180/PI;  
+//  print_debug(info, " XX: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
@@ -389,7 +431,7 @@ void loop() {
     smoother_step = 1;
     if (info) {
       print_debug(info, "-- System needs stabilising --");    
-      print_debug(info, " X: " + String(angle_x)     + ", " + String(angle_y) + ", " + String(angle_z));      
+//      print_debug(info, " X: " + String(angle_x)     + ", " + String(angle_y) + ", " + String(angle_z));      
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
       print_time();    
@@ -429,33 +471,60 @@ void gyro_data_available() {
 
 // GYROSCOPE RELATED ROUTINES
 void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
+  
+  byte statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  while(!(statusflag & ZYXDA_REG) && (statusflag & ZYXOR_REG)) {
+     statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  }
+
+  
+  /*
+  byte yMSB = 0x0;
+  byte yLSB = 0x0;
+  
+  
+  byte statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  while(!(statusflag & ZYXDA_REG) && (statusflag & ZYXOR_REG)) {
+     statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  }
 
   byte xMSB = readRegister(L3G4200D_Address, 0x29);
   byte xLSB = readRegister(L3G4200D_Address, 0x28);
-  x = ((xMSB << 8) | xLSB);
 
-  byte yMSB = 0x0;
-  byte yLSB = 0x0;
   if (! exclude_y) {
-    byte yMSB = readRegister(L3G4200D_Address, 0x2B);
-    byte yLSB = readRegister(L3G4200D_Address, 0x2A);
-    y = ((yMSB << 8) | yLSB);
+    yMSB = readRegister(L3G4200D_Address, 0x2B);
+    yLSB = readRegister(L3G4200D_Address, 0x2A);
   }   
 
   byte zMSB = readRegister(L3G4200D_Address, 0x2D);
   byte zLSB = readRegister(L3G4200D_Address, 0x2C);
-  z = ((zMSB << 8) | zLSB);
   
+  
+  x = ((xMSB << 8) | xLSB);
+  y = ((yMSB << 8) | yLSB);
+  z = ((zMSB << 8) | zLSB);
+  */
+  
+  readFromGyro(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
+
+  x = (((int)_buff[1]) << 8) | _buff[0];
+  y = (((int)_buff[3]) << 8) | _buff[2];
+  z = (((int)_buff[5]) << 8) | _buff[4];  
+  
+  // Zero values that are within zero value.
+  if (gyro_calibrated) {
+     zeroGyro();
+  }
   
   if (write_gyro_to_fram && fram_installed && addr < 8180) {
 //    Serial.println("ss");
     byte val[10];
-    val[0] = xMSB;
-    val[1] = xLSB;
-    val[2] = yMSB;
-    val[3] = yLSB;
-    val[4] = zMSB;
-    val[5] = zLSB;  
+    val[0] = _buff[1];
+    val[1] = _buff[0];
+    val[2] = _buff[3];
+    val[3] = _buff[2];
+    val[4] = _buff[5];
+    val[5] = _buff[4];  
     val[6] = data_time & 0xFF;
     val[7] = (data_time >>8 ) & 0xFF;
     val[8] = (data_time >>16) & 0xFF;
@@ -476,10 +545,17 @@ int setupL3G4200D(int scale){
   //   0b0111
   //     || \\ 
   //  200Hz   BW = 70Hz
-  writeRegister(L3G4200D_Address, CTRL_REG1, 0b01111111);
+  // writeRegister(L3G4200D_Address, CTRL_REG1, 0b01111111);
+  //
+  //   0b0000
+  //     || \\ 
+  //  100Hz   BW = 12.5Hz
+  writeRegister(L3G4200D_Address, CTRL_REG1, 0b00001111);  
+  
 
   // If you'd like to adjust/use the HPF, you can edit the line below to configure CTRL_REG2:
   writeRegister(L3G4200D_Address, CTRL_REG2, 0b00000000);
+
 
   // Configure CTRL_REG3 to generate data ready interrupt on INT2
   // No interrupts used on INT1, if you'd like to configure INT1
@@ -487,13 +563,13 @@ int setupL3G4200D(int scale){
   writeRegister(L3G4200D_Address, CTRL_REG3, 0b00001000);
 
   // CTRL_REG4 controls the full-scale range, among other things:
-
+  // Very most left bit 0x80 means do not overwrite
   if(scale == 250){
-    writeRegister(L3G4200D_Address, CTRL_REG4, 0b00000000);
+    writeRegister(L3G4200D_Address, CTRL_REG4, 0b10000000);
   }else if(scale == 500){
-    writeRegister(L3G4200D_Address, CTRL_REG4, 0b00010000);
+    writeRegister(L3G4200D_Address, CTRL_REG4, 0b10010000);
   }else{
-    writeRegister(L3G4200D_Address, CTRL_REG4, 0b00110000);
+    writeRegister(L3G4200D_Address, CTRL_REG4, 0b10110000);
   }
 
   // CTRL_REG5 controls high-pass filtering of outputs, use it
@@ -506,6 +582,29 @@ void writeRegister(int deviceAddress, byte address, byte val) {
     Wire.write(address);       // send register address
     Wire.write(val);         // send value to write
     Wire.endTransmission();     // end transmission
+}
+
+
+void readFromGyro(int deviceAddress, byte address, int num, byte _buff[])
+{
+  Wire.beginTransmission(deviceAddress); // start transmission to device
+  Wire.write(address); // sends address to read from
+  Wire.endTransmission(); // end transmission
+ 
+  Wire.beginTransmission(deviceAddress); // start transmission to device
+  Wire.requestFrom(deviceAddress, num); // request 6 bytes from device Registers: DATAX0, DATAX1, DATAY0, DATAY1, DATAZ0, DATAZ1
+   
+  int i = 0;
+  while(Wire.available()) // device may send less than requested (abnormal)
+  {
+    _buff[i] = Wire.read(); // receive a byte
+    i++;
+  }
+  if(i != num)
+  {
+ 
+  }
+  Wire.endTransmission(); // end transmission
 }
 
 int readRegister(int deviceAddress, byte address){
@@ -641,7 +740,19 @@ void calculate_smoother_location(double vx, double vy, double vz)
 				
 	// Determine the angle this CG makes 
 	double corrective_cg_vector_size = pow(pow(corrective_cg_vector[0], 2) + pow(corrective_cg_vector[1], 2) + pow(corrective_cg_vector[2], 2), 0.5 );
-	corrective_angle = acos((x_vector[0] * corrective_cg_vector[0] + x_vector[1] * corrective_cg_vector[1] + x_vector[2] * corrective_cg_vector[2])/corrective_cg_vector_size);				
+
+        // Calculate dot product
+        double dot_product = (x_vector[0] * corrective_cg_vector[0] + x_vector[1] * corrective_cg_vector[1] + x_vector[2] * corrective_cg_vector[2])/corrective_cg_vector_size;
+        
+        // Correct for any rounding issues (that make the abs(dot_product) > 1); Otherwise we get NAN errors!
+        if (dot_product > 1) {
+           dot_product = 1;
+        } else if (dot_product < -1) {
+           dot_product = -1;
+        }
+        
+        // Deduce the angle!
+	corrective_angle = acos(dot_product);				
 				
 	// Figure out if    0 < angle 180  OR   180 < angle < 360
 	double zcross = x_vector[0] * corrective_cg_vector[2] - corrective_cg_vector[0] * x_vector[2];					
@@ -1423,19 +1534,55 @@ void printDouble( double val, unsigned int precision){
 }
 
 
-void calibrate()
+void calibrateGyro()
 {
-  for(int i = 0; i < 4000; i++)
+  int i = 0;
+  
+  getGyroValues(false, false);
+  
+  while (i < 500)
   {
-    getGyroValues(false, false);
-
-    if(z > gyroHigh)
-    {
-      gyroHigh = z;
-    }
-    else if(z < gyroLow)
-    {
-      gyroLow = z;
+    delayMicroseconds(10000);
+    
+    if (gotdata && ! is_processing) {
+       is_processing = true;
+       getGyroValues(false, false);
+       
+       /*
+       Serial.print(x); Serial.print("   ");
+       Serial.print(y); Serial.print("   ");
+       Serial.println(z);
+       */
+       
+       // Z
+       if (z > gyroZHigh) {
+          gyroZHigh = z;
+       } else if(z < gyroZLow) {
+          gyroZLow = z;
+       }
+    
+       // X
+       if (x > gyroXHigh) {
+          gyroXHigh = x; 
+       } else if (x < gyroXLow) {
+          gyroXLow = x;
+       }  
+  
+  
+       // Get Average
+       avg_x = (avg_x * i + x)/(i+1);
+       avg_y = (avg_y * i + y)/(i+1);
+       avg_z = (avg_z * i + z)/(i+1);   
+   
+       // Get Variance
+       var_x = (var_x * i + (x * x))/(i+1);
+       var_y = (var_y * i + (y * y))/(i+1);
+       var_z = (var_z * i + (z * z))/(i+1);   
+   
+       i++;
+       
+      is_processing = false;
+      // gotdata = false;
     }
   }
 }
@@ -1730,7 +1877,7 @@ void calibrate_smoothers()
     
     
  } else {
-    Serial.println("Unable to calibrate Stepper Motor S2");
+    Serial.println("Cal S2 Failed");
  }
 
   
@@ -1781,9 +1928,24 @@ void calibrate_smoothers()
     
     
  } else {
-    Serial.println("Unable to calibrate Stepper Motor S1");
+    Serial.println("Cal S1 Failed");
  }
 
 
   
+}
+
+
+
+// Set to zero, if within low/high readings
+void zeroGyro()
+{
+  
+  if (x >= gyroXLow && x <= gyroXHigh) {
+    x = 0;
+  }
+  
+  if (z >= gyroZLow && z <= gyroZHigh) {
+    z = 0;
+  }
 }
