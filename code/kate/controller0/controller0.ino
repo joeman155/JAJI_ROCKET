@@ -45,6 +45,7 @@ boolean gyroscope_installed = true;
 #define CTRL_REG4 0x23
 #define CTRL_REG5 0x24
 #define STATUS_REG 0x27
+#define FIFO_CTRL_REG 0x2E
 #define ZYXOR_REG 0b10000000
 #define ZYXDA_REG 0b00001000
 byte _buff[6];   // Used to get lots of data from Gyroscope at once!
@@ -198,7 +199,7 @@ void setup() {
     Serial.println("Found SPI FRAM");
     fram_installed = true;
   } else {
-    Serial.println("No SPI FRAM found ... check your connections\r\n");
+    Serial.println("No SPI FRAM found\r\n");
     fram_installed = false;
   }
   
@@ -222,7 +223,7 @@ void setup() {
   if (gyroscope_installed) {
     Serial.println("Starting up L3G4200D");
     setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
-    delay(1500); //wait for the sensor to be ready
+    delay(2500); //wait for the sensor to be ready
   }
   
   // Enable interrupts
@@ -233,7 +234,7 @@ void setup() {
   // Perform calibration
   if (gyroscope_installed) {   
     Serial.println("Start calibrating IMU...");
-    calibrateGyro();
+    calibrate_gyro();
     gyro_calibrated = true;
     Serial.println("Finished calibrating IMU.");    
     delay(1000);
@@ -377,9 +378,9 @@ void setup() {
 
   // Speed up process  
   if (fram_installed) {
-    Serial.println("Clearing FRAM...");
+    Serial.println("Clearing FRAM");
     clearfram();
-    Serial.println("FRAM cleared!");
+    Serial.println("FRAM cleared");
   }
 
 
@@ -416,10 +417,10 @@ void loop() {
   }
 
   // PRINT ORIENTATION
-//  double angle_x_deg = angle_x * 180/PI;
-//  double angle_y_deg = angle_y * 180/PI;
-//  double angle_z_deg = angle_z * 180/PI;  
-//  print_debug(info, " XX: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
+  double angle_x_deg = angle_x * 180/PI;
+  double angle_y_deg = angle_y * 180/PI;
+  double angle_z_deg = angle_z * 180/PI;  
+  print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
@@ -431,7 +432,6 @@ void loop() {
     smoother_step = 1;
     if (info) {
       print_debug(info, "-- System needs stabilising --");    
-//      print_debug(info, " X: " + String(angle_x)     + ", " + String(angle_y) + ", " + String(angle_z));      
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));  
       print_time();    
@@ -460,7 +460,7 @@ void loop() {
 
 
 
-
+// Interrupt routine
 void gyro_data_available() {
   gotdata = true;
   data_time = micros();
@@ -470,54 +470,36 @@ void gyro_data_available() {
 
 
 // GYROSCOPE RELATED ROUTINES
-void getGyroValues(boolean exclude_y, boolean write_gyro_to_fram){
-  
+void getGyroValues(boolean write_gyro_to_fram)
+{
+  // Wait around until we know we can get data from Gyro
   byte statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-  while(!(statusflag & ZYXDA_REG) && (statusflag & ZYXOR_REG)) {
+  // Serial.print("Status Flag: ");
+  // Serial.println(statusflag, HEX);
+  while(!(statusflag & ZYXDA_REG)) {   // || (statusflag & ZYXOR_REG)
+     // Serial.print("Status Flag 2: "); Serial.println(statusflag, HEX);
      statusflag = readRegister(L3G4200D_Address, STATUS_REG);
   }
-
   
-  /*
-  byte yMSB = 0x0;
-  byte yLSB = 0x0;
-  
-  
-  byte statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-  while(!(statusflag & ZYXDA_REG) && (statusflag & ZYXOR_REG)) {
-     statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-  }
-
-  byte xMSB = readRegister(L3G4200D_Address, 0x29);
-  byte xLSB = readRegister(L3G4200D_Address, 0x28);
-
-  if (! exclude_y) {
-    yMSB = readRegister(L3G4200D_Address, 0x2B);
-    yLSB = readRegister(L3G4200D_Address, 0x2A);
-  }   
-
-  byte zMSB = readRegister(L3G4200D_Address, 0x2D);
-  byte zLSB = readRegister(L3G4200D_Address, 0x2C);
-  
-  
-  x = ((xMSB << 8) | xLSB);
-  y = ((yMSB << 8) | yLSB);
-  z = ((zMSB << 8) | zLSB);
-  */
-  
+  // Read data from gyro
   readFromGyro(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
 
+  statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  //if (  (statusflag & ZYXOR_REG)) {
+  //   Serial.println("OVERRUN OCCUREDD!!!");
+  //}
+
+  // Assemble data to get rotational speeds
   x = (((int)_buff[1]) << 8) | _buff[0];
   y = (((int)_buff[3]) << 8) | _buff[2];
   z = (((int)_buff[5]) << 8) | _buff[4];  
   
-  // Zero values that are within zero value.
+  // Zero values that are within zero value. (i.e. assume they are zero!)
   if (gyro_calibrated) {
      zeroGyro();
   }
   
   if (write_gyro_to_fram && fram_installed && addr < 8180) {
-//    Serial.println("ss");
     byte val[10];
     val[0] = _buff[1];
     val[1] = _buff[0];
@@ -575,6 +557,10 @@ int setupL3G4200D(int scale){
   // CTRL_REG5 controls high-pass filtering of outputs, use it
   // if you'd like:
   writeRegister(L3G4200D_Address, CTRL_REG5, 0b00000000);
+  
+  // FIFO MODE  = STREAM
+  // writeRegister(L3G4200D_Address, FIFO_CTRL_REG, 0b01000000);  //JOE
+  
 }
 
 void writeRegister(int deviceAddress, byte address, byte val) {
@@ -606,6 +592,7 @@ void readFromGyro(int deviceAddress, byte address, int num, byte _buff[])
   }
   Wire.endTransmission(); // end transmission
 }
+
 
 int readRegister(int deviceAddress, byte address){
 
@@ -656,12 +643,7 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
     // Calculate Average velocity over time interval
     vx_avg = (vx + old_rotation_vx)/2;
     vz_avg = (vz + old_rotation_vz)/2;  
-    /*
-    Serial.print("angle_x BEFORE = "); Serial.println(angle_x);
-    Serial.print("vx_avg = " ); Serial.println(vx_avg);
-    Serial.print("tdiff  = ");  Serial.println(tdiff);
-    Serial.print("angle_x AFTER = "); Serial.println(angle_x);  
-    */
+
     // Numerical integrate to get angle
     angle_x = angle_x + vx_avg * tdiff/1000000;
     angle_z = angle_z + vz_avg * tdiff/1000000;
@@ -693,7 +675,7 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
 }
 
 
-  
+// Detect instability of the rocket  
 boolean check_system_stability(double vx, double vy, double vz, double ax, double ay, double az)
 {
   // Check if our velocity measurements exceed upper threshold
@@ -1010,8 +992,9 @@ void smoother_step_6()
 		|| 
 	    (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(rotation_vz) > upper_velocity_threshold)) {
 		
-	    print_debug(debugging, "NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
-			
+	    // print_debug(debugging, "NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
+	    print_debug(debugging, "Malfu or over correcting.!");		
+        
 // COMMENT this code in this IF blovk FOR TESTING WHEN NOT NOT EXCEPTING ACTUAL CORRECTION OF SYSTEM (because we 'simulate' a movement
 
 	    // So. let's assume we are over-correcting
@@ -1028,7 +1011,7 @@ void smoother_step_6()
 				
 	// If velocity < lower_velocity_threshold, then start to reduce acceleration
 	if (abs(rotation_vx) <  lower_velocity_threshold && abs(rotation_vz) <  lower_velocity_threshold) {
-		print_debug(debugging, "SUCCESSFULLY REDUCING VELOCITY! Need to ease back back");
+		print_debug(debugging, "Success. Easing back back");
 	
 	     smoother_step = 7;
              
@@ -1178,13 +1161,13 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       // If there is data available...get it now...we have some spare time (until next pulse) to get it!
       // ONLY do this, if we are only in the first 20 steps...where we have enough time to get data.
       //      OR if we already have to process data 
-      if (dataneedsprocessing) {
+ //     if (dataneedsprocessing) {
         if (dataneedsprocessing) {
            get_latest_rotation_data2(true);
         } else {
-           get_latest_rotation_data1(true);
+           get_latest_rotation_data1();
         }   
-      }
+//      }
          
        // Threshold value > 0, this means we should do some threshold checks.
        if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
@@ -1534,24 +1517,25 @@ void printDouble( double val, unsigned int precision){
 }
 
 
-void calibrateGyro()
+void calibrate_gyro()
 {
   int i = 0;
   
-  getGyroValues(false, false);
+  // Without this line, it gets 'stuck'
+  getGyroValues(false);
   
   while (i < 500)
   {
-    delayMicroseconds(10000);
+     // delayMicroseconds(20000);
     
     if (gotdata && ! is_processing) {
        is_processing = true;
-       getGyroValues(false, false);
+       getGyroValues(false);
        
        /*
-       Serial.print(x); Serial.print("   ");
-       Serial.print(y); Serial.print("   ");
-       Serial.println(z);
+       Serial.print("x = "); Serial.print(x); Serial.print("    ");
+       Serial.print("y = "); Serial.print(y); Serial.print("    ");
+       Serial.print("z = "); Serial.println(z);       
        */
        
        // Z
@@ -1603,7 +1587,7 @@ void get_latest_rotation_data_all()
     rotation_vz = z * factor;
     
     gotdata = false;
-    getGyroValues(false, true);
+    getGyroValues(true);
     
     // Calculate acceleration
     calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
@@ -1617,14 +1601,14 @@ void get_latest_rotation_data_all()
 
 
 // Get latest IMU data (if available)
-void get_latest_rotation_data1(boolean exclude_y)
+void get_latest_rotation_data1()
 {
   
   if (gotdata && ! is_processing) {
     is_processing = true;
     
     gotdata = false;
-    getGyroValues(exclude_y, false);
+    getGyroValues(false);
     
     is_processing = false;
     dataneedsprocessing = true;
@@ -1700,7 +1684,7 @@ void dumpFRAM()
       rotation_vy = y * factor;
       rotation_vz = z * factor;
       
-      print_debug(info, "Rotation speed: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
+      print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       // Serial.println(data_time, HEX);
       
       // Print Time
