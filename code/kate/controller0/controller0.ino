@@ -62,6 +62,8 @@ double angle_z = 0;
 volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
 boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
 boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
+unsigned int dataprocessingstage = 0;
+boolean dataprocessed = false;
 int gyroZHigh = 0;
 int gyroZLow = 0;
 int gyroXHigh = 0;
@@ -140,7 +142,7 @@ int cx_last;              // Last cx value
 long last_time_fired;     // Last time a step was triggered
 long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
-
+long tdiff;
 
 // Pins
 int LED_INDICATOR_PIN = 5;
@@ -370,9 +372,9 @@ void setup() {
 
 
   // Calibrate Smoothers (move them into position)
-  Serial.println("Start calibrating Smoothers...");
+  Serial.println("Calibrate S1/S2");
   calibrate_smoothers();
-  Serial.println("Finished calibrating Smoothers...");  
+  Serial.println("Finished");  
   
 
   // Speed up process  
@@ -478,7 +480,7 @@ void getGyroValues(boolean write_gyro_to_fram)
   // Read data from gyro
   readFromGyro(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
 
-  statusflag = readRegister(L3G4200D_Address, STATUS_REG);
+  // statusflag = readRegister(L3G4200D_Address, STATUS_REG);
 
   // Assemble data to get rotational speeds
   x = (((int)_buff[1]) << 8) | _buff[0];
@@ -658,10 +660,58 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
   rotation_az = 1000000 * (vz - old_rotation_vz)/tdiff;
   old_rotation_vz = vz;  
   
-  
   last_time = time;
+}
+
+
+
+
+void calculate_acceleration1(double vx, double vy, double vz, boolean exclude_y)
+{
+  double vx_avg, vy_avg, vz_avg;
+
+  
+  // Want to skip first data point... (tdiff is unreliable)
+  if (! is_first_iteration) {
+    // Calculate Average velocity over time interval
+    vx_avg = (vx + old_rotation_vx)/2;
+    vz_avg = (vz + old_rotation_vz)/2;  
+
+    // Numerical integrate to get angle
+    angle_x = angle_x + vx_avg * tdiff/1000000;
+    angle_z = angle_z + vz_avg * tdiff/1000000;
+
+    // Only get y value IF we want it!
+    if (! exclude_y) {
+       vy_avg = (vy + old_rotation_vy)/2;
+       angle_y = angle_y + vy_avg * tdiff/1000000;
+    }  
+  } else {
+    is_first_iteration = false;
+  }
+
+}
+
+
+
+void calculate_acceleration2(double vx, double vy, double vz, boolean exclude_y)
+{
+  
+  // Calculate Acceleration
+  rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
+  old_rotation_vx = vx;
+  
+  if (! exclude_y) {
+    rotation_ay = 1000000 * (vy - old_rotation_vy)/tdiff;
+    old_rotation_vy = vy;  
+  }
+  
+  rotation_az = 1000000 * (vz - old_rotation_vz)/tdiff;
+  old_rotation_vz = vz;  
   
 }
+
+
 
 
 // Detect instability of the rocket  
@@ -1040,6 +1090,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   int half_steps = steps/2;  
   boolean finished_pulse;
   double angle_moved = angle;
+  int steps_moved = 0;
   
   // Old variables, used in old timing routine
   // long next_step;
@@ -1080,13 +1131,11 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
 */
     
     // Calculate timings and push on to buffer
-    if (buffer_get_data && i_step_calc < half_steps) {  //JOE
+    if (buffer_get_data && i_step_calc < half_steps) { 
         buf[i_write++] = calculate_stepper_interval_new_up(i_step_calc);
         
         if (i_write >  buffer_len - 1) i_write = 0;
-        
         i_step_calc++; 
-        // increment_i_write();     
         buffer_level++;
     } 
     
@@ -1101,7 +1150,8 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
        }
     }
     
-    
+    // JOE - There is probably an issue with this...because we might pulse motors BEFORE the last pulse has completed...i.e. we don't give stepper motor sufficient 
+    // time to rest.
     // Do this AFTER we have had a chance to calculate the next timing...to better our chances of a smooth ride.
     if (i_step == 0) {
         pulse_motors();
@@ -1113,16 +1163,13 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       timer_set = true;
       
       //cx_total = cx_total + buf[i_read];
-      timer1 = 8 * buf[i_read] - 1;
+      timer1 = 8 * buf[i_read++] - 1;
       //Serial.print("t1:"); 
       // Serial.println(buf[i_read]);
           
       cli();
-      if (i_read == buffer_len - 1) {
-        i_read = 0;
-      } else {
-        i_read++;
-      }
+      if (i_read == buffer_len) i_read = 0;
+      
       i_step++; 
       buffer_level--;
 //      Serial.println(buffer_level, DEC);            
@@ -1142,7 +1189,8 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       TIMSK1 |= (1 << OCIE1A);      
       
       sei(); 
-
+     
+      dataprocessed = false;
     }
     
     
@@ -1150,32 +1198,55 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       finished_pulse = true;
     }
 
-   /*
-    if (threshold > 0) {
-      // If there is data available...get it now...we have some spare time (until next pulse) to get it!
-      // ONLY do this, if we are only in the first 20 steps...where we have enough time to get data.
-      //      OR if we already have to process data 
- //     if (dataneedsprocessing) {
-        if (dataneedsprocessing) {
+ 
+    // ONLY get data if we are 
+    // 1. Wanting to test to see if we are hitting a thresold
+    //  AND
+    // 2. we have heaps of time (> 750microseconds)
+    //  AND
+    // 3. we haven't checked it in this 'step' (Restricting one check per step). Each step is only 0.45 degreees....so this is acceptable.
+    if (threshold > 0 && 
+        (
+         buf[i_read] > 750 && ! dataprocessed
+        )
+       ) {
+
+        // Because there is so much processing and we can't afford to too much CPU because we need 
+        // to be ready to set the Timer Interrupt, we needed to break up the processing into 4 parts. 
+        if (dataprocessingstage == 3) {
+           get_latest_rotation_data4(true);
+           dataprocessed = true;
+        } else if (dataprocessingstage == 2) {
+           get_latest_rotation_data3(true);
+           dataprocessed = true;
+        } else if (dataprocessingstage == 1) {
            get_latest_rotation_data2(true);
-        } else {
+           dataprocessed = true;
+        } else if (dataprocessingstage == 0) {
            get_latest_rotation_data1();
-        }   
-//      }
+           dataprocessed = true;
+        } else if (dataprocessingstage == 4) {
+
          
-       // Threshold value > 0, this means we should do some threshold checks.
-       if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
-          // print_debug(debugging, "Under Threshold. Slowing down.");
-          // And if threshold is met, we need to calculate angle moved
+         // Threshold value > 0, this means we should do some threshold checks.
+         if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
+            // print_debug(debugging, "Under Threshold. Slowing down.");
+            // And if threshold is met, we need to calculate angle moved
           
-          //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
-          //         degrees per step - whatever it is defined as
-          //         PI/180     Convert from degress to radians
-          angle_moved = 2 * i_step * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
-          break;
+            //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
+            //         degrees per step - whatever it is defined as
+            //         PI/180     Convert from degress to radians
+            //
+            // NOTE: We moved this calculation till after we move Stepper motor. This calc is not required for
+            // the successful functioning of the Stepper Motor.
+            steps_moved = i_step;
+            break;
+         }
+         dataprocessingstage = 0;
+         dataprocessed = true;
        }     
     }
-    */
+  
     
   }
   
@@ -1241,7 +1312,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       timer_set = true;
       
       //cx_total = cx_total + buf[i_read];
-      timer1 = 8 * buf[i_read] - 1;
+      timer1 = 8 * buf[i_read--] - 1;
       // Serial.print("t2:"); 
       // Serial.println(buf[i_read]);
 
@@ -1251,12 +1322,15 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
 
       cli();
       buffer_level--;
+      if (i_read < 0) i_read = buffer_len - 1;
       
+      /*
       if (i_read == 0) {
         i_read = buffer_len - 1;
       } else {
         i_read--;
       }
+      */
       i_step++; 
       
       // TIMER1
@@ -1283,12 +1357,10 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
     // Calculate values
     if (buffer_get_data && (i_step_calc + i_step_calc_skip) < steps_remaining && i_step_calc_skip > 0 ) {
         // Serial.print("cx_last: "); Serial.println(cx_last);
-        buf[i_write--] = calculate_stepper_interval_new_down(steps_remaining, i_step_calc, i_step_calc_skip);   //JOE
+        buf[i_write--] = calculate_stepper_interval_new_down(steps_remaining, i_step_calc, i_step_calc_skip); 
         if (i_write <  0) i_write = buffer_len - 1;
- 
         // Serial.print(i_write); Serial.print("   -   "); Serial.print(steps_remaining); Serial.print("   -   "); Serial.print(i_step_calc); Serial.print("   -   ");Serial.print(i_step_calc_skip); Serial.print("   -   ");Serial.println(buf[i_write]);        
         i_step_calc++; 
-        // decrement_i_write();     
         buffer_level++;
     } 
     
@@ -1309,6 +1381,11 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   if (info) {
     end_time = micros();
     double move_time = (end_time - start_time) / (double) 1000000;
+    
+    // If steps_moved > 0..then we didn't move the whole way. So now calculate steps moved.
+    if (steps_moved > 0)  {
+       angle_moved = 2 * steps_moved * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
+    }
     // Serial.print("cx_total: "); Serial.println(cx_total);
     Serial.print("MT: ");
     printDouble(move_time, 10000);
@@ -1573,8 +1650,7 @@ void calibrate_gyro()
 // Get latest IMU data (if available)
 void get_latest_rotation_data_all()
 {
-  
-  
+    
   if (gotdata && ! is_processing) {
     is_processing = true;
     
@@ -1600,6 +1676,9 @@ void get_latest_rotation_data_all()
 // Get latest IMU data (if available)
 void get_latest_rotation_data1()
 {
+  time = micros();
+  tdiff = time - last_time;
+  last_time = time;
   
   if (gotdata && ! is_processing) {
     is_processing = true;
@@ -1608,7 +1687,7 @@ void get_latest_rotation_data1()
     getGyroValues(false);
     
     is_processing = false;
-    dataneedsprocessing = true;
+    dataprocessingstage++;
   }
 } 
 
@@ -1618,7 +1697,7 @@ void get_latest_rotation_data1()
 void get_latest_rotation_data2(boolean exclude_y)
 {
   
-  if (dataneedsprocessing && ! is_processing) {
+  if (! is_processing) {
     is_processing = true;
     
     gyro_measurement_count++;
@@ -1630,13 +1709,44 @@ void get_latest_rotation_data2(boolean exclude_y)
     }
     rotation_vz = z * factor;
     
-    // Calculate acceleration
-    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, exclude_y);
-    is_processing = false;
     
-    dataneedsprocessing = false;
+    is_processing = false;
+    dataprocessingstage++;
   }
 } 
+
+
+// Get latest IMU data (if available)
+void get_latest_rotation_data3(boolean exclude_y)
+{
+  
+  if (! is_processing) {
+    is_processing = true;
+  
+    // Calculate acceleration
+    calculate_acceleration1(rotation_vx, rotation_vy, rotation_vz, exclude_y);  
+  
+    is_processing = false;
+    dataprocessingstage++;
+  }  
+    
+}
+
+
+// Get latest IMU data (if available)
+void get_latest_rotation_data4(boolean exclude_y)
+{
+  
+  if (! is_processing) {
+    is_processing = true;
+    
+    // Calculate acceleration
+    calculate_acceleration2(rotation_vx, rotation_vy, rotation_vz, exclude_y);      
+  
+    is_processing = false;
+    dataprocessingstage++;
+  }    
+}
 
 
 void clearfram()
