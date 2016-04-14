@@ -45,7 +45,6 @@ boolean gyroscope_installed = true;
 #define CTRL_REG4 0x23
 #define CTRL_REG5 0x24
 #define STATUS_REG 0x27
-#define FIFO_CTRL_REG 0x2E
 #define ZYXOR_REG 0b10000000
 #define ZYXDA_REG 0b00001000
 byte _buff[6];   // Used to get lots of data from Gyroscope at once!
@@ -281,8 +280,8 @@ void setup() {
   mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
   arm_length  = 0.035;           // Approximate length of arm (m)
   
-  upper_velocity_threshold = 5 * PI/180;
-  lower_velocity_threshold = 2 * PI/180;  
+  upper_velocity_threshold = 25 * PI/180;
+  lower_velocity_threshold = 5 * PI/180;  
   
   
   // This is quite a complicated equation. Below is a representation
@@ -408,20 +407,18 @@ void loop() {
   // Data available!
   get_latest_rotation_data_all();  
   
-  // TEMPORARY LINE - DEBUGGING Rotation data.
-  // print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-  
   // Simulate rotation - but ONLY if gyroscope disabled
   if (! gyroscope_installed) {
      rotation_vz = rotation_vz + 1 * PI/180;
   }
 
   // PRINT ORIENTATION
+  /*
   double angle_x_deg = angle_x * 180/PI;
   double angle_y_deg = angle_y * 180/PI;
   double angle_z_deg = angle_z * 180/PI;  
   print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
-  
+  */
   
   if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
@@ -474,10 +471,7 @@ void getGyroValues(boolean write_gyro_to_fram)
 {
   // Wait around until we know we can get data from Gyro
   byte statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-  // Serial.print("Status Flag: ");
-  // Serial.println(statusflag, HEX);
   while(!(statusflag & ZYXDA_REG)) {   // || (statusflag & ZYXOR_REG)
-     // Serial.print("Status Flag 2: "); Serial.println(statusflag, HEX);
      statusflag = readRegister(L3G4200D_Address, STATUS_REG);
   }
   
@@ -485,9 +479,6 @@ void getGyroValues(boolean write_gyro_to_fram)
   readFromGyro(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
 
   statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-  //if (  (statusflag & ZYXOR_REG)) {
-  //   Serial.println("OVERRUN OCCUREDD!!!");
-  //}
 
   // Assemble data to get rotational speeds
   x = (((int)_buff[1]) << 8) | _buff[0];
@@ -558,8 +549,6 @@ int setupL3G4200D(int scale){
   // if you'd like:
   writeRegister(L3G4200D_Address, CTRL_REG5, 0b00000000);
   
-  // FIFO MODE  = STREAM
-  // writeRegister(L3G4200D_Address, FIFO_CTRL_REG, 0b01000000);  //JOE
   
 }
 
@@ -1082,18 +1071,22 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   start_time = micros();
   while (! finished_pulse) { 
   
-//    Serial.print(i_read, DEC);
-//    Serial.print(" ");
-//    Serial.print(i_write);
-//     Serial.print(" ");
-//    Serial.println(buffer_level, DEC);
-
+    /*
+    Serial.print(i_read, DEC);
+    Serial.print(" ");
+    Serial.print(i_write);
+    Serial.print(" ");
+    Serial.println(buffer_level, DEC);
+*/
     
     // Calculate timings and push on to buffer
-    if (buffer_get_data && i_step_calc < half_steps) {
-        buf[i_write] = calculate_stepper_interval_new_up(i_step_calc);
+    if (buffer_get_data && i_step_calc < half_steps) {  //JOE
+        buf[i_write++] = calculate_stepper_interval_new_up(i_step_calc);
+        
+        if (i_write >  buffer_len - 1) i_write = 0;
+        
         i_step_calc++; 
-        increment_i_write();     
+        // increment_i_write();     
         buffer_level++;
     } 
     
@@ -1121,7 +1114,8 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       
       //cx_total = cx_total + buf[i_read];
       timer1 = 8 * buf[i_read] - 1;
-      // Serial.print("t1:"); Serial.println(buf[i_read]);
+      //Serial.print("t1:"); 
+      // Serial.println(buf[i_read]);
           
       cli();
       if (i_read == buffer_len - 1) {
@@ -1156,7 +1150,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       finished_pulse = true;
     }
 
-   
+   /*
     if (threshold > 0) {
       // If there is data available...get it now...we have some spare time (until next pulse) to get it!
       // ONLY do this, if we are only in the first 20 steps...where we have enough time to get data.
@@ -1181,7 +1175,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
           break;
        }     
     }
-    
+    */
     
   }
   
@@ -1248,7 +1242,8 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       
       //cx_total = cx_total + buf[i_read];
       timer1 = 8 * buf[i_read] - 1;
-      // Serial.print("t2:"); Serial.println(buf[i_read]);
+      // Serial.print("t2:"); 
+      // Serial.println(buf[i_read]);
 
       if (i_step == steps_remaining - 2) {
         pulse_lasttime = true;
@@ -1288,10 +1283,12 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
     // Calculate values
     if (buffer_get_data && (i_step_calc + i_step_calc_skip) < steps_remaining && i_step_calc_skip > 0 ) {
         // Serial.print("cx_last: "); Serial.println(cx_last);
-        buf[i_write] = calculate_stepper_interval_new_down(steps_remaining, i_step_calc, i_step_calc_skip);
+        buf[i_write--] = calculate_stepper_interval_new_down(steps_remaining, i_step_calc, i_step_calc_skip);   //JOE
+        if (i_write <  0) i_write = buffer_len - 1;
+ 
         // Serial.print(i_write); Serial.print("   -   "); Serial.print(steps_remaining); Serial.print("   -   "); Serial.print(i_step_calc); Serial.print("   -   ");Serial.print(i_step_calc_skip); Serial.print("   -   ");Serial.println(buf[i_write]);        
         i_step_calc++; 
-        decrement_i_write();     
+        // decrement_i_write();     
         buffer_level++;
     } 
     
@@ -1768,7 +1765,7 @@ ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
 
 
 
-
+/*
 void increment_i_write()
 {
  if (i_write >=  buffer_len - 1) {
@@ -1787,7 +1784,7 @@ void decrement_i_write()
    i_write--;
  }
 }
-
+*/
 
 
 // Used to adjust speed....we want the smoothers to run at different speeds to try
