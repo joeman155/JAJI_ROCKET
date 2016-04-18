@@ -282,8 +282,8 @@ void setup() {
   mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
   arm_length  = 0.035;           // Approximate length of arm (m)
   
-  upper_velocity_threshold = 25 * PI/180;
-  lower_velocity_threshold = 5 * PI/180;  
+  upper_velocity_threshold = 5 * PI/180;
+  lower_velocity_threshold = 2 * PI/180;  
   
   
   // This is quite a complicated equation. Below is a representation
@@ -1092,13 +1092,9 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
   double angle_moved = angle;
   int steps_moved = 0;
   
-  // Old variables, used in old timing routine
-  // long next_step;
-  // long actual_step;
-  // cx_total = 0;
-  // boolean first_triggered = true;
-  // int i = 0;  
-
+  // Sensor variables
+  byte sensor_val;
+  
   
   // BUFFER INITIALISATION
   i_write = 0;
@@ -1128,7 +1124,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
     Serial.print(i_write);
     Serial.print(" ");
     Serial.println(buffer_level, DEC);
-*/
+    */
     
     // Calculate timings and push on to buffer
     if (buffer_get_data && i_step_calc < half_steps) { 
@@ -1198,6 +1194,10 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
       finished_pulse = true;
     }
 
+    // Read sensor data (to detect where smoothers are)  // JOE
+    // sensor_val = PINC & 0xF;
+    // Serial.println(sensor_val, HEX);  
+    
  
     // ONLY get data if we are 
     // 1. Wanting to test to see if we are hitting a thresold
@@ -1245,9 +1245,7 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
          dataprocessingstage = 0;
          dataprocessed = true;
        }     
-    }
-  
-    
+    }    
   }
   
   
@@ -1414,8 +1412,8 @@ void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angl
      s2_angle = angle_reorg(s2_angle);     
    }   
    
-  print_debug(info, "S1 ANGLE: " + String(s1_angle));
-  print_debug(info, "S2 ANGLE: " + String(s2_angle));   
+  print_debug(info, "S1 ANG: " + String(s1_angle));
+  print_debug(info, "S2 ANG: " + String(s2_angle));   
   // print_debug(debugging, "step_count: " + String(step_count));
 }
 
@@ -1709,7 +1707,6 @@ void get_latest_rotation_data2(boolean exclude_y)
     }
     rotation_vz = z * factor;
     
-    
     is_processing = false;
     dataprocessingstage++;
   }
@@ -1838,17 +1835,6 @@ void derive_direction()
 }  
 
 
-/*
-void update_count()
-{
-  if (s1_direction == 2) {
-    step_count++;
-  } else {
-    step_count--;
-  }
-}
-*/
-
 
 // The routine Assumes that angle1, angle2 are between 0 and 2PI
 double angle_between(double angle1, double angle2)
@@ -1873,28 +1859,6 @@ ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
   TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
 }
 
-
-
-/*
-void increment_i_write()
-{
- if (i_write >=  buffer_len - 1) {
-   i_write = 0;
- } else {
-   i_write++;
- }
-}
-
-
-void decrement_i_write()
-{
- if (i_write ==  0) {
-   i_write = buffer_len - 1;
- } else {
-   i_write--;
- }
-}
-*/
 
 
 // Used to adjust speed....we want the smoothers to run at different speeds to try
