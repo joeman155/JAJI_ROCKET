@@ -19,11 +19,10 @@
 #include "Adafruit_FRAM_SPI.h"
 
 // FRAM
-/* Example code for the Adafruit SPI FRAM breakout */
 uint8_t FRAM_CS = 10;
 
-//Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
 
+//Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
 uint8_t FRAM_SCK  = 13;
 uint8_t FRAM_MISO = 12;
 uint8_t FRAM_MOSI = 11;
@@ -146,6 +145,7 @@ long tdiff;
 
 // Pins
 int LED_INDICATOR_PIN = 5;
+int LAUNCH_DETECT_PIN = 3;
 
 // TIME TRACKING
 long time;
@@ -192,8 +192,8 @@ double vec3[]     = {0, 0, 0};     // Result of cross product
 // the setup function runs once when you press reset or power the board
 void setup() {
   
-  Wire.begin();
-  Serial.begin(115200);
+ Wire.begin();
+ Serial.begin(115200);
   
   // Initialise FRAM
  if (fram.begin()) {
@@ -202,22 +202,24 @@ void setup() {
   } else {
     Serial.println("No SPI FRAM found\r\n");
     fram_installed = false;
-  }
-  
-  // Quick method to dump rotational velocities - manually
-  // dumpFRAM(); 
+  } 
   
   
   // Initialise Pins
   pinMode(2, INPUT);                    // Interrupts pin...for IMU
   pinMode(13, OUTPUT);                  // Debugging...but actually used by FRAM
+  pinMode(LAUNCH_DETECT_PIN, INPUT);    // Detect when launch is done.
   pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
-  pinMode(A0, INPUT);                   // S1 Motor sensor (0 degrees)
-  pinMode(A1, INPUT);                   // S1 Motor sensor (PI degrees)  
-  pinMode(A2, INPUT);                   // S2 Motor sensor (0 degrees)
-  pinMode(A3, INPUT);                   // S2 Motor sensor (PI degrees)    
+  pinMode(A0, INPUT_PULLUP);            // S1 Motor sensor (0 degrees)
+  pinMode(A1, INPUT_PULLUP);            // S1 Motor sensor (PI degrees)
+  pinMode(A2, INPUT_PULLUP);            // S2 Motor sensor (0 degrees)
+  pinMode(A3, INPUT_PULLUP);            // S2 Motor sensor (PI degrees)    
   
   
+  // If no connection to launch detect...then show 
+  if (digitalRead(LAUNCH_DETECT_PIN) == LOW) {
+     dumpFRAM(); 
+  } 
   
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
@@ -387,16 +389,19 @@ void setup() {
 
   delay(1000);
 
-
-
-
-  
   
   Serial.println("S1 ANGLE: " + String(s1_angle));
   Serial.println("S2 ANGLE: " + String(s2_angle));     
   
-  Serial.println("System Initialised!");  
-  digitalWrite(LED_INDICATOR_PIN, HIGH);
+  Serial.println("System Initialised!");
+  digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
+
+  // In wait mode...waiting for launch to disconnect the launch detect wires
+  while(digitalRead(LAUNCH_DETECT_PIN) == HIGH) {
+     delay(1); 
+  }
+    
+  
 }
 
 
@@ -504,6 +509,19 @@ void getGyroValues(boolean write_gyro_to_fram)
     val[7] = (data_time >>8 ) & 0xFF;
     val[8] = (data_time >>16) & 0xFF;
     val[9] = (data_time >>24) & 0xFF;     
+    
+    /*
+    Serial.print(val[0]); Serial.print(" ");
+    Serial.print(val[1]); Serial.print(" ");
+    Serial.print(val[2]); Serial.print(" ");    
+    Serial.print(val[3]); Serial.print(" ");
+    Serial.print(val[4]); Serial.print(" ");
+    Serial.print(val[5]); Serial.print(" ");
+    Serial.print(val[6]); Serial.print(" ");
+    Serial.print(val[7]); Serial.print(" ");
+    Serial.print(val[8]); Serial.print(" ");    
+    Serial.println(val[9]); 
+    */
   
     fram.writeEnable(true); 
     fram.write(addr, (uint8_t *) &val[0], 10);
@@ -1075,7 +1093,6 @@ void smoother_step_7()
   digitalWrite(LED_INDICATOR_PIN, HIGH);
   end_time1 = micros();
   
-  // delay(10000000);
 }
 
 
@@ -1652,13 +1669,13 @@ void get_latest_rotation_data_all()
   if (gotdata && ! is_processing) {
     is_processing = true;
     
+    gotdata = false;
+    getGyroValues(true);
+    
     // Get rotation rates in radians per second
     rotation_vx = x * factor;
     rotation_vy = y * factor;
-    rotation_vz = z * factor;
-    
-    gotdata = false;
-    getGyroValues(true);
+    rotation_vz = z * factor;    
     
     // Calculate acceleration
     calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
@@ -1787,6 +1804,19 @@ void dumpFRAM()
       rotation_vx = x * factor;
       rotation_vy = y * factor;
       rotation_vz = z * factor;
+
+    /*  
+     Serial.print(xmsb); Serial.print(" ");
+     Serial.print(xlsb); Serial.print(" ");
+     Serial.print(ymsb); Serial.print(" ");    
+     Serial.print(ylsb); Serial.print(" ");
+     Serial.print(zmsb); Serial.print(" ");    
+     Serial.print(zlsb); Serial.print(" ");
+     Serial.print(d1); Serial.print(" ");
+     Serial.print(d2); Serial.print(" ");
+     Serial.print(d3); Serial.print(" ");    
+     Serial.println(d4); 
+    */
       
       print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
       // Serial.println(data_time, HEX);
@@ -1797,9 +1827,13 @@ void dumpFRAM()
       Serial.print(d2, HEX);
       Serial.println(d1, HEX);      
       
+      
     }
     
-    delay(10000000);
+    // Blink led slowly...so we know we are at the end.
+    while(1) {
+      slowBlinkLED();
+    }
 }
 
 
@@ -2003,4 +2037,25 @@ void zeroGyro()
   if (z >= gyroZLow && z <= gyroZHigh) {
     z = 0;
   }
+}
+
+
+
+void fastBlinkLED()
+{
+  blinkLED(200);
+}
+
+
+void slowBlinkLED()
+{
+  blinkLED(500);
+}
+
+void blinkLED(int led_delay)
+{
+      digitalWrite(LED_INDICATOR_PIN, HIGH);
+      delay(led_delay);
+      digitalWrite(LED_INDICATOR_PIN, LOW);
+      delay(led_delay);  
 }
