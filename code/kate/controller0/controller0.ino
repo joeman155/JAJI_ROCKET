@@ -191,9 +191,21 @@ double vec3[]     = {0, 0, 0};     // Result of cross product
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  
+
+ // Initialise Pins
+ pinMode(2, INPUT);                    // Interrupts pin...for IMU
+ pinMode(13, OUTPUT);                  // Debugging...but actually used by FRAM
+ pinMode(LAUNCH_DETECT_PIN, INPUT);    // Detect when launch is done.
+ pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
+ pinMode(A0, INPUT_PULLUP);            // S1 Motor sensor (0 degrees)
+ pinMode(A1, INPUT_PULLUP);            // S1 Motor sensor (PI degrees)
+ pinMode(A2, INPUT_PULLUP);            // S2 Motor sensor (0 degrees)
+ pinMode(A3, INPUT_PULLUP);            // S2 Motor sensor (PI degrees)    
+   
  Wire.begin();
  Serial.begin(115200);
+
+ fastBlinkLed(5000);
   
   // Initialise FRAM
  if (fram.begin()) {
@@ -203,18 +215,7 @@ void setup() {
     Serial.println("No SPI FRAM found\r\n");
     fram_installed = false;
   } 
-  
-  
-  // Initialise Pins
-  pinMode(2, INPUT);                    // Interrupts pin...for IMU
-  pinMode(13, OUTPUT);                  // Debugging...but actually used by FRAM
-  pinMode(LAUNCH_DETECT_PIN, INPUT);    // Detect when launch is done.
-  pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
-  pinMode(A0, INPUT_PULLUP);            // S1 Motor sensor (0 degrees)
-  pinMode(A1, INPUT_PULLUP);            // S1 Motor sensor (PI degrees)
-  pinMode(A2, INPUT_PULLUP);            // S2 Motor sensor (0 degrees)
-  pinMode(A3, INPUT_PULLUP);            // S2 Motor sensor (PI degrees)    
-  
+    
   
   // If no connection to launch detect...then show 
   if (digitalRead(LAUNCH_DETECT_PIN) == LOW) {
@@ -225,8 +226,8 @@ void setup() {
   // NOTE: We don't use the values from the calibration just yet....
   if (gyroscope_installed) {
     Serial.println("Starting up L3G4200D");
-    setupL3G4200D(2000); // Configure L3G4200  - 250, 500 or 2000 deg/sec
-    delay(2500); //wait for the sensor to be ready
+    setupL3G4200D(2000);  // Configure L3G4200  - 250, 500 or 2000 deg/sec
+    delay(2500);          //wait for the sensor to be ready
   }
   
   // Enable interrupts
@@ -2040,6 +2041,10 @@ void zeroGyro()
 }
 
 
+void veryfastBlinkLED()
+{
+  blinkLED(100);
+}
 
 void fastBlinkLED()
 {
@@ -2059,3 +2064,17 @@ void blinkLED(int led_delay)
       digitalWrite(LED_INDICATOR_PIN, LOW);
       delay(led_delay);  
 }
+
+
+// Perform fast Blink LED for 'duration' seconds
+void fastBlinkLed(int duration)
+{
+  long start_time = millis();
+  
+  while (millis() < start_time + duration) {
+    veryfastBlinkLED();
+  }
+
+}
+
+
