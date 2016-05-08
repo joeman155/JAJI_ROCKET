@@ -17,23 +17,30 @@
 #include <Wire.h>
 #include <SPI.h>
 #include "Adafruit_FRAM_SPI.h"
+#include <Adafruit_MPL3115A2.h>
+
+// Overall control
+boolean active_control = false;   // Enable/Disable Stability sense
 
 // FRAM
 uint8_t FRAM_CS = 10;
+Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
 
 
-//Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_CS);  // use hardware SPI
-uint8_t FRAM_SCK  = 13;
-uint8_t FRAM_MISO = 12;
-uint8_t FRAM_MOSI = 11;
+// uint8_t FRAM_SCK  = 13;
+// uint8_t FRAM_MISO = 12;
+// uint8_t FRAM_MOSI = 11;
 //Or use software SPI, any pins!
-Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_CS);
+// Adafruit_FRAM_SPI fram = Adafruit_FRAM_SPI(FRAM_SCK, FRAM_MISO, FRAM_MOSI, FRAM_CS);
 
 uint16_t          addr = 0;
 // int fram_size = 8192;
 boolean fram_installed;
 
 
+
+// Air Pressure Sensor
+Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
 
 
 // Gyroscope Variables
@@ -46,21 +53,19 @@ boolean gyroscope_installed = true;
 #define STATUS_REG 0x27
 #define ZYXOR_REG 0b10000000
 #define ZYXDA_REG 0b00001000
-byte _buff[6];   // Used to get lots of data from Gyroscope at once!
+byte _buff[6];   // Used to get lots of data from Gyroscope in one i2c call!
 
 unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 
-int x;
-int y;
-int z;
-double avg_x = 0, avg_y = 0, avg_z = 0;
-double var_x = 0, var_y = 0, var_z = 0;
-double angle_x = 0;
-double angle_y = 0;
-double angle_z = 0;
-volatile boolean gotdata = false;  // Data needs to be retrieved from IMU
-boolean is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
-boolean dataneedsprocessing = false;  // Got some gyro data and now need to process
+int x, y, z;                             // Raw values from gyroscope
+double avg_x = 0, avg_y = 0, avg_z = 0;  // Deduced Average rotational rates
+double var_x = 0, var_y = 0, var_z = 0;  // Deduced Variance rotational rates
+double angle_x = 0;                      // Deduced X Attitude
+double angle_y = 0;                      // Deduced Y Attitude
+double angle_z = 0;                      // Deduced Z Attitude
+volatile boolean gotdata = false;        // Data needs to be retrieved from IMU
+boolean is_processing = false;           // We are getting data RIGHT now and can't get MORE data if available
+boolean dataneedsprocessing = false;     // Got some gyro data and now need to process
 unsigned int dataprocessingstage = 0;
 boolean dataprocessed = false;
 int gyroZHigh = 0;
@@ -81,6 +86,7 @@ double old_rotation_vz = 0;
 // Calculated quantities
 double rotation_ax, rotation_ay, rotation_az;
 
+
 // STEPPER MOTOR
 #define MOTOR1_DIRECTION 6
 byte motor1_dir = B01000000;    // Used to turning bits HIGH/LOW fast!
@@ -90,19 +96,21 @@ byte motor2_dir = B10000000;    // Used to turning bits HIGH/LOW fast!
 #define MOTOR2_STEP 8
 
 
-#define cw_motor HIGH
-#define ccw_motor LOW
+// #define cw_motor HIGH
+// #define ccw_motor LOW
 
 #define cw true
 #define ccw false
 
+
+// ANGLE OF S2 IS IN OPPOSITE DIRECTION IN RESPECT TO S1, BECAUSE THE MOTOR IS 180degrees OUT OF PHASE
 boolean s2_motor_inverted = true;
 
-
+// INITIAL Stepp Motor positioning
 double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
 double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
 
-
+// STEPPER MOTOR SMOOTHER PHYSICAL CHARACTERISTICS
 double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
 double torque_percent;      // How much of max_torque we want to use
 double moment_of_inertia;   // Moment of Inertia of arm and weight
@@ -125,7 +133,8 @@ int buffer_level = 0;            // How far we are above the read level
 boolean buffer_get_data = true;   // Variable set false when we rise above high water level and set true when we fall below
 unsigned int buf[50];
 
-// boolean pulse_firsttime;
+
+// STEPPER MOTOR CONTROLS
 boolean pulse_lasttime;
 boolean timer_set = false;
 unsigned int timer1;
@@ -135,26 +144,26 @@ unsigned int c0_fast;     // Fast turn
 unsigned int c0_normal;   // Normal speed
 unsigned int c0_slow;     // Slow turn
 unsigned int cx_min;      // Minimum wait time
-//long cx_total = 0;
 int cx;                   // Current cx value
 int cx_last;              // Last cx value
-long last_time_fired;     // Last time a step was triggered
-long next_time_fired;     // The next time a step needs to be triggered
+//long last_time_fired;     // Last time a step was triggered
+//long next_time_fired;     // The next time a step needs to be triggered
 unsigned long data_time;  // Time we receive interrrupt (Data is available)
 long tdiff;
 
-// Pins
+
+// PINS
 int LED_INDICATOR_PIN = 5;
 int LAUNCH_DETECT_PIN = 3;
 
-// TIME TRACKING
+
+// TIME TRACKING VARIABLES
 long time;
 long last_time;
 long start_time;
 long end_time;
 long start_time1;
 long end_time1;
-// long ts1, ts2, ts3;
 
 
 
@@ -209,13 +218,17 @@ void setup() {
   
   // Initialise FRAM
  if (fram.begin()) {
-    Serial.println("Found SPI FRAM");
+    Serial.println("Found FRAM");
     fram_installed = true;
   } else {
-    Serial.println("No SPI FRAM found\r\n");
+    Serial.println("No FRAM");
     fram_installed = false;
   } 
-    
+
+  // Initialise Air Pressure Sensor
+  if (! baro.begin()) {
+    Serial.println("AP Err");
+  }    
   
   // If no connection to launch detect...then show 
   if (digitalRead(LAUNCH_DETECT_PIN) == LOW) {
@@ -225,7 +238,7 @@ void setup() {
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
   if (gyroscope_installed) {
-    Serial.println("Starting up L3G4200D");
+    Serial.println("Start Gyro");
     setupL3G4200D(2000);  // Configure L3G4200  - 250, 500 or 2000 deg/sec
     delay(2500);          //wait for the sensor to be ready
   }
@@ -237,10 +250,10 @@ void setup() {
   
   // Perform calibration
   if (gyroscope_installed) {   
-    Serial.println("Start calibrating IMU...");
+    Serial.println("Cal IMU");
     calibrate_gyro();
     gyro_calibrated = true;
-    Serial.println("Finished calibrating IMU.");    
+    Serial.println("End Cal IMU");    
     delay(1000);
   }
   
@@ -324,7 +337,6 @@ void setup() {
   degrees_per_step = 0.45;   // 1/4 step
   
   
-  
   // Calculate Initial timing constants - for various speeds
   c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
   c0_normal = c0;
@@ -334,7 +346,9 @@ void setup() {
   
   // Min delay  (Unlikely to get this fast without motor slipping!!)
   cx_min = 250;
-  
+
+/*
+  // Not needed normally
   Serial.print("gyroXLow:    ");
   Serial.println(gyroXLow);
   Serial.print("gyroXHigh:    ");
@@ -372,7 +386,7 @@ void setup() {
   Serial.print("CX Min:               ");
   Serial.print(cx_min);
   Serial.println(" cycles");    
-
+*/
 
   // Calibrate Smoothers (move them into position)
   Serial.println("Calibrate S1/S2");
@@ -411,7 +425,17 @@ void setup() {
 void loop() {
 
   long currMicros = micros();
-  
+
+  // Air Pressure & Temperature
+  // Use http://www.onlineconversion.com/pressure.htm for other units
+  float pascals = baro.getPressure(); 
+  Serial.print(pascals); Serial.println(" Pascals");
+
+  float tempC = baro.getTemperature();
+  Serial.print(tempC); Serial.println("*C");  
+
+
+    
   // Data available!
   get_latest_rotation_data_all();  
   
@@ -428,7 +452,7 @@ void loop() {
   print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   */
   
-  if (smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
+  if (active_control && smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
     start_time1 = micros();
     
@@ -449,6 +473,9 @@ void loop() {
     
     smoother_step_processing();
   }
+
+
+
   
  
   if (print_timing) {
@@ -496,6 +523,11 @@ void getGyroValues(boolean write_gyro_to_fram)
   // Zero values that are within zero value. (i.e. assume they are zero!)
   if (gyro_calibrated) {
      zeroGyro();
+  }
+
+  // IF no active control and we have reached end of FRAM...flash fast...to indicate that we have exhausted memory.
+  if (! active_control && addr >=8180) {
+     fastBlinkLed(5000);
   }
   
   if (write_gyro_to_fram && fram_installed && addr < 8180) {
