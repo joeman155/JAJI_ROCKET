@@ -13,7 +13,7 @@
  */
 
 
-
+#include "i2c.h"  // not the wire library, can't use pull-ups
 #include <Wire.h>
 #include <SPI.h>
 #include "Adafruit_FRAM_SPI.h"
@@ -21,7 +21,7 @@
 
 // Overall control
 boolean active_control = false;   // Enable/Disable Stability sense
-boolean air_pressure_control = false;
+boolean air_pressure_control = true;
 
 
 // FRAM
@@ -58,7 +58,12 @@ unsigned int MPL3115A2_Address = 96;
 #define MPL3115A2_F_STATUS   0x0D
 #define MPL3115A2_F_DATA     0x0E
 #define MPL3115A2_F_SETUP    0x0F
-// Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
+#define MPL3115A2_PT_DATA_CFG 0x13
+// Define device outputs
+float pressure = 0.;
+float temperature = 0.;
+byte rawApData[160];
+int number_of_data_points;
 
 
 // Gyroscope Variables
@@ -244,12 +249,30 @@ void setup() {
   } 
 
   // Initialise Air Pressure Sensor  
-  byte c = readRegister(MPL3115A2_Address, MPL3115A2_WHO_AM_I);  // Read WHO_AM_I register
-  if (c == 0xC4) {
-    Serial.println("Found MPL3115A2");// WHO_AM_I should always be 0xC4  
-  } else {
-    Serial.println("Not found MPL3115A2");
+  if (air_pressure_control) {
+     byte c = readRegister(MPL3115A2_Address, MPL3115A2_WHO_AM_I);  // Read WHO_AM_I register
+     if (c == 0xC4) {
+       Serial.println("Found MPL3115A2");// WHO_AM_I should always be 0xC4  
+       MPL3115A2Reset();  // Start off by resetting all registers to the default
+       delay(100);   // Need delay, else it hangs
+       MPL3115A2Standby();   // Put in Standby Mode
+       delay(100);   // Need delay, else it hangs
+       SampleRate(7); // Set oversampling rate
+       delay(100);   // Need delay, else it hangs
+       TimeStep(0); // Set data update interval
+       delay(100);   // Need delay, else it hangs
+       MPL3115A2enableEventflags();
+
+       ActiveBarometerMode();
+       
+       delay(100);   // Need delay, else it hangs
+       setupMPL3115A2();
+       delay(100);   // Need delay, else it hangs
+     } else {
+       Serial.println("Not found MPL3115A2");
+     }
   }
+
   
   /*
   if (! baro.begin()) {
@@ -435,15 +458,20 @@ void setup() {
   delay(1000);
 
   
-  Serial.println("S1 ANGLE: " + String(s1_angle));
-  Serial.println("S2 ANGLE: " + String(s2_angle));     
+  Serial.println("S1 ANG: " + String(s1_angle));
+  Serial.println("S2 ANG: " + String(s2_angle));     
   
-  Serial.println("System Initialised!");
+  Serial.println("System Init");
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
 
   // In wait mode...waiting for launch to disconnect the launch detect wires
   while(digitalRead(LAUNCH_DETECT_PIN) == HIGH) {
      delay(1); 
+  }
+
+  // IF Air Pressure sensor enabled, kick off reading results
+  if (air_pressure_control) {
+     MPL3115A2Active();
   }
     
   
@@ -456,8 +484,25 @@ void loop() {
 
   long currMicros = micros();
 
-/*
+
+  // TESTING AIR PRESSURE FIFO
   if (air_pressure_control) {
+
+
+   delay(10000);
+   // number_of_data_points = (int) (readRegister(F_STATUS)<<2)/4;
+   number_of_data_points = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS) & 0b00111111;
+   Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
+
+   readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
+
+   showApData(number_of_data_points);
+   
+
+ 
+   delay(10000000);
+
+    /*
     // Air Pressure & Temperature
     // Use http://www.onlineconversion.com/pressure.htm for other units
     float pascals = baro.getPressure(); 
@@ -465,8 +510,9 @@ void loop() {
 
     float tempC = baro.getTemperature();
     Serial.print(tempC); Serial.println("*C");  
+    */
   }
-*/
+
 
     
   // Data available!
@@ -544,7 +590,7 @@ void getGyroValues(boolean write_gyro_to_fram)
   }
   
   // Read data from gyro
-  readFromGyro(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
+  readFromDevice(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
 
   // statusflag = readRegister(L3G4200D_Address, STATUS_REG);
 
@@ -646,11 +692,11 @@ void writeRegister(int deviceAddress, byte address, byte val) {
 }
 
 
-void readFromGyro(int deviceAddress, byte address, int num, byte _buff[])
+void readFromDevice(int deviceAddress, byte address, int num, byte _buff[])
 {
   Wire.beginTransmission(deviceAddress); // start transmission to device
   Wire.write(address); // sends address to read from
-  Wire.endTransmission(); // end transmission
+  Wire.endTransmission(false); // end transmission
  
   Wire.beginTransmission(deviceAddress); // start transmission to device
   Wire.requestFrom(deviceAddress, num); // request 6 bytes from device Registers: DATAX0, DATAX1, DATAY0, DATAY1, DATAZ0, DATAZ1
@@ -2157,31 +2203,6 @@ void fastBlinkLed(int duration)
 }
 
 
-/*
-void print_hex(int v, int num_places)
-{
-    int mask=0, n, num_nibbles, digit;
-
-    for (n=1; n<=num_places; n++)
-    {
-        mask = (mask << 1) | 0x0001;
-    }
-    v = v & mask; // truncate v to specified number of places
-
-    num_nibbles = num_places / 4;
-    if ((num_places % 4) != 0)
-    {
-        ++num_nibbles;
-    }
-
-    do
-    {
-        digit = ((v >> (num_nibbles-1) * 4)) & 0x0f;
-        Serial.print(digit, HEX);
-    } while(--num_nibbles);
-
-}
-*/
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2240,3 +2261,152 @@ void MPL3115A2Active()
   byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
   writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | 0x01); // Set SBYB (bit 0) to 1
 }
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Software resets the MPL3115A2.
+// It must be in standby to change most register settings
+void MPL3115A2Reset()
+{
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, (0x04)); // Set RST (bit 2) to 1
+}
+
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Set the Auto Acquisition Time Step
+void TimeStep(byte ST_Value)
+{
+// MPL3115A2Standby(); // First put device in standby mode to allow write to registers
+ 
+ byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG2); // Read contents of register CTRL_REG2
+ if (ST_Value <= 0xF) {
+ writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG2, (c | ST_Value)); // Set time step n from 0x0 to 0xF (bits 0 - 3) for time intervals from 1 to 32768 (2^n) seconds
+ }
+ 
+// MPL3115A2Active(); // Set to active to start reading
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Enable the pressure and temperature event flags
+ // Bit 2 is general data ready event mode on new Pressure/Altitude or temperature data
+ // Bit 1 is event flag on new Pressure/Altitude data
+ // Bit 0 is event flag on new Temperature data
+void MPL3115A2enableEventflags()
+{
+//  MPL3115A2Standby();  // Must be in standby to change registers
+  writeRegister(MPL3115A2_Address, MPL3115A2_PT_DATA_CFG, 0x07); //Enable all three pressure and temperature event flags
+//  MPL3115A2Active();  // Set to active to start reading
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Enter Active Altimeter mode
+void ActiveAltimeterMode()
+{
+// MPL3115A2Standby(); // First put device in standby mode to allow write to registers
+ byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
+ writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | (0x80)); // Set ALT (bit 7) to 1
+// MPL3115A2Active(); // Set to active to start reading
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Enter Active Barometer mode
+void ActiveBarometerMode()
+{
+// MPL3115A2Standby(); // First put device in standby mode to allow write to registers
+ byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
+ writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c & ~(0x80)); // Set ALT (bit 7) to 0
+// MPL3115A2Active(); // Set to active to start reading
+}
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Set the Outputting Sample Rate
+void SampleRate(byte samplerate)
+{
+//  MPL3115A2Standby();  // Must be in standby to change registers
+
+  byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1);
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c & ~(0x38)); // Clear OSR bits 3,4,5
+  if(samplerate < 8) { // OSR between  and 7
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | (samplerate << 3));  // Write OSR to bits 3,4,5
+  }
+  
+//  MPL3115A2Active();  // Set to active to start reading
+ }
+
+
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Read i registers sequentially, starting at address into the dest byte array
+void readRegisters(byte address, int i, byte * dest)
+{
+  i2cSendStart();
+  i2cWaitForComplete();
+
+  i2cSendByte((MPL3115A2_Address<<1)); // write 0xB4
+  i2cWaitForComplete();
+
+  i2cSendByte(address);  // write register address
+  i2cWaitForComplete();
+
+  i2cSendStart();
+  i2cSendByte((MPL3115A2_Address<<1)|0x01); // write 0xB5
+  i2cWaitForComplete();
+  for (int j=0; j<i; j++)
+  {
+    i2cReceiveByte(TRUE);
+    i2cWaitForComplete();
+    dest[j] = i2cGetReceivedByte(); // Get MSB result
+  }
+  i2cWaitForComplete();
+  i2cSendStop();
+
+  cbi(TWCR, TWEN); // Disable TWI
+  sbi(TWCR, TWEN); // Enable TWI
+}
+
+
+
+void showApData(int number_of_data_points)
+{
+  int j;
+  for(j = 0; j < number_of_data_points * 5; j+=5) {
+
+// Pressure/Altitude bytes
+  byte msb = rawApData[j];
+  byte csb = rawApData[j+1];
+  byte lsb = rawApData[j+2];
+// Temperature bytes
+  byte msbT = rawApData[j+3];
+  byte lsbT = rawApData[j+4]; 
+ 
+  long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
+  pressure_whole >>= 6;
+ 
+  lsb &= 0x30; 
+  lsb >>= 4;
+  float pressure_frac = (float) lsb/4.0;
+
+  pressure = (float) (pressure_whole) + pressure_frac; 
+
+   
+// Calculate temperature, check for negative sign
+long foo = 0;
+if(msbT > 0x7F) {
+ foo = ~(msbT << 8 | lsbT) + 1 ; // 2's complement
+ temperature = (float) (foo >> 8) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
+ temperature *= -1.;
+ }
+ else {
+   temperature = (float) (msbT) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
+ }
+  
+// Output data array to serial printer; comma delimits useful for importing into excel spreadsheet
+ Serial.print("Time ,"); Serial.print((j/5)*(1<<0)); Serial.print(", seconds");
+ Serial.print(", Temperature = ,"); Serial.print(temperature, 1); Serial.print(", C,");
+ Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
+
+ }  
+}
+
