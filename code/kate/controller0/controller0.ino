@@ -17,10 +17,12 @@
 #include <Wire.h>
 #include <SPI.h>
 #include "Adafruit_FRAM_SPI.h"
-#include <Adafruit_MPL3115A2.h>
+// #include <Adafruit_MPL3115A2.h>
 
 // Overall control
 boolean active_control = false;   // Enable/Disable Stability sense
+boolean air_pressure_control = false;
+
 
 // FRAM
 uint8_t FRAM_CS = 10;
@@ -40,7 +42,23 @@ boolean fram_installed;
 
 
 // Air Pressure Sensor
-Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
+unsigned int MPL3115A2_Address = 96;
+#define MPL3115A2_STATUS     0x00
+#define MPL3115A2_OUT_P_MSB  0x01
+#define MPL3115A2_OUT_P_CSB  0x02
+#define MPL3115A2_OUT_P_LSB  0x03
+#define MPL3115A2_OUT_T_MSB  0x04
+#define MPL3115A2_OUT_T_LSB  0x05
+#define MPL3115A2_CTRL_REG1  0x26
+#define MPL3115A2_CTRL_REG2  0x27
+#define MPL3115A2_CTRL_REG3  0x28
+#define MPL3115A2_CTRL_REG4  0x29
+#define MPL3115A2_CTRL_REG5  0x2A
+#define MPL3115A2_WHO_AM_I   0x0C
+#define MPL3115A2_F_STATUS   0x0D
+#define MPL3115A2_F_DATA     0x0E
+#define MPL3115A2_F_SETUP    0x0F
+// Adafruit_MPL3115A2 baro = Adafruit_MPL3115A2();
 
 
 // Gyroscope Variables
@@ -225,10 +243,22 @@ void setup() {
     fram_installed = false;
   } 
 
-  // Initialise Air Pressure Sensor
+  // Initialise Air Pressure Sensor  
+  byte c = readRegister(MPL3115A2_Address, MPL3115A2_WHO_AM_I);  // Read WHO_AM_I register
+  if (c == 0xC4) {
+    Serial.println("Found MPL3115A2");// WHO_AM_I should always be 0xC4  
+  } else {
+    Serial.println("Not found MPL3115A2");
+  }
+  
+  /*
   if (! baro.begin()) {
-    Serial.println("AP Err");
-  }    
+     Serial.println("AP Err");
+  } else {
+    Serial.println("Found MPL3115A2");
+  }
+  */
+    
   
   // If no connection to launch detect...then show 
   if (digitalRead(LAUNCH_DETECT_PIN) == LOW) {
@@ -426,14 +456,17 @@ void loop() {
 
   long currMicros = micros();
 
-  // Air Pressure & Temperature
-  // Use http://www.onlineconversion.com/pressure.htm for other units
-  float pascals = baro.getPressure(); 
-  Serial.print(pascals); Serial.println(" Pascals");
+/*
+  if (air_pressure_control) {
+    // Air Pressure & Temperature
+    // Use http://www.onlineconversion.com/pressure.htm for other units
+    float pascals = baro.getPressure(); 
+    Serial.print(pascals); Serial.println(" Pascals");
 
-  float tempC = baro.getTemperature();
-  Serial.print(tempC); Serial.println("*C");  
-
+    float tempC = baro.getTemperature();
+    Serial.print(tempC); Serial.println("*C");  
+  }
+*/
 
     
   // Data available!
@@ -641,7 +674,7 @@ int readRegister(int deviceAddress, byte address){
     int v;
     Wire.beginTransmission(deviceAddress);
     Wire.write(address); // register to read
-    Wire.endTransmission();
+    Wire.endTransmission(false);
 
     Wire.requestFrom(deviceAddress, 1); // read a byte
 
@@ -1855,10 +1888,24 @@ void dumpFRAM()
       // Serial.println(data_time, HEX);
       
       // Print Time
+      /*
       Serial.print(d4, HEX);
+      Serial.print(" ");
       Serial.print(d3, HEX);
+      Serial.print(" ");
       Serial.print(d2, HEX);
-      Serial.println(d1, HEX);      
+      Serial.print(" ");
+      Serial.println(d1, HEX);     
+      */
+
+      Serial.print(d4);
+      Serial.print(" ");
+      Serial.print(d3);
+      Serial.print(" ");
+      Serial.print(d2);
+      Serial.print(" ");
+      Serial.println(d1 );   
+      
       
       
     }
@@ -2110,3 +2157,86 @@ void fastBlinkLed(int duration)
 }
 
 
+/*
+void print_hex(int v, int num_places)
+{
+    int mask=0, n, num_nibbles, digit;
+
+    for (n=1; n<=num_places; n++)
+    {
+        mask = (mask << 1) | 0x0001;
+    }
+    v = v & mask; // truncate v to specified number of places
+
+    num_nibbles = num_places / 4;
+    if ((num_places % 4) != 0)
+    {
+        ++num_nibbles;
+    }
+
+    do
+    {
+        digit = ((v >> (num_nibbles-1) * 4)) & 0x0f;
+        Serial.print(digit, HEX);
+    } while(--num_nibbles);
+
+}
+*/
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Initialize the MPL3115A2 registers for FIFO mode
+void setupMPL3115A2()
+{
+  // Clear all interrupts by reading the data output registers
+  byte temp;
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_OUT_P_MSB);
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_OUT_P_CSB);
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_OUT_P_LSB);
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_OUT_T_MSB);
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_OUT_T_LSB);
+  temp = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS);
+  
+  MPL3115A2Standby();  // Must be in standby to change registers
+  
+  // Set CTRL_REG4 register to configure interupt enable
+  // Enable data ready interrupt (bit 7), enable FIFO (bit 6), enable pressure window (bit 5), temperature window (bit 4),
+  // pressure threshold (bit 3), temperature threshold (bit 2), pressure change (bit 1) and temperature change (bit 0)
+  // writeRegister(CTRL_REG4, 0x40);  // enable FIFO Interrupt
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG4, 0x00);  
+  
+  //  Configure INT 1 for data ready, all other (inc. FIFO) interrupts to INT2
+  // writeRegister(CTRL_REG5, 0x80); 
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG5, 0x00);
+  
+  // Set CTRL_REG3 register to configure interupt signal type
+  // Active HIGH, push-pull interupts INT1 and INT 2
+  // writeRegister(CTRL_REG3, 0x22); 
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG3, 0x00);
+  
+  // Set FIFO mode
+  writeRegister(MPL3115A2_Address, MPL3115A2_F_SETUP, 0x00); // Clear FIFO mode
+  writeRegister(MPL3115A2_Address, MPL3115A2_F_SETUP, 0x80); // Set F_MODE to interrupt when overflow = 32 reached  - STOP ACCEPTING NEW VALUES WHEN FIFO is FULL!
+  // writeRegister(F_SETUP, 0x60); // Set F_MODE to accept 32 data samples and interrupt when watermark = 32 reached
+
+//  MPL3115A2Active();  // Set to active to start reading
+}
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Sets the MPL3115A2 to standby mode.
+// It must be in standby to change most register settings
+void MPL3115A2Standby()
+{
+  byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c & ~(0x01)); // Set SBYB (bit 0) to 0
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// Sets the MPL3115A2 to active mode.
+// Needs to be in this mode to output data
+void MPL3115A2Active()
+{
+  byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
+  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | 0x01); // Set SBYB (bit 0) to 1
+}
