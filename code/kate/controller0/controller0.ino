@@ -442,14 +442,14 @@ void setup() {
 */
 
   // Calibrate Smoothers (move them into position)
-  Serial.println("Calibrate S1/S2");
+  Serial.println("Cal S1/S2");
   calibrate_smoothers();
   Serial.println("Finished");  
   
 
   // Speed up process  
   if (fram_installed) {
-    Serial.println("Clearing FRAM");
+    Serial.println("Clear FRAM");
     clearfram();
     Serial.println("FRAM cleared");
   }
@@ -486,6 +486,7 @@ void loop() {
 
 
   // TESTING AIR PRESSURE FIFO
+  /*
   if (air_pressure_control) {
 
 
@@ -497,21 +498,10 @@ void loop() {
    readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
 
    showApData(number_of_data_points);
-   
-
- 
+    
    delay(10000000);
-
-    /*
-    // Air Pressure & Temperature
-    // Use http://www.onlineconversion.com/pressure.htm for other units
-    float pascals = baro.getPressure(); 
-    Serial.print(pascals); Serial.println(" Pascals");
-
-    float tempC = baro.getTemperature();
-    Serial.print(tempC); Serial.println("*C");  
-    */
   }
+  */
 
 
     
@@ -606,7 +596,19 @@ void getGyroValues(boolean write_gyro_to_fram)
 
   // IF no active control and we have reached end of FRAM...flash fast...to indicate that we have exhausted memory.
   if (! active_control && addr >=8180) {
-     fastBlinkLed(5000);
+
+     // If Air Pressure Sensor is enabled, then we want to push the values it has been collecting on to the end of the fRAM
+     if (air_pressure_control) {
+       number_of_data_points = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS) & 0b00111111;
+       Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
+
+       readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
+
+       // showApData(number_of_data_points);
+     }
+
+     // Blink Led fast for a long time....
+     fastBlinkLed(500000);
   }
   
   if (write_gyro_to_fram && fram_installed && addr < 8180) {
@@ -2192,7 +2194,7 @@ void blinkLED(int led_delay)
 
 
 // Perform fast Blink LED for 'duration' seconds
-void fastBlinkLed(int duration)
+void fastBlinkLed(long duration)
 {
   long start_time = millis();
   
@@ -2368,6 +2370,9 @@ void readRegisters(byte address, int i, byte * dest)
 
 
 
+// showApData works, but it chews up a lot of memory and program space. So we comment it out. We 
+// don't need it any how, because we'll process results with another computer program
+/*
 void showApData(int number_of_data_points)
 {
   int j;
@@ -2409,4 +2414,5 @@ if(msbT > 0x7F) {
 
  }  
 }
+*/
 
