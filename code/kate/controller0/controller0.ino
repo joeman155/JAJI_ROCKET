@@ -17,7 +17,7 @@
 #include <Wire.h>
 #include <SPI.h>
 #include "Adafruit_FRAM_SPI.h"
-// #include <Adafruit_MPL3115A2.h>
+
 
 // Overall control
 boolean active_control = false;   // Enable/Disable Stability sense
@@ -273,14 +273,6 @@ void setup() {
      }
   }
 
-  
-  /*
-  if (! baro.begin()) {
-     Serial.println("AP Err");
-  } else {
-    Serial.println("Found MPL3115A2");
-  }
-  */
     
   
   // If no connection to launch detect...then show 
@@ -595,7 +587,12 @@ void getGyroValues(boolean write_gyro_to_fram)
   }
 
   // IF no active control and we have reached end of FRAM...flash fast...to indicate that we have exhausted memory.
-  if (! active_control && addr >=8180) {
+  // We leave 160 bytes spare for Air Pressure readings
+  if (! active_control && addr >=8180 - 160) {
+
+     // Implement additional delay to get more Air Pressure Readings
+     // We know it takes about 8 seconds to almost fill up fRAM....so we wait another 24 seconds to get more details
+     delay(24000);
 
      // If Air Pressure Sensor is enabled, then we want to push the values it has been collecting on to the end of the fRAM
      if (air_pressure_control) {
@@ -604,6 +601,12 @@ void getGyroValues(boolean write_gyro_to_fram)
 
        readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
 
+       fram.writeEnable(true); 
+       fram.write(addr, (uint8_t *) &rawApData[0], number_of_data_points * 5);
+       fram.writeEnable(false);   
+
+       addr = addr + (number_of_data_points * 5);
+       
        // showApData(number_of_data_points);
      }
 
@@ -1893,8 +1896,9 @@ void dumpFRAM()
 {
     byte xmsb, xlsb, ymsb, ylsb, zmsb, zlsb;
     byte d1, d2, d3, d4;
+    int a;
     // unsigned long data_time;
-    for (uint16_t a = 0; a < 8180; a=a+10) {
+    for (a = 0; a < (8180-160); a=a+10) {
       xmsb = fram.read8(a);
       xlsb = fram.read8(a+1);
     
@@ -1953,10 +1957,47 @@ void dumpFRAM()
       Serial.print(d2);
       Serial.print(" ");
       Serial.println(d1 );   
-      
-      
+ 
+    }
+
+    // Pressure/Temperature readings
+    for (a = (8180 - 160); a < 8180 ; a=a+5) {
+
+      // Pressure/Altitude bytes
+      byte msb = fram.read8(a);
+      byte csb = fram.read8(a+1);
+      byte lsb = fram.read8(a+2);
+      // Temperature bytes
+      byte msbT = fram.read8(a+3);
+      byte lsbT = fram.read8(a+4); 
+ 
+      long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
+      pressure_whole >>= 6;
+ 
+      lsb &= 0x30; 
+      lsb >>= 4;
+      float pressure_frac = (float) lsb/4.0;
+
+      pressure = (float) (pressure_whole) + pressure_frac; 
+
+   
+      // Calculate temperature, check for negative sign
+      long foo = 0;
+      if(msbT > 0x7F) {
+         foo = ~(msbT << 8 | lsbT) + 1 ; // 2's complement
+         temperature = (float) (foo >> 8) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
+         temperature *= -1.;
+      } else {
+         temperature = (float) (msbT) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
+      }
+  
+      // Output data array to serial printer; comma delimits useful for importing into excel spreadsheet
+      // Serial.print("Time ,"); Serial.print((j/5)*(1<<0)); Serial.print(", seconds");
+      Serial.print(", Temperature = ,"); Serial.print(temperature, 1); Serial.print(", C,");
+      Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
       
     }
+
     
     // Blink led slowly...so we know we are at the end.
     while(1) {
