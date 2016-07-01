@@ -21,7 +21,7 @@
 
 // Overall control
 boolean active_control = false;   // Enable/Disable Stability sense
-boolean air_pressure_control = true;
+boolean air_pressure_sensor_enabled = true;
 
 
 // FRAM
@@ -63,7 +63,7 @@ unsigned int MPL3115A2_Address = 96;
 float pressure = 0.;
 float temperature = 0.;
 byte rawApData[160];
-int number_of_data_points;
+byte number_of_data_points;
 
 
 // Gyroscope Variables
@@ -237,7 +237,7 @@ void setup() {
  Wire.begin();
  Serial.begin(115200);
 
- fastBlinkLed(5000);
+ fastBlinkLed(5000);  // Give person 5 seconds warning...that system is coming online....
   
   // Initialise FRAM
  if (fram.begin()) {
@@ -249,7 +249,7 @@ void setup() {
   } 
 
   // Initialise Air Pressure Sensor  
-  if (air_pressure_control) {
+  if (air_pressure_sensor_enabled) {
      byte c = readRegister(MPL3115A2_Address, MPL3115A2_WHO_AM_I);  // Read WHO_AM_I register
      if (c == 0xC4) {
        Serial.println("Found MPL3115A2");// WHO_AM_I should always be 0xC4  
@@ -462,7 +462,7 @@ void setup() {
   }
 
   // IF Air Pressure sensor enabled, kick off reading results
-  if (air_pressure_control) {
+  if (air_pressure_sensor_enabled) {
      MPL3115A2Active();
   }
     
@@ -479,7 +479,7 @@ void loop() {
 
   // TESTING AIR PRESSURE FIFO
   /*
-  if (air_pressure_control) {
+  if (air_pressure_sensor_enabled) {
 
 
    delay(10000);
@@ -595,9 +595,9 @@ void getGyroValues(boolean write_gyro_to_fram)
      delay(24000);
 
      // If Air Pressure Sensor is enabled, then we want to push the values it has been collecting on to the end of the fRAM
-     if (air_pressure_control) {
+     if (air_pressure_sensor_enabled) {
        number_of_data_points = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS) & 0b00111111;
-       Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
+       // Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
 
        readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
 
@@ -1970,7 +1970,15 @@ void dumpFRAM()
       // Temperature bytes
       byte msbT = fram.read8(a+3);
       byte lsbT = fram.read8(a+4); 
- 
+
+/*
+      Serial.print(msb);
+      Serial.print(" ");
+      Serial.print(csb);
+      Serial.print(" ");
+      Serial.println(lsb);
+*/
+      
       long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
       pressure_whole >>= 6;
  
@@ -1997,7 +2005,7 @@ void dumpFRAM()
       Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
       
     }
-
+  
     
     // Blink led slowly...so we know we are at the end.
     while(1) {
@@ -2283,7 +2291,6 @@ void setupMPL3115A2()
   writeRegister(MPL3115A2_Address, MPL3115A2_F_SETUP, 0x80); // Set F_MODE to interrupt when overflow = 32 reached  - STOP ACCEPTING NEW VALUES WHEN FIFO is FULL!
   // writeRegister(F_SETUP, 0x60); // Set F_MODE to accept 32 data samples and interrupt when watermark = 32 reached
 
-//  MPL3115A2Active();  // Set to active to start reading
 }
 
 
@@ -2326,7 +2333,6 @@ void TimeStep(byte ST_Value)
  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG2, (c | ST_Value)); // Set time step n from 0x0 to 0xF (bits 0 - 3) for time intervals from 1 to 32768 (2^n) seconds
  }
  
-// MPL3115A2Active(); // Set to active to start reading
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2336,29 +2342,23 @@ void TimeStep(byte ST_Value)
  // Bit 0 is event flag on new Temperature data
 void MPL3115A2enableEventflags()
 {
-//  MPL3115A2Standby();  // Must be in standby to change registers
   writeRegister(MPL3115A2_Address, MPL3115A2_PT_DATA_CFG, 0x07); //Enable all three pressure and temperature event flags
-//  MPL3115A2Active();  // Set to active to start reading
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Enter Active Altimeter mode
 void ActiveAltimeterMode()
 {
-// MPL3115A2Standby(); // First put device in standby mode to allow write to registers
  byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | (0x80)); // Set ALT (bit 7) to 1
-// MPL3115A2Active(); // Set to active to start reading
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Enter Active Barometer mode
 void ActiveBarometerMode()
 {
-// MPL3115A2Standby(); // First put device in standby mode to allow write to registers
  byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1); // Read contents of register CTRL_REG1
  writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c & ~(0x80)); // Set ALT (bit 7) to 0
-// MPL3115A2Active(); // Set to active to start reading
 }
 
 
@@ -2366,7 +2366,6 @@ void ActiveBarometerMode()
 // Set the Outputting Sample Rate
 void SampleRate(byte samplerate)
 {
-//  MPL3115A2Standby();  // Must be in standby to change registers
 
   byte c = readRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1);
   writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c & ~(0x38)); // Clear OSR bits 3,4,5
@@ -2374,8 +2373,7 @@ void SampleRate(byte samplerate)
   writeRegister(MPL3115A2_Address, MPL3115A2_CTRL_REG1, c | (samplerate << 3));  // Write OSR to bits 3,4,5
   }
   
-//  MPL3115A2Active();  // Set to active to start reading
- }
+}
 
 
 
