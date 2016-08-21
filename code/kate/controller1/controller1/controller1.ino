@@ -87,7 +87,7 @@ boolean is_processing = false;              // We are getting data RIGHT now and
 int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
 int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
 boolean imu_calibrated = false;
-double factor = 0.07 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
+double factor = 0.0305 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
 int imu_measurement_count = 0;
 boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 double rotation_vx, rotation_vy, rotation_vz;
@@ -298,16 +298,18 @@ void loop() {
 
   
   // Show IMU data
+  /*
   if (debugging) {
       Serial.print("ax: "); Serial.print(ax); Serial.print("\t");  Serial.print("ay: "); Serial.print(ay); Serial.print("\t"); Serial.print("az: ");Serial.println(az); 
       Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: ");Serial.println(gz); 
   }
+  */
 
   // PRINT ORIENTATION
-  // double angle_x_deg = angle_x * 180/PI;
-  // double angle_y_deg = angle_y * 180/PI;
-  // double angle_z_deg = angle_z * 180/PI;  
-  // print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
+  double angle_x_deg = angle_x * 180/PI;
+  double angle_y_deg = angle_y * 180/PI;
+  double angle_z_deg = angle_z * 180/PI;  
+  print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   
 
 
@@ -440,7 +442,7 @@ void setupIMU(){
   // Initialise IMU
   accelgyro.initialize();
 
-  accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_250);    // Set Gyroscope to +-250degrees/second
+  accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000degrees/second
   accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);   // Set Acceleration to +-16g....1g = 1024
   accelgyro.setRate(20);                                    // 1 reading every 0.1 seconds
   accelgyro.setIntEnabled(0x1);                            // Enable Interrupts
@@ -473,7 +475,7 @@ void print_debug(boolean debug, String str) {
   
 
   
-void calculate_ang_acceleration(double vx, double vy, double vz, boolean exclude_y)
+void calculate_ang_acceleration(double vx, double vy, double vz)
 {
   double vx_avg, vy_avg, vz_avg;
   time = micros();
@@ -483,17 +485,14 @@ void calculate_ang_acceleration(double vx, double vy, double vz, boolean exclude
   if (! is_first_iteration) {
     // Calculate Average velocity over time interval
     vx_avg = (vx + old_rotation_vx)/2;
+    vy_avg = (vy + old_rotation_vy)/2;
     vz_avg = (vz + old_rotation_vz)/2;  
 
     // Numerical integrate to get angle
     angle_x = angle_x + vx_avg * tdiff/1000000;
+    angle_y = angle_y + vy_avg * tdiff/1000000;
     angle_z = angle_z + vz_avg * tdiff/1000000;
 
-    // Only get y value IF we want it!
-    if (! exclude_y) {
-       vy_avg = (vy + old_rotation_vy)/2;
-       angle_y = angle_y + vy_avg * tdiff/1000000;
-    }  
   } else {
     is_first_iteration = false;
   }
@@ -501,12 +500,8 @@ void calculate_ang_acceleration(double vx, double vy, double vz, boolean exclude
   // Calculate Acceleration
   rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
   old_rotation_vx = vx;
-  
-  if (! exclude_y) {
-    rotation_ay = 1000000 * (vy - old_rotation_vy)/tdiff;
-    old_rotation_vy = vy;  
-  }
-  
+  rotation_ay = 1000000 * (vy - old_rotation_vy)/tdiff;
+  old_rotation_vy = vy;  
   rotation_az = 1000000 * (vz - old_rotation_vz)/tdiff;
   old_rotation_vz = vz;  
   
@@ -1063,7 +1058,7 @@ void check_for_imu_data()
     rotation_vz = gz * factor;    
     
     // Calculate acceleration
-    calculate_ang_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
+    calculate_ang_acceleration(rotation_vx, rotation_vy, rotation_vz);
     is_processing = false;
     
     imu_measurement_count++;
