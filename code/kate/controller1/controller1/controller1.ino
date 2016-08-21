@@ -14,138 +14,108 @@
 
 
 #include <Wire.h>
+#include "I2Cdev.h"
+#include "MPU6050.h"
 #include "Adafruit_FRAM_I2C.h"
+#include <Adafruit_BMP085.h>
+
+// Define functions
+void fastBlinkLed(long);
+void fastBlinkLed();
+void setupIMU();
+void imu_data_available();
+void calibrate_imu();
+void calibrate_weights();
 
 
+// VARIABLES - CONFIGURATION
 // Overall control
-boolean active_control = false;   // Enable/Disable Stability sense
-boolean air_pressure_sensor_enabled = true;
+boolean active_control = false;                // Enable/Disable Stability sense
+boolean air_pressure_sensor_enabled = true;    // Enable/disable the Air Pressure Sensor
+boolean imu_installed = true;
 
 
 // FRAM
 Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
-uint16_t          framAddr = 0;
- boolean fram_installed;
-
+uint16_t framAddr = 0;
+boolean  fram_installed;
 
 
 // Air Pressure Sensor
+Adafruit_BMP085 bmp;
 // TODO
 // Define device outputs
 float pressure = 0.;
 float temperature = 0.;
-byte rawApData[160];
-byte number_of_data_points;
-
+byte  rawApTData[6];
+int ap_measurement_count = 0;
+volatile boolean gotAPdata = false;   // Data needs to be retrieved from Air Pressure Sensor
+unsigned long ap_data_time;  // Time we receive interrrupt (Data is available)
 
 // IMU Variables
-boolean imu_installed = true;
-byte _buff[6];   // Used to get lots of data from IMU in one i2c call!
-// TODO
+MPU6050 accelgyro;
+byte    _buff[12];   // Used to get lots of data from IMU in one i2c call!
 
 
 
 
-unsigned int L3G4200D_Address = 105; //I2C address of the L3G4200D
 
-int x, y, z;                             // Raw values from gyroscope
-double avg_x = 0, avg_y = 0, avg_z = 0;  // Deduced Average rotational rates
-double var_x = 0, var_y = 0, var_z = 0;  // Deduced Variance rotational rates
-double angle_x = 0;                      // Deduced X Attitude
-double angle_y = 0;                      // Deduced Y Attitude
-double angle_z = 0;                      // Deduced Z Attitude
-volatile boolean gotdata = false;        // Data needs to be retrieved from IMU
-boolean is_processing = false;           // We are getting data RIGHT now and can't get MORE data if available
-boolean dataneedsprocessing = false;     // Got some gyro data and now need to process
+// MOTION SENSING VARIABLES
+// -- Gyroscope --
+int gx, gy, gz;                             // Raw values from gyroscope
+double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates
+double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates
+double angle_x = 0;                         // Deduced X Attitude
+double angle_y = 0;                         // Deduced Y Attitude
+double angle_z = 0;                         // Deduced Z Attitude
+volatile boolean gotIMUdata = false;           // Data needs to be retrieved from IMU
+boolean is_processing = false;              // We are getting data RIGHT now and can't get MORE data if available
+boolean dataneedsprocessing = false;        // Got some gyro data and now need to process
 unsigned int dataprocessingstage = 0;
 boolean dataprocessed = false;
-int gyroZHigh = 0;
-int gyroZLow = 0;
-int gyroXHigh = 0;
-int gyroXLow = 0;
+int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
+int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
 boolean imu_calibrated = false;
 double factor = 0.07 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
-int gyro_measurement_count = 0;
+int imu_measurement_count = 0;
 boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
-
-// Measurements from the Gyroscope
 double rotation_vx, rotation_vy, rotation_vz;
 double old_rotation_vx = 0;
 double old_rotation_vy = 0;
 double old_rotation_vz = 0;
-
-// Calculated quantities
 double rotation_ax, rotation_ay, rotation_az;
 
-
-// STEPPER MOTOR
-#define MOTOR1_DIRECTION 6
-byte motor1_dir = B01000000;    // Used to turning bits HIGH/LOW fast!
-#define MOTOR1_STEP 9
-byte motor2_dir = B10000000;    // Used to turning bits HIGH/LOW fast!
-#define MOTOR2_DIRECTION 7
-#define MOTOR2_STEP 8
+// -- Accelerometer --
+int16_t ax, ay, az;
 
 
-// #define cw_motor HIGH
-// #define ccw_motor LOW
 
+
+// SERVO CONFIGURATION
+// Because the bottom servo is inverted, it's direction is in the opposite direction to the top servo.
+// We acknowledge this difference here.
+boolean s2_motor_inverted = true;
+
+// Initial weight positions
+double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
+double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
 #define cw true
 #define ccw false
 
 
-// ANGLE OF S2 IS IN OPPOSITE DIRECTION IN RESPECT TO S1, BECAUSE THE MOTOR IS 180degrees OUT OF PHASE
-boolean s2_motor_inverted = true;
-
-// INITIAL Stepp Motor positioning
-double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
-double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
-
-// STEPPER MOTOR SMOOTHER PHYSICAL CHARACTERISTICS
-double max_torque;          // Maximum torque the motor can provide at maximum speed we expect
-double torque_percent;      // How much of max_torque we want to use
-double moment_of_inertia;   // Moment of Inertia of arm and weight
-double degrees_per_step;    // How many degrees the motor rotates per step
-double mass_of_smoother;    // How much each sphererical smoother weights
-double smoother_radius;     // How many meteres it is 
-double mass_of_arm;         // Mass of arm
-double arm_length;          // Lenght of arm. We treat arm as if  it is a Rod
-double distance_to_smoother; 
-double max_acceleration;    // Maximum acceleration we can attain
 
 
-// BUFFER VARIABLES
-int i_write = 0;          // Write position in the buffer
-int i_read = 0;           // Read position in the buffer
-int buffer_len = 50;
-int buffer_high_waterlevel = 45; // Point at which we turn off calcs
-int buffer_low_waterlevel = 20;  // Point at which we resume calcs
-int buffer_level = 0;            // How far we are above the read level
-boolean buffer_get_data = true;   // Variable set false when we rise above high water level and set true when we fall below
-unsigned int buf[50];
 
 
-// STEPPER MOTOR CONTROLS
-boolean pulse_lasttime;
-boolean timer_set = false;
-unsigned int timer1;
-int i_step = 0;           // Step we are up to
-unsigned int c0;          // Initial timing, if starting from stand-still - note we calcualte this value in setup()
-unsigned int c0_fast;     // Fast turn
-unsigned int c0_normal;   // Normal speed
-unsigned int c0_slow;     // Slow turn
-unsigned int cx_min;      // Minimum wait time
-int cx;                   // Current cx value
-int cx_last;              // Last cx value
-//long last_time_fired;     // Last time a step was triggered
-//long next_time_fired;     // The next time a step needs to be triggered
-unsigned long data_time;  // Time we receive interrrupt (Data is available)
+
+unsigned long imu_data_time;  // Time we receive interrrupt (Data is available)
 long tdiff;
 
 
 // PINS
-int LED_INDICATOR_PIN = 5;
-int LAUNCH_DETECT_PIN = 3;
+int LED_INDICATOR_PIN = 4;
+int SERVO1_PIN        = 3;
+int SERVO2_PIN        = 6;
 
 
 // TIME TRACKING VARIABLES
@@ -170,9 +140,6 @@ boolean s1_direction, s2_direction;
 double intermediate_move = 0;
 double final_angle_move = 0;
 double resting_angle_move = 0;
-// int step_count = 0;      // Keep Track of where the S1 stepper motor smoother is.
-
-
 
 
 // DEBUGGING
@@ -183,9 +150,9 @@ boolean print_timing = true;
 
 // Vectors
 double thrust_vector[] = {0, 1, 0};
-double x_vector[] = {1, 0, 0};
-double y_vector[] = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
-double vec3[]     = {0, 0, 0};     // Result of cross product
+double x_vector[]      = {1, 0, 0};
+double y_vector[]      = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
+double vec3[]          = {0, 0, 0};     // Result of cross product
 
 
 
@@ -194,18 +161,17 @@ void setup() {
 
  // Initialise Pins
  pinMode(2, INPUT);                    // Interrupts pin...for IMU
- pinMode(13, OUTPUT);                  // Debugging...but actually used by FRAM
- pinMode(LAUNCH_DETECT_PIN, INPUT);    // Detect when launch is done.
+ pinMode(13, OUTPUT);                  // Debugging.. 
+ pinMode(SERVO1_PIN, OUTPUT);          // Detect when launch is done.
+ pinMode(SERVO2_PIN, OUTPUT);          // Detect when launch is done.
  pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
- pinMode(A0, INPUT_PULLUP);            // S1 Motor sensor (0 degrees)
- pinMode(A1, INPUT_PULLUP);            // S1 Motor sensor (PI degrees)
- pinMode(A2, INPUT_PULLUP);            // S2 Motor sensor (0 degrees)
- pinMode(A3, INPUT_PULLUP);            // S2 Motor sensor (PI degrees)    
+ pinMode(A2, INPUT_PULLUP);            // Voltage Sensor
+
    
  Wire.begin();
  Serial.begin(115200);
 
- fastBlinkLed(5000);  // Give person 5 seconds warning...that system is coming online....
+ fastBlinkLed(5000L);  // Give person 5 seconds warning...that system is coming online....
   
   // Initialise FRAM
  if (fram.begin()) {
@@ -218,16 +184,18 @@ void setup() {
 
   // Initialise Air Pressure Sensor  
   if (air_pressure_sensor_enabled) {
-  // TODO
-
+    if (!bmp.begin()) {
+      Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+    }
   }
 
     
-  
+
+  // TODO - WILL REPLACE WITH SOME ROUTINE THAT TAKES SERIAL INPUT 
   // If no connection to launch detect...then show 
-  if (digitalRead(LAUNCH_DETECT_PIN) == LOW) {
-     dumpFRAM(); 
-  } 
+//  if (digitalRead(DATA_DETECT_PIN) == LOW) {
+//     dumpFRAM(); 
+//  } 
   
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
@@ -251,144 +219,15 @@ void setup() {
     delay(1000);
   }
   
-  
-  // INITIALIZE STEPPER MOTOR CONTROL PINS
-  pinMode(MOTOR1_DIRECTION, OUTPUT);
-  pinMode(MOTOR1_STEP, OUTPUT);
-  pinMode(MOTOR2_DIRECTION, OUTPUT);
-  pinMode(MOTOR2_STEP, OUTPUT); 
- 
-  
-  // Calculate Stepper timing constant c0
-  // STEPPER MOTOR SY20STH30-0604A.pdf from POLOLU
-/*  
-  max_torque = 100;              // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  
-  // SH2141-5541.pdf from POLOLU
-  // max_torque = 40.77;            // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)
 
-  // KATE System set-up  
-  torque_percent = 75;           // Safety margin...don't want to exceed max_torque
-  mass_of_smoother = 0.025;      // Each smoother in kg
-  mass_of_arm = 0.01;            // How much mass of each arm weights
-  distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother
-  upper_velocity_threshold = 5 * PI/180;
-  lower_velocity_threshold = 2 * PI/180;
-*/  
-  
-  
-  
-  // KATE System set-up  - TESTING
-  max_torque     = 100;          // Gram . cm   (max torque at desired speed of 10,000pps = 3000 rpm)  // at 24 volts DC
-  torque_percent = 35;           // Safety margin...don't want to exceed max_torque...By reducing from 75 to 50..it seems to give a bit more of a safey factor...
-                                 // allowing for additional time...should some other force on system be acting on the mass.
-                                 // At present we are using 12 volts...we might be able to increase this if we want to use a higher voltage power source
-  // SMOOTHER
-  mass_of_smoother     = 0.023;  // Mass of each smoother (kg)
-  smoother_radius      = 0.005;  // Bolts with two nuts... and approximation        (m)  -- IF A CYLINDER
-  // smoother_radius  = 0.00905;   // Radius of mass of smoother  (calcualted assuming density = 8050kg/m^3) - IF A SPHERE
-  distance_to_smoother = 0.02;   // How far from stepper motor axis to the smoother (m)
-  // ARM
-  mass_of_arm = 0.005;           // How much mass of each arm weights  (kg)
-  arm_length  = 0.035;           // Approximate length of arm (m)
-  
-  upper_velocity_threshold = 5 * PI/180;
-  lower_velocity_threshold = 2 * PI/180;  
-  
-  
-  // This is quite a complicated equation. Below is a representation
-  //       ||
-  //       ||  
-  //  axle ||             **
-  //       ||           ******
-  //       ||----------********    <<--- Smoother  (Assume it is a sphere....radius = 9mm)
-  //            arm     ******
-  //                      **
-  //
-  // We need to take into account:-
-  //     - Moment of inertia of axle   (if known)
-  //     - Moment of inertia of arm
-  //     - Moment of inertia of smoother weight
-  //
-  //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother                         
-  /*
-  moment_of_inertia =  (mass_of_arm * distance_to_smoother * distance_to_smoother/3)  + (2 * mass_of_smoother * smoother_radius * smoother_radius/5) +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
-  moment_of_inertia = 0.005 * 0.002 * 0.002 /2;   // Moment of inertia of shaft...assuming it is steel (densisty = 8050), is a cylinder of length 45mm and radius 2mm)
-  moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2;   // Just a calc I'm doing with arm...with no mass  THIS WORKS WELL...DO NO DELETE....works best with torque_percent = 50
-  moment_of_inertia = 200 * 0.005 * 0.002 * 0.002 /2   + (0.025 *0.02 * 0.02);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
-  moment_of_inertia = 0  +  (1.5 * mass_of_arm * distance_to_smoother * distance_to_smoother)  + (mass_of_smoother * distance_to_smoother * distance_to_smoother);   // Just a calc I'm doing with arm...with AND  mass  THIS WORKS WELL...DO NO DELETE....works well wth torque_percent = 100...but reduce to 50 to ensure it can deal with external forces impacting on it
-  */
-
-  //                         Moment of inertia of Arm rotation about axle                  Moment of inertia of spherical smoother                        Parallel axis thereom applied to Smoother
-  // NOTE HERE WE ASSUME SMOOTHER IS A CYLINDER WITH RADIUS 5 mm!!
-  moment_of_inertia =  (mass_of_arm * arm_length * arm_length/3) + (0.5 * mass_of_smoother * smoother_radius * smoother_radius)   +  (mass_of_smoother * distance_to_smoother * distance_to_smoother);
-   
-  // Deduce maximum rotational acceleration
-  max_acceleration = ((torque_percent/(double) 100)* max_torque * (double) 0.001 * (double) 0.01 * (double) 9.81)/moment_of_inertia;
-  
-  
-  // Stepping characteristics of motor
-  degrees_per_step = 0.45;   // 1/4 step
-  
-  
-  // Calculate Initial timing constants - for various speeds
-  c0 = 1000000 * pow(2 * degrees_per_step * PI/180/max_acceleration, 0.5);
-  c0_normal = c0;
-  c0_fast = c0/1.22;
-  c0_slow = c0 * 1.22;
-  
-  
-  // Min delay  (Unlikely to get this fast without motor slipping!!)
-  cx_min = 250;
-
-/*
-  // Not needed normally
-  Serial.print("gyroXLow:    ");
-  Serial.println(gyroXLow);
-  Serial.print("gyroXHigh:    ");
-  Serial.println(gyroXHigh);
-  Serial.print("gyroZLow:    ");
-  Serial.println(gyroZLow);
-  Serial.print("gyroZHigh:    ");
-  Serial.println(gyroZHigh);
-  
-  Serial.print("average x: ");
-  Serial.println(avg_x);
-  Serial.print("average y: ");
-  Serial.println(avg_y);  
-  Serial.print("average z: ");
-  Serial.println(avg_z);
-  
-  Serial.print("variance x: ");
-  Serial.println(var_x);
-  Serial.print("variance y: ");
-  Serial.println(var_y);  
-  Serial.print("variance z: ");
-  Serial.println(var_z);
-  
-  Serial.println();  
-  
-  Serial.print("MoI:    ");
-  Serial.print((double) moment_of_inertia, 9);
-  Serial.println(" kgm^2");
-  Serial.print("Max Accel: ");
-  Serial.print((double) max_acceleration);
-  Serial.println(" rad/s/s");
-  Serial.print("C0:                   ");
-  Serial.print(c0);
-  Serial.println(" cycles");  
-  Serial.print("CX Min:               ");
-  Serial.print(cx_min);
-  Serial.println(" cycles");    
-*/
 
   // Calibrate Smoothers (move them into position)
   Serial.println("Cal S1/S2");
-  calibrate_smoothers();
+  calibrate_weights();
   Serial.println("Finished");  
   
 
-  // Speed up process  
+  // Clear fRAM  
   if (fram_installed) {
     Serial.println("Clear FRAM");
     clearfram();
@@ -405,16 +244,7 @@ void setup() {
   Serial.println("System Init");
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
 
-  // In wait mode...waiting for launch to disconnect the launch detect wires
-  while(digitalRead(LAUNCH_DETECT_PIN) == HIGH) {
-     delay(1); 
-  }
 
-  // IF Air Pressure sensor enabled, kick off reading results
-  if (air_pressure_sensor_enabled) {
-     // TODO
-     
-  }
     
   
 }
@@ -448,7 +278,10 @@ void loop() {
 
     
   // Data available!
-  get_latest_rotation_data_all();  
+  check_for_imu_data();  
+
+  check_for_ap_data();
+  
   
   // Simulate rotation - but ONLY if gyroscope disabled
   if (! imu_installed) {
@@ -486,8 +319,6 @@ void loop() {
   }
 
 
-
-  
  
   if (print_timing) {
     if (end_time1 > 0) {
@@ -505,34 +336,77 @@ void loop() {
 
 // Interrupt routine
 void imu_data_available() {
-  gotdata = true;
-  data_time = micros();
+  gotIMUdata = true;
+  imu_data_time = micros();
 }
 
+
+// AirPressure sensor
+void getAPValues(boolean write_imu_to_fram)
+{
+
+  if (air_pressure_sensor_enabled) {
+       // Get Air Pressure
+       int32_t airpressure = bmp.readRawPressure();
+
+       rawApTData[0] = 7;
+       rawApTData[1] = airpressure & 0xFF;
+       rawApTData[2] = (airpressure>>8) & 0xFF;
+       rawApTData[3] = (airpressure>>16) & 0xFF;
+
+
+       // Get Temperature
+       int32_t temperature = bmp.readRawTemperature();
+       
+       rawApTData[4] = temperature & 0xFF;
+       rawApTData[5] = (temperature>>8) & 0xFF;
+       rawApTData[6] = (temperature>>16) & 0xFF;
+  }
+
+
+  // -20 is to allow enough space for data
+  if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
+    fram.write(framAddr, (uint8_t *) &rawApTData[0], 7);
+    framAddr = framAddr + 7;
+  } ;
+    
+}
 
 
 
 // GYROSCOPE RELATED ROUTINES
 void getIMUValues(boolean write_imu_to_fram)
 {
+  // Read data from IMU
+  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
+  // Assemble Gyro and Acceleration data in Buffer
+  _buff[0] = 13;
+  _buff[1] =   gx >> 8;
+  _buff[2] =  (gx & 0xFF);
+  _buff[3] =   gy >> 8;
+  _buff[4] =  (gy & 0xFF);
+  _buff[5] =   gz >> 8;
+  _buff[6]  = (gz & 0xFF);
+  _buff[7] =   ax >> 8;
+  _buff[8] =  (ax & 0xFF);
+  _buff[9] =   ay >> 8;
+  _buff[10] =  (ay & 0xFF);
+  _buff[11] =  az >> 8;
+  _buff[12] = (az & 0xFF);    
   
-  // Read data from Accelerometer
-  // TODO
-  // readFromDevice(L3G4200D_Address, 0x28 | 0x80, 6, _buff);
 
-  // statusflag = readRegister(L3G4200D_Address, STATUS_REG);
-
-  // Assemble data to get rotational speeds
-  x = (((int)_buff[1]) << 8) | _buff[0];
-  y = (((int)_buff[3]) << 8) | _buff[2];
-  z = (((int)_buff[5]) << 8) | _buff[4];  
-  
   // Zero values that are within zero value. (i.e. assume they are zero!)
   if (imu_calibrated) {
-     zeroGyro();
+     zeroAccelGyro();
   }
 
+  
+
+
+
+/*
+  
   // IF no active control and we have reached end of FRAM...flash fast...to indicate that we have exhausted memory.
   // We leave 160 bytes spare for Air Pressure readings
   if (! active_control && framAddr >=8180 - 160) {
@@ -560,91 +434,26 @@ void getIMUValues(boolean write_imu_to_fram)
      // Blink Led fast for a long time....
      fastBlinkLed(500000);
   }
-  
-  if (write_imu_to_fram && fram_installed && framAddr < 8180) {
-    byte val[10];
-    val[0] = _buff[1];
-    val[1] = _buff[0];
-    val[2] = _buff[3];
-    val[3] = _buff[2];
-    val[4] = _buff[5];
-    val[5] = _buff[4];  
-    val[6] = data_time & 0xFF;
-    val[7] = (data_time >>8 ) & 0xFF;
-    val[8] = (data_time >>16) & 0xFF;
-    val[9] = (data_time >>24) & 0xFF;     
-    
-    /*
-    Serial.print(val[0]); Serial.print(" ");
-    Serial.print(val[1]); Serial.print(" ");
-    Serial.print(val[2]); Serial.print(" ");    
-    Serial.print(val[3]); Serial.print(" ");
-    Serial.print(val[4]); Serial.print(" ");
-    Serial.print(val[5]); Serial.print(" ");
-    Serial.print(val[6]); Serial.print(" ");
-    Serial.print(val[7]); Serial.print(" ");
-    Serial.print(val[8]); Serial.print(" ");    
-    Serial.println(val[9]); 
-    */
-  
-    fram.write(framAddr, (uint8_t *) &val[0], 10);
-    framAddr = framAddr  + 10;
+  */
+
+  // -20 is to allow enough space for data
+  if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
+    fram.write(framAddr, (uint8_t *) &_buff[0], 13);
+    framAddr = framAddr  + 13;
   } ;
 
 }
 
-int setupIMU(){
-  //TODO
+void setupIMU(){
+  // Initialise IMU
+  accelgyro.initialize();
+  
+  // Verify Connection
+  Serial.println("Testing device connections...");
+  Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
   
-}
-
-void writeRegister(int deviceAddress, byte address, byte val) {
-    Wire.beginTransmission(deviceAddress); // start transmission to device 
-    Wire.write(address);       // send register address
-    Wire.write(val);         // send value to write
-    Wire.endTransmission();     // end transmission
-}
-
-
-void readFromDevice(int deviceAddress, byte address, int num, byte _buff[])
-{
-  Wire.beginTransmission(deviceAddress); // start transmission to device
-  Wire.write(address); // sends address to read from
-  Wire.endTransmission(false); // end transmission
- 
-  Wire.beginTransmission(deviceAddress); // start transmission to device
-  Wire.requestFrom(deviceAddress, num); // request 6 bytes from device Registers: DATAX0, DATAX1, DATAY0, DATAY1, DATAZ0, DATAZ1
-   
-  int i = 0;
-  while(Wire.available()) // device may send less than requested (abnormal)
-  {
-    _buff[i] = Wire.read(); // receive a byte
-    i++;
-  }
-  if(i != num)
-  {
- 
-  }
-  Wire.endTransmission(); // end transmission
-}
-
-
-int readRegister(int deviceAddress, byte address){
-
-    int v;
-    Wire.beginTransmission(deviceAddress);
-    Wire.write(address); // register to read
-    Wire.endTransmission(false);
-
-    Wire.requestFrom(deviceAddress, 1); // read a byte
-
-    while(!Wire.available()) {
-        // waiting
-    }
-
-    v = Wire.read();
-    return v;
+  
 }
 
 
@@ -708,53 +517,6 @@ void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
   last_time = time;
 }
 
-
-
-
-void calculate_acceleration1(double vx, double vy, double vz, boolean exclude_y)
-{
-  double vx_avg, vy_avg, vz_avg;
-
-  
-  // Want to skip first data point... (tdiff is unreliable)
-  if (! is_first_iteration) {
-    // Calculate Average velocity over time interval
-    vx_avg = (vx + old_rotation_vx)/2;
-    vz_avg = (vz + old_rotation_vz)/2;  
-
-    // Numerical integrate to get angle
-    angle_x = angle_x + vx_avg * tdiff/1000000;
-    angle_z = angle_z + vz_avg * tdiff/1000000;
-
-    // Only get y value IF we want it!
-    if (! exclude_y) {
-       vy_avg = (vy + old_rotation_vy)/2;
-       angle_y = angle_y + vy_avg * tdiff/1000000;
-    }  
-  } else {
-    is_first_iteration = false;
-  }
-
-}
-
-
-
-void calculate_acceleration2(double vx, double vy, double vz, boolean exclude_y)
-{
-  
-  // Calculate Acceleration
-  rotation_ax = 1000000 * (vx - old_rotation_vx)/tdiff;
-  old_rotation_vx = vx;
-  
-  if (! exclude_y) {
-    rotation_ay = 1000000 * (vy - old_rotation_vy)/tdiff;
-    old_rotation_vy = vy;  
-  }
-  
-  rotation_az = 1000000 * (vz - old_rotation_vz)/tdiff;
-  old_rotation_vz = vz;  
-  
-}
 
 
 
@@ -918,9 +680,8 @@ void smoother_step_2()
                 derive_direction(); 
                 
                 print_time();
-                derive_speed(move_to_neutral_distance);
                 print_debug(info, "Neutral Move");
-                move_stepper_motors(s1_direction, s2_direction, move_to_neutral_distance, 0);
+                move_servos(s1_direction, s2_direction, move_to_neutral_distance, 0);
                 smoother_step = 3;      
   }
 }
@@ -1007,10 +768,9 @@ void smoother_step_4()
           } 
   
           print_time();
-          derive_speed(intermediate_move);
           print_debug(info, "IM: " + String(intermediate_move));
-    move_stepper_motors(s1_direction, s2_direction, intermediate_move, 0);
-    smoother_step = 5;
+          move_servos(s1_direction, s2_direction, intermediate_move, 0);
+          smoother_step = 5;
         }
 
 
@@ -1060,9 +820,8 @@ void smoother_step_5()
 //          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
 //          print_debug(debugging, "S2 DIR:     " + String(s2_direction));  
           print_time();
-          c0 = c0_normal;
           print_debug(info, "FM: " + String(final_angle_move));
-          move_stepper_motors(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
+          move_servos(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold); 
           smoother_step = 6;
         }
 }
@@ -1113,9 +872,8 @@ void smoother_step_6()
 void smoother_step_7() 
 {
   print_time();
-  c0 = c0_normal;
   print_debug(info, "RM: " + String(resting_angle_move));
-  move_stepper_motors(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
+  move_servos(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
   end_time1 = micros();
@@ -1123,343 +881,17 @@ void smoother_step_7()
 }
 
 
-
-// We always want to move the stepper motors 'together'. Though we might want to move in different or SAME directions
-// We will want to move the same angle.
-// If threshold == 0, then we ignore this
-void move_stepper_motors(boolean s1_direction, boolean s2_direction, double angle, double threshold)
+void move_servos(boolean s1_direction, boolean s2_direction, double angle, double threshold)
 {
-  // CALCULATE # OF STEPS
-  int steps = round((angle * 180 / PI) / degrees_per_step);
-  int half_steps = steps/2;  
-  boolean finished_pulse;
-  double angle_moved = angle;
-  int steps_moved = 0;
-  
-  // Sensor variables
-  byte sensor_val;
-  
-  
-  // BUFFER INITIALISATION
-  i_write = 0;
-  i_read  = 0;
-  i_step  = 0;
-  buffer_level = 0;
-  int i_step_calc = 0;
-  
-  // CODE HERE TO SET SMOOTHER STEPPER MOTOR DIRECTIONS
-  s1_stepper_motor_direction(s1_direction);
-  s2_stepper_motor_direction(s2_direction);
-
-  // DO THE MOVE COMMANDS HERE - SPEED UP
-  finished_pulse = false;
-  pulse_lasttime = false;
-
-  
-
-  // Serial.print("Steps to start: "); Serial.println(String(half_steps));
-  // Serial.println();
-  start_time = micros();
-  while (! finished_pulse) { 
-  
-    /*
-    Serial.print(i_read, DEC);
-    Serial.print(" ");
-    Serial.print(i_write);
-    Serial.print(" ");
-    Serial.println(buffer_level, DEC);
-    */
-    
-    // Calculate timings and push on to buffer
-    if (buffer_get_data && i_step_calc < half_steps) { 
-        buf[i_write++] = calculate_stepper_interval_new_up(i_step_calc);
-        
-        if (i_write >  buffer_len - 1) i_write = 0;
-        i_step_calc++; 
-        buffer_level++;
-    } 
-    
-    // Regulate calculation of next interval
-    if (buffer_get_data) {
-       if (buffer_level > buffer_high_waterlevel) {
-          buffer_get_data = false;
-       }
-    } else {
-       if (buffer_level < buffer_low_waterlevel) {
-          buffer_get_data = true;   
-       }
-    }
-    
-    // JOE - There is probably an issue with this...because we might pulse motors BEFORE the last pulse has completed...i.e. we don't give stepper motor sufficient 
-    // time to rest.
-    // Do this AFTER we have had a chance to calculate the next timing...to better our chances of a smooth ride.
-    if (i_step == 0) {
-        pulse_motors();
-        i_step++; 
-    }    
-    
-    // Initialise next Interrupt
-    if (! timer_set && i_step < half_steps) {
-      timer_set = true;
-      
-      //cx_total = cx_total + buf[i_read];
-      timer1 = 8 * buf[i_read++] - 1;
-      //Serial.print("t1:"); 
-      // Serial.println(buf[i_read]);
-          
-      cli();
-      if (i_read == buffer_len) i_read = 0;
-      
-      i_step++; 
-      buffer_level--;
-//      Serial.println(buffer_level, DEC);            
-      
-      // TIMER1
-      TCCR1A = 0;// set entire TCCR1A register to 0
-      TCCR1B = 0;// same for TCCR1B
-      TCNT1  = 0;//initialize counter value to 0
-      // set compare match register for 1hz increments
-      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
-      // turn on CTC mode
-      TCCR1B |= (1 << WGM12);
-      // No scaling
-      TCCR1B |= (1 << CS10);
-
-      // enable timer compare interrupt
-      TIMSK1 |= (1 << OCIE1A);      
-      
-      sei(); 
-     
-      dataprocessed = false;
-    }
-    
-    
-    if (i_step >= half_steps) {
-      finished_pulse = true;
-    }
-
-    // Read sensor data (to detect where smoothers are)  // JOE
-    // sensor_val = PINC & 0xF;
-    // Serial.println(sensor_val, HEX);  
-    
- 
-    // ONLY get data if we are 
-    // 1. Wanting to test to see if we are hitting a thresold
-    //  AND
-    // 2. we have heaps of time (> 750microseconds)
-    //  AND
-    // 3. we haven't checked it in this 'step' (Restricting one check per step). Each step is only 0.45 degreees....so this is acceptable.
-    if (threshold > 0 && 
-        (
-         buf[i_read] > 750 && ! dataprocessed
-        )
-       ) {
-
-        // Because there is so much processing and we can't afford to too much CPU because we need 
-        // to be ready to set the Timer Interrupt, we needed to break up the processing into 4 parts. 
-        if (dataprocessingstage == 3) {
-           get_latest_rotation_data4(true);
-           dataprocessed = true;
-        } else if (dataprocessingstage == 2) {
-           get_latest_rotation_data3(true);
-           dataprocessed = true;
-        } else if (dataprocessingstage == 1) {
-           get_latest_rotation_data2(true);
-           dataprocessed = true;
-        } else if (dataprocessingstage == 0) {
-           get_latest_rotation_data1();
-           dataprocessed = true;
-        } else if (dataprocessingstage == 4) {
-
-         
-         // Threshold value > 0, this means we should do some threshold checks.
-         if (abs(rotation_vx) < threshold && abs(rotation_vz) < threshold) {
-            // print_debug(debugging, "Under Threshold. Slowing down.");
-            // And if threshold is met, we need to calculate angle moved
-          
-            //         we need to slow down, hence factor of two...steps speeding up = steps slowing down
-            //         degrees per step - whatever it is defined as
-            //         PI/180     Convert from degress to radians
-            //
-            // NOTE: We moved this calculation till after we move Stepper motor. This calc is not required for
-            // the successful functioning of the Stepper Motor.
-            steps_moved = i_step;
-            break;
-         }
-         dataprocessingstage = 0;
-         dataprocessed = true;
-       }     
-    }    
-  }
-  
-  
-  
-  
-/*  
-  Serial.print("Start time: "); Serial.println(start_time);  
-  Serial.print("Finish time: "); Serial.println(end_time);  
-  tdiff = end_time - start_time;
-  Serial.print("Time taken: "); Serial.println(tdiff);
-  
-  Serial.print("Steps moved: "); Serial.println(String(i_step));
-  Serial.print("cx_total: "); Serial.println(cx_total);
-  Serial.println();
-  Serial.println();
-*/
 
 
-  // NOW WE WANT TO GO BACKWARDS. We want to use the timing values that we got before!
-  // We use the buffer backawards!!
-  buffer_get_data = true;                     // Very eagar to get data... assume we are on the way up...not way down in the buffer.
-  int steps_remaining = i_step;               // steps - i_step;       // Remaining steps to do
-  timer_set = false;                          // Ready to set and enable timer1
-  finished_pulse = false;                     // Starting while loop all over again
-  buffer_level = buffer_len - buffer_level;   // Calculating new buffer_level
 
-  // How many steps we need to skip over...from where we start calculating values
-  int i_step_calc_skip = buffer_level;
-  
-  // Set the read position back one (because we have advanced one in previous while loop)
-  i_read--;
-  if (i_read < 0) i_read = buffer_len - 1; 
-
-  // The first delay in the slow down is the last one written....cx_last. So we need this.
-  cx_last = buf[i_write];
-
-  // i_write - Continue from where we were...but we go in opposite direction!  
-
-  i_step_calc = 0;                            // Iterator....for getting step timing
-  i_step = 0;                                 // Reset steps back to zero....this is number of steps we do
-  
-
-/*
-  Serial.print("Steps to stop: "); Serial.println(steps_remaining, DEC);
-  Serial.print("Buffer Level: ");  Serial.println(buffer_level);
-  Serial.print("i_step_calc:  ");  Serial.println(i_step_calc);
-  Serial.print("i_step_calc_skip:  ");  Serial.println(i_step_calc_skip);
-  Serial.print("i_read:  ");  Serial.println(i_read);
-  Serial.print("i_write:  ");  Serial.println(i_write);
-  Serial.print("cx_last: "); Serial.println(cx_last);
-  Serial.println();
-*/
-  
-  while (! finished_pulse) { 
-  
-//    if (buffer_level < 2 && i_step >10) {
-//      Serial.println("z");
-//    }
-        
-    // Initialise next Interrupt
-    if (! timer_set && i_step < steps_remaining-1) {
-      timer_set = true;
-      
-      //cx_total = cx_total + buf[i_read];
-      timer1 = 8 * buf[i_read--] - 1;
-      // Serial.print("t2:"); 
-      // Serial.println(buf[i_read]);
-
-      if (i_step == steps_remaining - 2) {
-        pulse_lasttime = true;
-      }
-
-      cli();
-      buffer_level--;
-      if (i_read < 0) i_read = buffer_len - 1;
-      
-      /*
-      if (i_read == 0) {
-        i_read = buffer_len - 1;
-      } else {
-        i_read--;
-      }
-      */
-      i_step++; 
-      
-      // TIMER1
-      TCCR1A = 0;// set entire TCCR1A register to 0
-      TCCR1B = 0;// same for TCCR1B
-      TCNT1  = 0;//initialize counter value to 0
-      // set compare match register for 1hz increments
-      OCR1A = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
-      // turn on CTC mode
-      TCCR1B |= (1 << WGM12);
-      // No scaling
-      TCCR1B |= (1 << CS10);
-
-      // enable timer compare interrupt
-      TIMSK1 |= (1 << OCIE1A);      
-      
-      sei(); 
-    }    
-    
-    if (i_step >= steps_remaining-1) {
-      finished_pulse = true;
-    }      
-    
-    // Calculate values
-    if (buffer_get_data && (i_step_calc + i_step_calc_skip) < steps_remaining && i_step_calc_skip > 0 ) {
-        // Serial.print("cx_last: "); Serial.println(cx_last);
-        buf[i_write--] = calculate_stepper_interval_new_down(steps_remaining, i_step_calc, i_step_calc_skip); 
-        if (i_write <  0) i_write = buffer_len - 1;
-        // Serial.print(i_write); Serial.print("   -   "); Serial.print(steps_remaining); Serial.print("   -   "); Serial.print(i_step_calc); Serial.print("   -   ");Serial.print(i_step_calc_skip); Serial.print("   -   ");Serial.println(buf[i_write]);        
-        i_step_calc++; 
-        buffer_level++;
-    } 
-    
-    // Regulate calculation of next interval
-    if (buffer_get_data) {
-       if (buffer_level > buffer_high_waterlevel) {
-          buffer_get_data = false;
-       }
-    } else {
-       if (buffer_level < buffer_low_waterlevel) {
-          buffer_get_data = true;   
-       }
-    }
-
-  }  
-  
-  
-  if (info) {
-    end_time = micros();
-    double move_time = (end_time - start_time) / (double) 1000000;
-    
-    // If steps_moved > 0..then we didn't move the whole way. So now calculate steps moved.
-    if (steps_moved > 0)  {
-       angle_moved = 2 * steps_moved * degrees_per_step * (PI/180);   // Total angle that is moved (speed up + slow down)
-    }
-    // Serial.print("cx_total: "); Serial.println(cx_total);
-    Serial.print("MT: ");
-    printDouble(move_time, 10000);
-    double move_speed = (double) (PI/3) * move_time / (double) angle_moved;
-    Serial.print("MS: ");
-    printDouble(move_speed, 10000);  
-    Serial.print("AM: ");
-    Serial.println(String(angle_moved));
-  }
-   
-  
-   // We want to keep track of where the smoothers are...no feedback..we just count steps
-   if (! s1_direction) {
-     s1_angle = s1_angle + angle_moved;
-     s1_angle = angle_reorg(s1_angle);
-   } else if (s1_direction) {
-     s1_angle = s1_angle - angle_moved;
-     s1_angle = angle_reorg(s1_angle);     
-   }
-   
-   if (! s2_direction) {
-     s2_angle = s2_angle + angle_moved;
-     s2_angle = angle_reorg(s2_angle);
-   } else if (s2_direction) {
-     s2_angle = s2_angle - angle_moved;
-     s2_angle = angle_reorg(s2_angle);     
-   }   
-   
   print_debug(info, "S1 ANG: " + String(s1_angle));
   print_debug(info, "S2 ANG: " + String(s2_angle));   
-  // print_debug(debugging, "step_count: " + String(step_count));
 }
+
+
+
 
 
 static inline int8_t sgn(int val) {
@@ -1493,120 +925,6 @@ void crossproduct(double vec1[], double vec2[])
 
 
 
-void stepper_motor_direction(byte motor, boolean direction)
-{
-  if (! direction) {
-     PORTD = PORTD | motor;
-  } else if (direction) {
-     PORTD = PORTD & ~motor;
-  }
-}
-
-
-void s1_stepper_motor_direction(boolean direction)
-{
-  stepper_motor_direction(motor1_dir, direction);
-}
-
-void s2_stepper_motor_direction(boolean direction)
-{
-  if (s2_motor_inverted) {
-    stepper_motor_direction(motor2_dir, ! direction);
-  } else {
-    stepper_motor_direction(motor2_dir, direction);
-  }
-}
-
-
-
-// Provides the time to wait
-// - updown - 1 for speeding up, 0 for speeding down
-// - step   - The step number we are up to
-int calculate_stepper_interval_new_up(int next_step)
-{
-  int cx;
-
-  if (next_step == 0) {
-    cx = c0;
-    cx_last = cx;
-  } else if (next_step == 1) {
-    cx = cx_last * 0.4142;
-    cx_last = cx;
-  } else {
-    cx = cx_last - (2 * cx_last)/(4 * next_step + 1);
-    cx_last = cx;
-  }
-  
-  return cx;
-}
-
-
-// Provides the time to wait
-// - updown - 1 for speeding up, 0 for speeding down
-// - step   - The step number we are up to
-int calculate_stepper_interval_new_down(int starting_step, int next_step, int step_skip)
-{
-  int cx;
-
-  if (next_step  == 0) {
-    cx = cx_last;
-  } else if (next_step + step_skip - starting_step == -1) {
-    cx = cx_last / 0.4142;
-    cx_last = cx;
-  } else {
-    cx = cx_last - (2 * cx_last)/(4 * (next_step + step_skip - starting_step) + 1);
-    cx_last = cx;
-  }
-  
-  return cx;
-}
-
-
-
-/*
-// Implement speed restriction...doesn't result in much slow down...but should reduce skipping of steps
-int speed_limit(int speed)
-{
-  if (speed < cx_min) {
-    return cx_min;
-  }
-  
-  return speed;
-}
-*/
-
-
-void pulse_motors()
-{
-  // First bit (bit on very right) is for D8 == step motor 2
-  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
-  PORTB = PORTB | B00000011; 
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
-  PORTB = PORTB & B11111100;
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...  
-}
-
-void pulse_motor_s1()
-{
-  // First bit (bit on very right) is for D8 == step motor 2
-  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
-  PORTB = PORTB | B00000010; 
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
-  PORTB = PORTB & B11111100;
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...   
-}
-
-
-
-void pulse_motor_s2()
-{
-  // First bit (bit on very right) is for D8 == step motor 2
-  // Second bit (bit immediately to the left of the 'First bit') is for D9 == step motor 1  
-  PORTB = PORTB | B00000001; 
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...
-  PORTB = PORTB & B11111100;
-  delayMicroseconds(1);       // Double what spec says we need min of 1 microsecond...   
-}
 
 
 
@@ -1644,45 +962,47 @@ void calibrate_imu()
   {
      // delayMicroseconds(20000);
     
-    if (gotdata && ! is_processing) {
+    if (gotIMUdata && ! is_processing) {
        is_processing = true;
        getIMUValues(false);
        
-       /*
-       Serial.print("x = "); Serial.print(x); Serial.print("    ");
-       Serial.print("y = "); Serial.print(y); Serial.print("    ");
-       Serial.print("z = "); Serial.println(z);       
-       */
        
        // Z
-       if (z > gyroZHigh) {
-          gyroZHigh = z;
-       } else if(z < gyroZLow) {
-          gyroZLow = z;
+       if (gz > gyroZHigh) {
+          gyroZHigh = gz;
+       } else if(gz < gyroZLow) {
+          gyroZLow = gz;
        }
-    
+
+       // Y
+       if (gy > gyroYHigh) {
+          gyroYHigh = gy;
+       } else if(gy < gyroYLow) {
+          gyroYLow = gy;
+       }
+       
        // X
-       if (x > gyroXHigh) {
-          gyroXHigh = x; 
-       } else if (x < gyroXLow) {
-          gyroXLow = x;
+       if (gx > gyroXHigh) {
+          gyroXHigh = gx; 
+       } else if (gx < gyroXLow) {
+          gyroXLow = gx;
        }  
   
   
        // Get Average
-       avg_x = (avg_x * i + x)/(i+1);
-       avg_y = (avg_y * i + y)/(i+1);
-       avg_z = (avg_z * i + z)/(i+1);   
+       avg_gx = (avg_gx * i + gx)/(i+1);
+       avg_gy = (avg_gy * i + gy)/(i+1);
+       avg_gz = (avg_gz * i + gz)/(i+1);   
    
        // Get Variance
-       var_x = (var_x * i + (x * x))/(i+1);
-       var_y = (var_y * i + (y * y))/(i+1);
-       var_z = (var_z * i + (z * z))/(i+1);   
+       var_gx = (var_gx * i + (gx * gx))/(i+1);
+       var_gy = (var_gy * i + (gy * gy))/(i+1);
+       var_gz = (var_gz * i + (gz * gz))/(i+1);   
    
        i++;
        
       is_processing = false;
-      // gotdata = false;
+      // gotIMUdata = false;
     }
   }
 }
@@ -1690,109 +1010,53 @@ void calibrate_imu()
 
 
 // Get latest IMU data (if available)
-void get_latest_rotation_data_all()
+void check_for_imu_data()
 {
     
-  if (gotdata && ! is_processing) {
+  if (gotIMUdata && ! is_processing) {
     is_processing = true;
     
-    gotdata = false;
+    gotIMUdata = false;
     getIMUValues(true);
     
     // Get rotation rates in radians per second
-    rotation_vx = x * factor;
-    rotation_vy = y * factor;
-    rotation_vz = z * factor;    
+    rotation_vx = gx * factor;
+    rotation_vy = gy * factor;
+    rotation_vz = gz * factor;    
     
     // Calculate acceleration
     calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
     is_processing = false;
     
-    gyro_measurement_count++;
+    imu_measurement_count++;
   }
 }  
 
 
-
-
-// Get latest IMU data (if available)
-void get_latest_rotation_data1()
+// Check for Air Pressure data
+void check_for_ap_data()
 {
-  time = micros();
-  tdiff = time - last_time;
-  last_time = time;
-  
-  if (gotdata && ! is_processing) {
+
+  if (gotAPdata && ! is_processing) {
     is_processing = true;
     
-    gotdata = false;
-    getIMUValues(false);
+    gotAPdata = false;
+    getAPValues(true);
     
-    is_processing = false;
-    dataprocessingstage++;
+    ap_measurement_count++;
   }
-} 
 
-
-
-// Get latest IMU data (if available)
-void get_latest_rotation_data2(boolean exclude_y)
-{
-  
-  if (! is_processing) {
-    is_processing = true;
-    
-    gyro_measurement_count++;
-    
-    // Get rotation rates in radians per second
-    rotation_vx = x * factor;
-    if (! exclude_y) {
-      rotation_vy = y * factor;
-    }
-    rotation_vz = z * factor;
-    
-    is_processing = false;
-    dataprocessingstage++;
-  }
-} 
-
-
-// Get latest IMU data (if available)
-void get_latest_rotation_data3(boolean exclude_y)
-{
-  
-  if (! is_processing) {
-    is_processing = true;
-  
-    // Calculate acceleration
-    calculate_acceleration1(rotation_vx, rotation_vy, rotation_vz, exclude_y);  
-  
-    is_processing = false;
-    dataprocessingstage++;
-  }  
-    
 }
 
 
-// Get latest IMU data (if available)
-void get_latest_rotation_data4(boolean exclude_y)
-{
-  
-  if (! is_processing) {
-    is_processing = true;
-    
-    // Calculate acceleration
-    calculate_acceleration2(rotation_vx, rotation_vy, rotation_vz, exclude_y);      
-  
-    is_processing = false;
-    dataprocessingstage++;
-  }    
-}
 
 
+
+
+// Zero out fRAM
 void clearfram()
 {
-    for (uint16_t a = 0; a < 8192; a++) {
+    for (uint16_t a = 0; a < 32768; a++) {
     fram.write8(a, 0x00);
   }
 }
@@ -1802,35 +1066,69 @@ void clearfram()
 
 void dumpFRAM()
 {
-    byte xmsb, xlsb, ymsb, ylsb, zmsb, zlsb;
+    byte gxmsb, gxlsb, gymsb, gylsb, gzmsb, gzlsb;  // GYRO
+    byte axmsb, axlsb, aymsb, aylsb, azmsb, azlsb;  // ACCELERATION
+    byte pmsb, pcsb, plsb;                          // AIR PRESSURE
+    byte tmsb, tlsb;                                // TEMP
     byte d1, d2, d3, d4;
     int a;
-    // unsigned long data_time;
-    for (a = 0; a < (8180-160); a=a+10) {
-      xmsb = fram.read8(a);
-      xlsb = fram.read8(a+1);
-    
-      ymsb = fram.read8(a+2);
-      ylsb = fram.read8(a+3);
 
-      zmsb = fram.read8(a+4);
-      zlsb = fram.read8(a+5);  
     
-      d1 = fram.read8(a+6);
-      d2 = fram.read8(a+7);
-      d3 = fram.read8(a+8);
-      d4 = fram.read8(a+9);      
-      
-      // data_time = (unsigned long) d1 | (unsigned long) (d2 << 8) | (unsigned long) (d3 << 16) | (unsigned long) (d4 << 24);
-    
-      x = ((xmsb << 8) | xlsb);
-      y = ((ymsb << 8) | ylsb);
-      z = ((zmsb << 8) | zlsb);
-      
-      rotation_vx = x * factor;
-      rotation_vy = y * factor;
-      rotation_vz = z * factor;
+    for (a = 0; a < (32768); a=a+10) {
+      // GYRO
+      gxmsb = fram.read8(a);
+      gxlsb = fram.read8(a+1);
+      gymsb = fram.read8(a+2);
+      gylsb = fram.read8(a+3);
+      gzmsb = fram.read8(a+4);
+      gzlsb = fram.read8(a+5);  
 
+      // ACCEL
+      axmsb = fram.read8(a+6);
+      axlsb = fram.read8(a+7);
+      aymsb = fram.read8(a+8);
+      aylsb = fram.read8(a+9);
+      azmsb = fram.read8(a+10);
+      azlsb = fram.read8(a+11);  
+
+      // PRESSURE + TEMPERATURE
+      pmsb = fram.read8(a+12);
+      pcsb = fram.read8(a+13);
+      plsb = fram.read8(a+14);
+      tmsb = fram.read8(a+15);
+      tlsb = fram.read8(a+16);      
+            
+      // TIME
+      d1 = fram.read8(a+17);
+      d2 = fram.read8(a+18);
+      d3 = fram.read8(a+19);
+      d4 = fram.read8(a+20);      
+
+      
+// MANIPULATE DATA FOR DISPLAYING
+      // Gyroscope
+      gx = ((gxmsb << 8) | gxlsb);
+      gy = ((gymsb << 8) | gylsb);
+      gz = ((gzmsb << 8) | gzlsb);
+      
+      rotation_vx = gx * factor;
+      rotation_vy = gy * factor;
+      rotation_vz = gz * factor;
+
+
+      // Accelerometer
+
+
+
+      // Air-Pressure
+
+
+
+      // Temperature
+
+
+      
+      
     /*  
      Serial.print(xmsb); Serial.print(" ");
      Serial.print(xlsb); Serial.print(" ");
@@ -1843,21 +1141,14 @@ void dumpFRAM()
      Serial.print(d3); Serial.print(" ");    
      Serial.println(d4); 
     */
-      
-      print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-      // Serial.println(data_time, HEX);
+
+
+      // ROTATION
+      print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));  // RS = Rotational Speed
+      print_debug(info, "LA: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));  // LA = Linear Acceleration
+
       
       // Print Time
-      /*
-      Serial.print(d4, HEX);
-      Serial.print(" ");
-      Serial.print(d3, HEX);
-      Serial.print(" ");
-      Serial.print(d2, HEX);
-      Serial.print(" ");
-      Serial.println(d1, HEX);     
-      */
-
       Serial.print(d4);
       Serial.print(" ");
       Serial.print(d3);
@@ -1868,6 +1159,7 @@ void dumpFRAM()
  
     }
 
+/*
     // Pressure/Temperature readings
     for (a = (8180 - 160); a < 8180 ; a=a+5) {
 
@@ -1879,13 +1171,13 @@ void dumpFRAM()
       byte msbT = fram.read8(a+3);
       byte lsbT = fram.read8(a+4); 
 
-/*
-      Serial.print(msb);
-      Serial.print(" ");
-      Serial.print(csb);
-      Serial.print(" ");
-      Serial.println(lsb);
-*/
+
+//      Serial.print(msb);
+//      Serial.print(" ");
+//      Serial.print(csb);
+//      Serial.print(" ");
+//      Serial.println(lsb);
+
       
       long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
       pressure_whole >>= 6;
@@ -1911,9 +1203,11 @@ void dumpFRAM()
       // Serial.print("Time ,"); Serial.print((j/5)*(1<<0)); Serial.print(", seconds");
       Serial.print(", Temperature = ,"); Serial.print(temperature, 1); Serial.print(", C,");
       Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
-      
+    
     }
-  
+*/
+
+    
     
     // Blink led slowly...so we know we are at the end.
     while(1) {
@@ -1972,156 +1266,34 @@ double angle_between(double angle1, double angle2)
 
 
 
-ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
-  timer_set = false;      // Allow next interrupt to be set.
-  if (! pulse_lasttime)   pulse_motors();
-  TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
-}
-
-
-
-// Used to adjust speed....we want the smoothers to run at different speeds to try
-// and ensure least amount of skipped steps.
-void derive_speed(double angle)
-{
-  if (angle < 0.3) {
-    c0 = c0_slow; 
-   } else {
-    c0 = c0_fast;
-  }
-}
-
-
-// Rotate smoothers indivually, s2 first, then s1
-// We rotate each smoother about axis twice. We look for ON.... then OFF
-// We get a reading of the steps at each side one...then we move backwards to get into the correct position.
-// Note: If the sensor starts off as high, we go for a second revolution.
-void calibrate_smoothers()
-{
-
- int i, steps_to_move_back;
- int step_on ;        // Where the sensor goes on.
- int step_off;        // Where the sensor goes off
- int middle_position; // Where we want to place the smoother
- int sensor_value;
- boolean found_position;  // Set false...until position is found.
-
- // S2 Motor
- i = 0;
- step_on = -1;
- step_off = -1;
- found_position = false;
- s2_stepper_motor_direction(ccw);
- while(i < 1600 && ! found_position) {
-   pulse_motor_s2();
-   delay(5); 
-   i++;
-   
-   // Get value on Hall sensor.  A3 pin == S2 Sensor at PI
-   sensor_value = digitalRead(A3);
-   
-   if (sensor_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
-      step_on = i;
-      // Serial.print("Step on: "); Serial.println(step_on);      
-   }
-   
-   if (sensor_value == HIGH && step_on >= 0 && step_off < 0) {
-      step_off  = i;
-      // Serial.print("Step off: "); Serial.println(step_off);
-   }
-   
-   if (step_on >= 0 && step_off >= 0) {
-      middle_position = (step_on + step_off)/2;
-      found_position = true;
-      // Serial.print("Finished finding Step on and Step off. Middle Position: "); Serial.println(middle_position);
-   }
-   
- } 
-  
- if (found_position) {
-    steps_to_move_back = (i - middle_position);
-    // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
-    s2_stepper_motor_direction(cw);
-    i = 0;
-    while(i < steps_to_move_back) {
-      pulse_motor_s2();
-      delay(5);
-      i++;
-    }
-    
-    
- } else {
-    Serial.println("Cal S2 Failed");
- }
-
-  
-  
-
- // S1 Motor
- i = 0;
- step_on = -1;
- step_off = -1;
- found_position = false;
- s1_stepper_motor_direction(ccw);
- while(i < 1600 && ! found_position) {
-   pulse_motor_s1();
-   delay(5); 
-   i++;
-   
-   // Get value on Hall sensor.  A0 pin == S1 Sensor at 0 radians
-   sensor_value = digitalRead(A0);
-   
-   if (sensor_value == LOW && step_on < 0 && step_off < 0 && i > 64) { 
-      step_on = i;
-      // Serial.print("Step on: "); Serial.println(step_on);      
-   }
-   
-   if (sensor_value == HIGH && step_on >= 0 && step_off < 0) {
-      step_off  = i;
-      // Serial.print("Step off: "); Serial.println(step_off);
-   }
-   
-   if (step_on >= 0 && step_off >= 0) {
-      middle_position = (step_on + step_off)/2;
-      found_position = true;
-      // Serial.print("Finished finding Step on and Step off. Middle Position: "); Serial.println(middle_position);
-   }
-   
- } 
-  
- if (found_position) {
-    steps_to_move_back = (i - middle_position);
-    // Serial.print("Found position! Moving backward "); Serial.print(steps_to_move_back); Serial.println(" steps to it now");
-    s1_stepper_motor_direction(cw);
-    i = 0;
-    while(i < steps_to_move_back) {
-      pulse_motor_s1();
-      delay(5);
-      i++;
-    }
-    
-    
- } else {
-    Serial.println("Cal S1 Failed");
- }
-
-
-  
-}
-
-
 
 // Set to zero, if within low/high readings
-void zeroGyro()
+void zeroAccelGyro()
 {
   
-  if (x >= gyroXLow && x <= gyroXHigh) {
-    x = 0;
+  if (gx >= gyroXLow && gx <= gyroXHigh) {
+    gx = 0;
   }
-  
-  if (z >= gyroZLow && z <= gyroZHigh) {
-    z = 0;
+
+  if (gy >= gyroYLow && gy <= gyroYHigh) {
+    gy = 0;
   }
+    
+  if (gz >= gyroZLow && gz <= gyroZHigh) {
+    gz = 0;
+  }
+
+  if (ax >= gyroXLow && ax <= gyroXHigh) {
+    ax = 0;
+  }
+
+  if (ay >= gyroYLow && ay <= gyroYHigh) {
+    ay = 0;
+  }
+    
+  if (az >= gyroZLow && az <= gyroZHigh) {
+    az = 0;
+  }  
 }
 
 
@@ -2164,54 +1336,14 @@ void fastBlinkLed(long duration)
 
 
 
-
-
-
-
-
-// showApData works, but it chews up a lot of memory and program space. So we comment it out. We 
-// don't need it any how, because we'll process results with another computer program
-/*
-void showApData(int number_of_data_points)
+// Move Weights into required 'start' position
+void calibrate_weights()
 {
-  int j;
-  for(j = 0; j < number_of_data_points * 5; j+=5) {
 
-// Pressure/Altitude bytes
-  byte msb = rawApData[j];
-  byte csb = rawApData[j+1];
-  byte lsb = rawApData[j+2];
-// Temperature bytes
-  byte msbT = rawApData[j+3];
-  byte lsbT = rawApData[j+4]; 
- 
-  long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
-  pressure_whole >>= 6;
- 
-  lsb &= 0x30; 
-  lsb >>= 4;
-  float pressure_frac = (float) lsb/4.0;
 
-  pressure = (float) (pressure_whole) + pressure_frac; 
-
-   
-// Calculate temperature, check for negative sign
-long foo = 0;
-if(msbT > 0x7F) {
- foo = ~(msbT << 8 | lsbT) + 1 ; // 2's complement
- temperature = (float) (foo >> 8) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
- temperature *= -1.;
- }
- else {
-   temperature = (float) (msbT) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
- }
-  
-// Output data array to serial printer; comma delimits useful for importing into excel spreadsheet
- Serial.print("Time ,"); Serial.print((j/5)*(1<<0)); Serial.print(", seconds");
- Serial.print(", Temperature = ,"); Serial.print(temperature, 1); Serial.print(", C,");
- Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
-
- }  
 }
-*/
+
+
+
+
 
