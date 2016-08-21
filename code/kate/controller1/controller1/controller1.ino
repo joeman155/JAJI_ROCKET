@@ -208,7 +208,16 @@ void setup() {
 //  if (digitalRead(DATA_DETECT_PIN) == LOW) {
 //     dumpFRAM(); 
 //  } 
-  
+
+
+  // Clear fRAM  
+  if (fram_installed) {
+    Serial.println("Clear FRAM");
+    clearfram();
+    Serial.println("FRAM cleared");
+  }
+
+    
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
   if (imu_installed) {
@@ -251,12 +260,7 @@ void setup() {
   Serial.println("Finished");  
   
 
-  // Clear fRAM  
-  if (fram_installed) {
-    Serial.println("Clear FRAM");
-    clearfram();
-    Serial.println("FRAM cleared");
-  }
+
 
 
   delay(1000);
@@ -281,7 +285,7 @@ void loop() {
   Serial.print("Time: "); Serial.println(currMicros);
 
 
-  /*
+
   // Data available!
   check_for_imu_data();  
   check_for_ap_data();
@@ -291,7 +295,7 @@ void loop() {
   if (! imu_installed) {
      rotation_vz = rotation_vz + 1 * PI/180;
   }
-  */
+
   
   // Show IMU data
   if (debugging) {
@@ -438,7 +442,7 @@ void setupIMU(){
 
   accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_250);    // Set Gyroscope to +-250degrees/second
   accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);   // Set Acceleration to +-16g....1g = 1024
-  accelgyro.setRate(99);                                    // 1 reading every 0.1 seconds
+  accelgyro.setRate(20);                                    // 1 reading every 0.1 seconds
   accelgyro.setIntEnabled(0x1);                            // Enable Interrupts
   
   
@@ -950,7 +954,7 @@ void calibrate_imu()
   // Without this line, it gets 'stuck'
   getIMUValues(false);
   
-  while (i < 500)
+  while (i < 25)
   {
     // delayMicroseconds(20000);
     if (debugging) 
@@ -960,8 +964,6 @@ void calibrate_imu()
        is_processing = true;
        
        mpuIntStatus = accelgyro.getIntStatus();
-       Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);  
-            
        getIMUValues(false);
 
        // GYROSCOPE
