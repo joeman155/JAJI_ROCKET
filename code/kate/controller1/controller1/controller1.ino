@@ -2,11 +2,13 @@
   Controller1 - KATE  (Kinetic Attitude Thruster Engine)
   Loaded on to the main Arduino board that gets gyro data, sends to 
   other Arduino to save.
-  Also controls stepper motors
-  
+  Also controls servos
 
-  created 14 Aug 2016
-  modified 14 Aug 2016
+  // Installation Notes:
+  - Use the modified version of Adafruit-BMP085-Library-master which has some functions to compute pressure and temperature
+
+  Created 14 Aug 2016
+  Modified 14 Aug 2016
   by Joseph Turner
   
   Named in memory of Aunti Kate who passed away on 17th of March 2016 at 8am EST.
@@ -26,13 +28,16 @@ void setupIMU();
 void imu_data_available();
 void calibrate_imu();
 void calibrate_weights();
+void initialise_ap_timer(int timer1);
+
 
 
 // VARIABLES - CONFIGURATION
 // Overall control
 boolean active_control = false;                // Enable/Disable Stability sense
-boolean air_pressure_sensor_enabled = true;    // Enable/disable the Air Pressure Sensor
+boolean air_pressure_sensor_enabled = false;    // Enable/disable the Air Pressure Sensor
 boolean imu_installed = true;
+
 
 
 // FRAM
@@ -41,20 +46,27 @@ uint16_t framAddr = 0;
 boolean  fram_installed;
 
 
+
 // Air Pressure Sensor
 Adafruit_BMP085 bmp;
-// TODO
-// Define device outputs
-float pressure = 0.;
-float temperature = 0.;
-byte  rawApTData[6];
-int ap_measurement_count = 0;
+uint32_t pressure = 0.;
+float    temperature = 0.;
+byte     rawApTData[11];
+int      ap_measurement_count = 0;
 volatile boolean gotAPdata = false;   // Data needs to be retrieved from Air Pressure Sensor
 unsigned long ap_data_time;  // Time we receive interrrupt (Data is available)
+#define BMP085_ULTRALOWPOWER 0
+#define BMP085_STANDARD      1
+#define BMP085_HIGHRES       2
+#define BMP085_ULTRAHIGHRES  3
+
+
+
 
 // IMU Variables
 MPU6050 accelgyro;
-byte    _buff[12];   // Used to get lots of data from IMU in one i2c call!
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+byte    _buff[17];      // Used to get lots of data from IMU in one i2c call!
 
 
 
@@ -62,17 +74,16 @@ byte    _buff[12];   // Used to get lots of data from IMU in one i2c call!
 
 // MOTION SENSING VARIABLES
 // -- Gyroscope --
-int gx, gy, gz;                             // Raw values from gyroscope
+int    gx, gy, gz;                          // Raw values from gyroscope
 double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates
 double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates
+double avg_ax = 0, avg_ay = 0, avg_az = 0;  // Deduced Average acceleration rates
+double var_ax = 0, var_ay = 0, var_az = 0;  // Deduced Variance acceleration rates
 double angle_x = 0;                         // Deduced X Attitude
 double angle_y = 0;                         // Deduced Y Attitude
 double angle_z = 0;                         // Deduced Z Attitude
 volatile boolean gotIMUdata = false;           // Data needs to be retrieved from IMU
 boolean is_processing = false;              // We are getting data RIGHT now and can't get MORE data if available
-boolean dataneedsprocessing = false;        // Got some gyro data and now need to process
-unsigned int dataprocessingstage = 0;
-boolean dataprocessed = false;
 int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
 int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
 boolean imu_calibrated = false;
@@ -97,13 +108,10 @@ int16_t ax, ay, az;
 boolean s2_motor_inverted = true;
 
 // Initial weight positions
-double s1_angle = 0;   // PI * 81/180;    // PI/4;      // 0.1;
-double s2_angle = PI;  // PI * 99/180;    // 3 * PI/4;  // 0.4;
+double s1_angle = 0;
+double s2_angle = PI;
 #define cw true
 #define ccw false
-
-
-
 
 
 
@@ -113,9 +121,11 @@ long tdiff;
 
 
 // PINS
+#define INTERRUPT_PIN 2  // use pin 2 on Arduino Uno & most boards
 int LED_INDICATOR_PIN = 4;
 int SERVO1_PIN        = 3;
 int SERVO2_PIN        = 6;
+int LED_DEBUGGING     = 13;
 
 
 // TIME TRACKING VARIABLES
@@ -129,21 +139,21 @@ long end_time1;
 
 
 // BALANCING VARIABLES
-double upper_velocity_threshold;
-double lower_velocity_threshold;
+double    upper_velocity_threshold;
+double    lower_velocity_threshold;
 unsigned int smoother_step = 0;
-double corrective_angle = 0;
-double mid_point_angle = 0;
-double mid_point_distance = 0;
-double move_to_neutral_distance = 0;
-boolean s1_direction, s2_direction;
-double intermediate_move = 0;
-double final_angle_move = 0;
-double resting_angle_move = 0;
+double    corrective_angle = 0;
+double    mid_point_angle = 0;
+double    mid_point_distance = 0;
+double    move_to_neutral_distance = 0;
+boolean   s1_direction, s2_direction;
+double    intermediate_move = 0;
+double    final_angle_move = 0;
+double    resting_angle_move = 0;
 
 
 // DEBUGGING
-boolean debugging    = false;
+boolean debugging    = true;
 boolean info         = true  ;
 boolean print_timing = true;
 
@@ -158,10 +168,9 @@ double vec3[]          = {0, 0, 0};     // Result of cross product
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-
  // Initialise Pins
- pinMode(2, INPUT);                    // Interrupts pin...for IMU
- pinMode(13, OUTPUT);                  // Debugging.. 
+ pinMode(INTERRUPT_PIN, INPUT);                    // Interrupts pin...for IMU
+ pinMode(LED_DEBUGGING, OUTPUT);                  // Debugging.. 
  pinMode(SERVO1_PIN, OUTPUT);          // Detect when launch is done.
  pinMode(SERVO2_PIN, OUTPUT);          // Detect when launch is done.
  pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
@@ -169,7 +178,7 @@ void setup() {
 
    
  Wire.begin();
- Serial.begin(115200);
+ Serial.begin(38400);
 
  fastBlinkLed(5000L);  // Give person 5 seconds warning...that system is coming online....
   
@@ -182,10 +191,13 @@ void setup() {
     fram_installed = false;
   } 
 
+
   // Initialise Air Pressure Sensor  
   if (air_pressure_sensor_enabled) {
     if (!bmp.begin()) {
       Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+    } else {
+      initialise_ap_timer(3124); // Initialise time to get readings every 0.1 seconds
     }
   }
 
@@ -201,13 +213,15 @@ void setup() {
   // NOTE: We don't use the values from the calibration just yet....
   if (imu_installed) {
     Serial.println("Start IMU");
-    setupIMU();  // Configure L3G4200  - 250, 500 or 2000 deg/sec
-    delay(2500);          //wait for the sensor to be ready
+    setupIMU();     // Configure MPU-6050
+    delay(2500);    //wait for the sensor to be ready
   }
   
   // Enable interrupts
   if (imu_installed) {
-    attachInterrupt(0, imu_data_available, RISING);  // Interrupt from Gyroscope
+    Serial.println("Attaching routine for IMU Interrupts");
+    attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
+    mpuIntStatus = accelgyro.getIntStatus();
   }
   
   // Perform calibration
@@ -215,6 +229,16 @@ void setup() {
     Serial.println("Cal IMU");
     calibrate_imu();
     imu_calibrated = true;
+
+    if (info) {
+       Serial.println("GYROSCOPE");
+       Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t");Serial.println(avg_gz); 
+       Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t");Serial.println(var_gz); 
+
+       Serial.println("ACCELEROMETER");
+       Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t");Serial.println(avg_az); 
+       Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t");Serial.println(var_az); 
+    }
     Serial.println("End Cal IMU");    
     delay(1000);
   }
@@ -244,10 +268,8 @@ void setup() {
   Serial.println("System Init");
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
 
-
-    
-  
 }
+
 
 
 
@@ -256,30 +278,12 @@ void loop() {
 
   long currMicros = micros();
 
+  Serial.print("Time: "); Serial.println(currMicros);
 
-  // TESTING AIR PRESSURE FIFO
+
   /*
-  if (air_pressure_sensor_enabled) {
-
-
-   delay(10000);
-   // number_of_data_points = (int) (readRegister(F_STATUS)<<2)/4;
-   number_of_data_points = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS) & 0b00111111;
-   Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
-
-   // readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
-
-   showApData(number_of_data_points);
-    
-   delay(10000000);
-  }
-  */
-
-
-    
   // Data available!
   check_for_imu_data();  
-
   check_for_ap_data();
   
   
@@ -287,15 +291,23 @@ void loop() {
   if (! imu_installed) {
      rotation_vz = rotation_vz + 1 * PI/180;
   }
-
-  // PRINT ORIENTATION
-  /*
-  double angle_x_deg = angle_x * 180/PI;
-  double angle_y_deg = angle_y * 180/PI;
-  double angle_z_deg = angle_z * 180/PI;  
-  print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   */
   
+  // Show IMU data
+  if (debugging) {
+      Serial.print("ax: "); Serial.print(ax); Serial.print("\t");  Serial.print("ay: "); Serial.print(ay); Serial.print("\t"); Serial.print("az: ");Serial.println(az); 
+      Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: ");Serial.println(gz); 
+  }
+
+  // PRINT ORIENTATION
+  // double angle_x_deg = angle_x * 180/PI;
+  // double angle_y_deg = angle_y * 180/PI;
+  // double angle_z_deg = angle_z * 180/PI;  
+  // print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
+  
+
+
+    
   if (active_control && smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
     start_time1 = micros();
@@ -314,7 +326,6 @@ void loop() {
   }
   
   if (smoother_step > 0) {
-    
     smoother_step_processing();
   }
 
@@ -328,7 +339,7 @@ void loop() {
       end_time1 = 0;
     }
   }
-  
+
   
 }
 
@@ -349,25 +360,30 @@ void getAPValues(boolean write_imu_to_fram)
        // Get Air Pressure
        int32_t airpressure = bmp.readRawPressure();
 
-       rawApTData[0] = 7;
-       rawApTData[1] = airpressure & 0xFF;
+       rawApTData[0] = 10;
+       rawApTData[1] = (airpressure>>16) & 0xFF;
        rawApTData[2] = (airpressure>>8) & 0xFF;
-       rawApTData[3] = (airpressure>>16) & 0xFF;
-
+       rawApTData[3] = airpressure & 0xFF;
+       
 
        // Get Temperature
-       int32_t temperature = bmp.readRawTemperature();
+       int16_t temperature = bmp.readRawTemperature();
        
-       rawApTData[4] = temperature & 0xFF;
-       rawApTData[5] = (temperature>>8) & 0xFF;
-       rawApTData[6] = (temperature>>16) & 0xFF;
-  }
+       rawApTData[4] = (temperature>>8) & 0xFF;
+       rawApTData[5] = temperature & 0xFF;
+       
 
+       // Time
+       rawApTData[6]  = ap_data_time & 0xFF;
+       rawApTData[7]  = (ap_data_time >>8 ) & 0xFF;
+       rawApTData[8]  = (ap_data_time >>16) & 0xFF;
+       rawApTData[9] = (ap_data_time >>24) & 0xFF;              
+    }
 
   // -20 is to allow enough space for data
   if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
-    fram.write(framAddr, (uint8_t *) &rawApTData[0], 7);
-    framAddr = framAddr + 7;
+    fram.write(framAddr, (uint8_t *) &rawApTData[0], 10);
+    framAddr = framAddr + 10;
   } ;
     
 }
@@ -381,7 +397,7 @@ void getIMUValues(boolean write_imu_to_fram)
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
   // Assemble Gyro and Acceleration data in Buffer
-  _buff[0] = 13;
+  _buff[0] = 17;
   _buff[1] =   gx >> 8;
   _buff[2] =  (gx & 0xFF);
   _buff[3] =   gy >> 8;
@@ -394,7 +410,13 @@ void getIMUValues(boolean write_imu_to_fram)
   _buff[10] =  (ay & 0xFF);
   _buff[11] =  az >> 8;
   _buff[12] = (az & 0xFF);    
-  
+
+
+  // Time 
+  _buff[13] = imu_data_time & 0xFF;
+  _buff[14] = (imu_data_time >>8 ) & 0xFF;
+  _buff[15] = (imu_data_time >>16) & 0xFF;
+  _buff[16] = (imu_data_time >>24) & 0xFF;
 
   // Zero values that are within zero value. (i.e. assume they are zero!)
   if (imu_calibrated) {
@@ -402,44 +424,10 @@ void getIMUValues(boolean write_imu_to_fram)
   }
 
   
-
-
-
-/*
-  
-  // IF no active control and we have reached end of FRAM...flash fast...to indicate that we have exhausted memory.
-  // We leave 160 bytes spare for Air Pressure readings
-  if (! active_control && framAddr >=8180 - 160) {
-
-     // Implement additional delay to get more Air Pressure Readings
-     // We know it takes about 8 seconds to almost fill up fRAM....so we wait another 24 seconds to get more details
-     delay(24000);
-
-     // If Air Pressure Sensor is enabled, then we want to push the values it has been collecting on to the end of the fRAM
-     if (air_pressure_sensor_enabled) {
-       // TODO
-       // number_of_data_points = readRegister(MPL3115A2_Address, MPL3115A2_F_STATUS) & 0b00111111;
-       // Serial.print("Data pts = "); Serial.println(number_of_data_points); // Print number of data points successfully acquired
-
-       // readRegisters(MPL3115A2_F_DATA, number_of_data_points * 5, &rawApData[0]); // If overflow reached, dump the FIFO data registers
-
-       fram.write(framAddr, (uint8_t *) &rawApData[0], number_of_data_points * 5);
-
-
-       framAddr = framAddr + (number_of_data_points * 5);
-       
-       // showApData(number_of_data_points);
-     }
-
-     // Blink Led fast for a long time....
-     fastBlinkLed(500000);
-  }
-  */
-
   // -20 is to allow enough space for data
   if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
-    fram.write(framAddr, (uint8_t *) &_buff[0], 13);
-    framAddr = framAddr  + 13;
+    fram.write(framAddr, (uint8_t *) &_buff[0], 17);
+    framAddr = framAddr  + 17;
   } ;
 
 }
@@ -447,12 +435,16 @@ void getIMUValues(boolean write_imu_to_fram)
 void setupIMU(){
   // Initialise IMU
   accelgyro.initialize();
+
+  accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_250);    // Set Gyroscope to +-250degrees/second
+  accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);   // Set Acceleration to +-16g....1g = 1024
+  accelgyro.setRate(99);                                    // 1 reading every 0.1 seconds
+  accelgyro.setIntEnabled(0x1);                            // Enable Interrupts
+  
   
   // Verify Connection
   Serial.println("Testing device connections...");
   Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
-
-  
   
 }
 
@@ -477,7 +469,7 @@ void print_debug(boolean debug, String str) {
   
 
   
-void calculate_acceleration(double vx, double vy, double vz, boolean exclude_y)
+void calculate_ang_acceleration(double vx, double vy, double vz, boolean exclude_y)
 {
   double vx_avg, vy_avg, vz_avg;
   time = micros();
@@ -883,7 +875,7 @@ void smoother_step_7()
 
 void move_servos(boolean s1_direction, boolean s2_direction, double angle, double threshold)
 {
-
+ // TODO
 
 
   print_debug(info, "S1 ANG: " + String(s1_angle));
@@ -960,12 +952,19 @@ void calibrate_imu()
   
   while (i < 500)
   {
-     // delayMicroseconds(20000);
+    // delayMicroseconds(20000);
+    if (debugging) 
+
     
     if (gotIMUdata && ! is_processing) {
        is_processing = true;
-       getIMUValues(false);
        
+       mpuIntStatus = accelgyro.getIntStatus();
+       Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);  
+            
+       getIMUValues(false);
+
+       // GYROSCOPE
        
        // Z
        if (gz > gyroZHigh) {
@@ -998,11 +997,46 @@ void calibrate_imu()
        var_gx = (var_gx * i + (gx * gx))/(i+1);
        var_gy = (var_gy * i + (gy * gy))/(i+1);
        var_gz = (var_gz * i + (gz * gz))/(i+1);   
+
+
+
+       // ACCELERATION
+       // Z
+       if (az > accelZHigh) {
+          accelZHigh = az;
+       } else if(az < accelZLow) {
+          accelZLow = az;
+       }
+
+       // Y
+       if (ay > accelYHigh) {
+          accelYHigh = ay;
+       } else if(ay < accelYHigh) {
+          accelYHigh = ay;
+       }
+       
+       // X
+       if (ax > accelXHigh) {
+          accelXHigh = ax; 
+       } else if (ax < accelXLow) {
+          accelXLow = ax;
+       }  
+  
+  
+       // Get Average
+       avg_ax = (avg_ax * i + ax)/(i+1);
+       avg_ay = (avg_ay * i + ay)/(i+1);
+       avg_az = (avg_az * i + az)/(i+1);   
    
+       // Get Variance
+       var_ax = (var_ax * i + (ax * ax))/(i+1);
+       var_ay = (var_ay * i + (ay * ay))/(i+1);
+       var_az = (var_az * i + (az * az))/(i+1);   
+
        i++;
        
       is_processing = false;
-      // gotIMUdata = false;
+      gotIMUdata = false;
     }
   }
 }
@@ -1016,7 +1050,9 @@ void check_for_imu_data()
   if (gotIMUdata && ! is_processing) {
     is_processing = true;
     
-    gotIMUdata = false;
+    mpuIntStatus = accelgyro.getIntStatus();
+    Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);
+    
     getIMUValues(true);
     
     // Get rotation rates in radians per second
@@ -1025,12 +1061,14 @@ void check_for_imu_data()
     rotation_vz = gz * factor;    
     
     // Calculate acceleration
-    calculate_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
+    calculate_ang_acceleration(rotation_vx, rotation_vy, rotation_vz, false);
     is_processing = false;
     
     imu_measurement_count++;
+    gotIMUdata = false;
   }
 }  
+
 
 
 // Check for Air Pressure data
@@ -1072,62 +1110,97 @@ void dumpFRAM()
     byte tmsb, tlsb;                                // TEMP
     byte d1, d2, d3, d4;
     int a;
+    byte pklen;
+    
+    int32_t  UT, UP, B3, B5, B6, X1, X2, X3;  // Computation of the pressure/temperature
+    uint32_t B4, B7;   // Computation of the pressure/temperature
+    
+    for (a = 0; a < (32768); a=a+1) {
+      pklen = fram.read8(a);
+      if (pklen == 10) {
+
+         // PRESSURE + TEMPERATURE
+         pmsb = fram.read8(a+1);
+         pcsb = fram.read8(a+2);
+         plsb = fram.read8(a+3);
+         tmsb = fram.read8(a+4);
+         tlsb = fram.read8(a+5);  
+      
+         // TIME
+         d1 = fram.read8(a+6);
+         d2 = fram.read8(a+7);
+         d3 = fram.read8(a+8);
+         d4 = fram.read8(a+9);       
+
+         a = a + 10;
+        
+      } else if (pklen == 17) {
+         // GYRO
+         gxmsb = fram.read8(a+1);
+         gxlsb = fram.read8(a+2);
+         gymsb = fram.read8(a+3);
+         gylsb = fram.read8(a+4);
+         gzmsb = fram.read8(a+5);
+         gzlsb = fram.read8(a+6);  
+
+         // ACCEL
+         axmsb = fram.read8(a+7);
+         axlsb = fram.read8(a+8);
+         aymsb = fram.read8(a+9);
+         aylsb = fram.read8(a+10);
+         azmsb = fram.read8(a+11);
+         azlsb = fram.read8(a+12);     
+
+         // TIME
+         d1 = fram.read8(a+13);
+         d2 = fram.read8(a+14);
+         d3 = fram.read8(a+15);
+         d4 = fram.read8(a+16);      
+
+         a = a + 17;
+      } else {
+        Serial.println("Unrecognized packet length - possibly at end");
+      }
+      
+
 
     
-    for (a = 0; a < (32768); a=a+10) {
-      // GYRO
-      gxmsb = fram.read8(a);
-      gxlsb = fram.read8(a+1);
-      gymsb = fram.read8(a+2);
-      gylsb = fram.read8(a+3);
-      gzmsb = fram.read8(a+4);
-      gzlsb = fram.read8(a+5);  
-
-      // ACCEL
-      axmsb = fram.read8(a+6);
-      axlsb = fram.read8(a+7);
-      aymsb = fram.read8(a+8);
-      aylsb = fram.read8(a+9);
-      azmsb = fram.read8(a+10);
-      azlsb = fram.read8(a+11);  
-
-      // PRESSURE + TEMPERATURE
-      pmsb = fram.read8(a+12);
-      pcsb = fram.read8(a+13);
-      plsb = fram.read8(a+14);
-      tmsb = fram.read8(a+15);
-      tlsb = fram.read8(a+16);      
             
-      // TIME
-      d1 = fram.read8(a+17);
-      d2 = fram.read8(a+18);
-      d3 = fram.read8(a+19);
-      d4 = fram.read8(a+20);      
+   
 
       
 // MANIPULATE DATA FOR DISPLAYING
-      // Gyroscope
-      gx = ((gxmsb << 8) | gxlsb);
-      gy = ((gymsb << 8) | gylsb);
-      gz = ((gzmsb << 8) | gzlsb);
+      if (pklen == 17) {
+         // Gyroscope
+         gx = ((gxmsb << 8) | gxlsb);
+         gy = ((gymsb << 8) | gylsb);
+         gz = ((gzmsb << 8) | gzlsb);
       
-      rotation_vx = gx * factor;
-      rotation_vy = gy * factor;
-      rotation_vz = gz * factor;
+         rotation_vx = gx * factor;
+         rotation_vy = gy * factor;
+         rotation_vz = gz * factor;
 
 
-      // Accelerometer
+         // Accelerometer
+         ax = ((axmsb << 8) | axlsb);
+         ay = ((aymsb << 8) | aylsb);
+         az = ((azmsb << 8) | azlsb);
+         
+      } else if (pklen == 10) {
+         // Air-Pressure
+         UP = (pmsb<<16) | (pcsb<<8) | plsb;
+         
+         // Temperature
+         UT = (tmsb<<8) | tlsb;
 
 
+         // Time
 
-      // Air-Pressure
-
-
-
-      // Temperature
-
-
-      
+         // NOTE: THIS USES A MODIFIED VERSION OF ADAFRUIT BMP085 LIBRARY
+         // Compute Temperature and pressure from raw values UP and UT above
+         pressure = bmp.computePressure(UP, UT);
+         temperature = bmp.computeTemperature(UT);    
+      }
       
     /*  
      Serial.print(xmsb); Serial.print(" ");
@@ -1344,6 +1417,36 @@ void calibrate_weights()
 }
 
 
+
+// Initialise timer for 
+void initialise_ap_timer(int timer1)
+{
+      // int timer1 = 3124; // interrupt freq = 8,000,000 / (256 * (3124 + 1)) = 10hz
+          
+      cli();
+      
+      // TIMER1
+      TCCR1A  = 0;// set entire TCCR1A register to 0
+      TCCR1B  = 0;// same for TCCR1B
+      TCNT1   = 0;//initialize counter value to 0
+      // set compare match register for 1hz increments
+      OCR1A   = timer1;// = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
+      // turn on CTC mode
+      TCCR1B |= (1 << WGM12);
+      // No scaling
+      TCCR1B |= (1 << CS12);
+
+      // enable timer compare interrupt
+      TIMSK1 |= (1 << OCIE1A);      
+      
+      sei(); 
+     
+}
+
+
+ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
+  gotAPdata = true;      // Allow next interrupt to be set.
+}
 
 
 
