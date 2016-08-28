@@ -34,10 +34,12 @@ void initialise_ap_timer(int timer1);
 
 // VARIABLES - CONFIGURATION
 // Overall control
-boolean active_control = false;                // Enable/Disable Stability sense
+boolean active_control = false;                 // Enable/Disable Stability sense
 boolean air_pressure_sensor_enabled = false;    // Enable/disable the Air Pressure Sensor
-boolean imu_installed = true;
-
+boolean air_pressure_sensor_available = false;  // Indicates if Air Pressure sensor found
+boolean imu_enabled = true;                     // Indicates that we want to use IMU (if present)
+boolean imu_available = false;                  // Indicates if IMU available to use
+boolean launch_begun  = false;                  // Indicates if launch has begun yet.
 
 
 // FRAM
@@ -73,31 +75,44 @@ byte    _buff[17];      // Used to get lots of data from IMU in one i2c call!
 
 
 // MOTION SENSING VARIABLES
-// -- Gyroscope --
+// Gyroscope Statistics
+double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates     (STATS)
+double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates    (STATS)
+double avg_ax = 0, avg_ay = 0, avg_az = 0;  // Deduced Average acceleration rates   (STATS)
+double var_ax = 0, var_ay = 0, var_az = 0;  // Deduced Variance acceleration rates  (STATS)
+
+// Gyroscope
 int    gx, gy, gz;                          // Raw values from gyroscope
-double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates
-double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates
-double avg_ax = 0, avg_ay = 0, avg_az = 0;  // Deduced Average acceleration rates
-double var_ax = 0, var_ay = 0, var_az = 0;  // Deduced Variance acceleration rates
 double angle_x = 0;                         // Deduced X Attitude
 double angle_y = 0;                         // Deduced Y Attitude
 double angle_z = 0;                         // Deduced Z Attitude
-volatile boolean gotIMUdata = false;           // Data needs to be retrieved from IMU
-boolean is_processing = false;              // We are getting data RIGHT now and can't get MORE data if available
-int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
-int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
-boolean imu_calibrated = false;
-double factor = 0.0305 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
-int imu_measurement_count = 0;
-boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 double rotation_vx, rotation_vy, rotation_vz;
 double old_rotation_vx = 0;
 double old_rotation_vy = 0;
 double old_rotation_vz = 0;
 double rotation_ax, rotation_ay, rotation_az;
 
-// -- Accelerometer --
+// Data Acquisition
+volatile boolean gotIMUdata = false;        // Data needs to be retrieved from IMU
+boolean is_processing = false;              // We are getting data RIGHT now and can't get MORE data if available
+unsigned long imu_data_time;                // Time we receive interrrupt (Data is available)
+int imu_measurement_count = 0;              // # of Measurements we make
+
+// IMU Calibration
+boolean imu_calibrated = false;
+int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
+int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
+
+// Accelerometer
 int16_t ax, ay, az;
+int16_t ay_history[20];                   // Keep track of latest 20 readings
+int acceleration_threshold_count = 10;    // Number of continuous readings above which we assume rocket is in flight
+int acceleration_threshold = 4096;        // At +/- 16g, 1g = 1024. So 4g = 4096
+
+
+// Other IMU Variables
+double factor = 0.0305 * PI/180;    // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
+boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 
 
 
@@ -116,13 +131,10 @@ double s2_angle = PI;
 
 
 
-unsigned long imu_data_time;  // Time we receive interrrupt (Data is available)
-long tdiff;
-
 
 // PINS
-#define INTERRUPT_PIN 2  // use pin 2 on Arduino Uno & most boards
-int LED_INDICATOR_PIN = 4;
+#define INTERRUPT_PIN 2      // use pin 2 on Arduino Uno & most boards
+int LED_INDICATOR_PIN = 4;   // Indicates state of the system
 int SERVO1_PIN        = 3;
 int SERVO2_PIN        = 6;
 int LED_DEBUGGING     = 13;
@@ -197,6 +209,8 @@ void setup() {
     if (!bmp.begin()) {
       Serial.println("Could not find a valid BMP085 sensor, check wiring!");
     } else {
+      Serial.println("Found BMP085");
+      air_pressure_sensor_available = true;
       initialise_ap_timer(3124); // Initialise time to get readings every 0.1 seconds
     }
   }
@@ -220,21 +234,20 @@ void setup() {
     
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
-  if (imu_installed) {
+  if (imu_enabled) {
     Serial.println("Start IMU");
     setupIMU();     // Configure MPU-6050
     delay(2500);    //wait for the sensor to be ready
+    imu_available = true;
   }
   
   // Enable interrupts
-  if (imu_installed) {
+  if (imu_available) {
     Serial.println("Attaching routine for IMU Interrupts");
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
     mpuIntStatus = accelgyro.getIntStatus();
-  }
   
-  // Perform calibration
-  if (imu_installed) {   
+    // Perform calibration 
     Serial.println("Cal IMU");
     calibrate_imu();
     imu_calibrated = true;
@@ -285,25 +298,34 @@ void loop() {
   Serial.print("Time: "); Serial.println(currMicros);
 
 
-
   // Data available!
-  check_for_imu_data();  
-  check_for_ap_data();
+  if (imu_available) {
+     check_for_imu_data();  
+  }
+  if (air_pressure_sensor_available) {
+     check_for_ap_data();
+  }
   
   
   // Simulate rotation - but ONLY if gyroscope disabled
-  if (! imu_installed) {
+  if (! imu_available) {
      rotation_vz = rotation_vz + 1 * PI/180;
+  }
+
+
+  // Our trigger point for starting recording is 'acceleration_threshold_count' continuous acceleration readings 
+  // have an absolute value that is above 'acceleration_threshold'
+  // The IMU is positioned so that Y-axis is up/down, so it is this axis that will experience the acceleration
+  if (! launch_begun) {
+     boolean rocket_status = detect_trigger_condition(acceleration_threshold, acceleration_threshold_count);
   }
 
   
   // Show IMU data
-  /*
   if (debugging) {
       Serial.print("ax: "); Serial.print(ax); Serial.print("\t");  Serial.print("ay: "); Serial.print(ay); Serial.print("\t"); Serial.print("az: ");Serial.println(az); 
       Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: ");Serial.println(gz); 
   }
-  */
 
   // PRINT ORIENTATION
   double angle_x_deg = angle_x * 180/PI;
@@ -311,7 +333,6 @@ void loop() {
   double angle_z_deg = angle_z * 180/PI;  
   print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg)); 
   
-
 
     
   if (active_control && smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
@@ -361,30 +382,27 @@ void imu_data_available() {
 // AirPressure sensor
 void getAPValues(boolean write_imu_to_fram)
 {
+  // Get Air Pressure
+  int32_t airpressure = bmp.readRawPressure();
 
-  if (air_pressure_sensor_enabled) {
-       // Get Air Pressure
-       int32_t airpressure = bmp.readRawPressure();
+  rawApTData[0] = 10;
+  rawApTData[1] = (airpressure>>16) & 0xFF;
+  rawApTData[2] = (airpressure>>8) & 0xFF;
+  rawApTData[3] = airpressure & 0xFF;    
 
-       rawApTData[0] = 10;
-       rawApTData[1] = (airpressure>>16) & 0xFF;
-       rawApTData[2] = (airpressure>>8) & 0xFF;
-       rawApTData[3] = airpressure & 0xFF;
+  // Get Temperature
+  int16_t temperature = bmp.readRawTemperature();
+       
+  rawApTData[4] = (temperature>>8) & 0xFF;
+  rawApTData[5] = temperature & 0xFF;
        
 
-       // Get Temperature
-       int16_t temperature = bmp.readRawTemperature();
-       
-       rawApTData[4] = (temperature>>8) & 0xFF;
-       rawApTData[5] = temperature & 0xFF;
-       
+  // Time
+  rawApTData[6]  = ap_data_time & 0xFF;
+  rawApTData[7]  = (ap_data_time >>8 ) & 0xFF;
+  rawApTData[8]  = (ap_data_time >>16) & 0xFF;
+  rawApTData[9] = (ap_data_time >>24) & 0xFF;              
 
-       // Time
-       rawApTData[6]  = ap_data_time & 0xFF;
-       rawApTData[7]  = (ap_data_time >>8 ) & 0xFF;
-       rawApTData[8]  = (ap_data_time >>16) & 0xFF;
-       rawApTData[9] = (ap_data_time >>24) & 0xFF;              
-    }
 
   // -20 is to allow enough space for data
   if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
@@ -1446,4 +1464,13 @@ ISR(TIMER1_COMPA_vect){//timer0 interrupt - pulses motor
 }
 
 
+// Determine if last 10 readings have breached the Acceleration Threshold settings.
+// If so, return boolean TRUE
+// Otherwise, return FALSE
+boolean detect_trigger_condition(int acceleration_threshold, int acceleration_threshold_count)
+{
+
+
+  return false;
+}
 
