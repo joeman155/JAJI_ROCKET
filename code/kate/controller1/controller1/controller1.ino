@@ -27,7 +27,7 @@ void fastBlinkLed();
 void setupIMU();
 void imu_data_available();
 void calibrate_imu();
-void calibrate_weights();
+void weights_starting_pos();
 void initialise_ap_timer(int timer1);
 
 
@@ -106,6 +106,7 @@ int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0
 // Accelerometer
 int16_t ax, ay, az;
 int16_t ay_history[20];                   // Keep track of latest 20 readings
+int     ay_history_ptr = 0;               // Position in the history pointer
 int acceleration_threshold_count = 10;    // Number of continuous readings above which we assume rocket is in flight
 int acceleration_threshold = 4096;        // At +/- 16g, 1g = 1024. So 4g = 4096
 
@@ -181,12 +182,12 @@ double vec3[]          = {0, 0, 0};     // Result of cross product
 // the setup function runs once when you press reset or power the board
 void setup() {
  // Initialise Pins
- pinMode(INTERRUPT_PIN, INPUT);                    // Interrupts pin...for IMU
+ pinMode(INTERRUPT_PIN, INPUT);                   // Interrupts pin...for IMU
  pinMode(LED_DEBUGGING, OUTPUT);                  // Debugging.. 
- pinMode(SERVO1_PIN, OUTPUT);          // Detect when launch is done.
- pinMode(SERVO2_PIN, OUTPUT);          // Detect when launch is done.
- pinMode(LED_INDICATOR_PIN, OUTPUT);   // State indicator LED
- pinMode(A2, INPUT_PULLUP);            // Voltage Sensor
+ pinMode(SERVO1_PIN,    OUTPUT);                  // Detect when launch is done.
+ pinMode(SERVO2_PIN,    OUTPUT);                  // Detect when launch is done.
+ pinMode(LED_INDICATOR_PIN, OUTPUT);              // State indicator LED
+ pinMode(A2,            INPUT_PULLUP);            // Voltage Sensor
 
    
  Wire.begin();
@@ -211,7 +212,7 @@ void setup() {
     } else {
       Serial.println("Found BMP085");
       air_pressure_sensor_available = true;
-      initialise_ap_timer(3124); // Initialise time to get readings every 0.1 seconds
+      initialise_ap_timer(3124);      // Initialise time to get readings every 0.1 seconds
     }
   }
 
@@ -247,10 +248,14 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
     mpuIntStatus = accelgyro.getIntStatus();
   
-    // Perform calibration 
+    // Perform calibration - IMU must not be rotation or being accelerating
     Serial.println("Cal IMU");
     calibrate_imu();
     imu_calibrated = true;
+
+
+    //TODO MAKE SURE THE CALIBRATION VALUES ARE SENSIBLE!!!
+    // i.e. 
 
     if (info) {
        Serial.println("GYROSCOPE");
@@ -267,9 +272,9 @@ void setup() {
   
 
 
-  // Calibrate Smoothers (move them into position)
+  // Move weights to their starting position
   Serial.println("Cal S1/S2");
-  calibrate_weights();
+  weights_starting_pos();
   Serial.println("Finished");  
   
 
@@ -415,7 +420,7 @@ void getAPValues(boolean write_imu_to_fram)
 
 
 // GYROSCOPE RELATED ROUTINES
-void getIMUValues(boolean write_imu_to_fram)
+void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
 {
   // Read data from IMU
   accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
@@ -444,9 +449,14 @@ void getIMUValues(boolean write_imu_to_fram)
 
   // Zero values that are within zero value. (i.e. assume they are zero!)
   if (imu_calibrated) {
-     zeroAccelGyro();
+     zeroGyroAccelReadings();
   }
 
+
+  if (launch_detection) {
+     ay_history[ay_history_ptr] = ay;
+    
+  }
   
   // -20 is to allow enough space for data
   if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {  
@@ -461,13 +471,13 @@ void setupIMU(){
   accelgyro.initialize();
 
   accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000degrees/second
-  accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);   // Set Acceleration to +-16g....1g = 1024
+  accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);    // Set Acceleration to +-16g....1g = 1024
   accelgyro.setRate(20);                                    // 1 reading every 0.1 seconds
-  accelgyro.setIntEnabled(0x1);                            // Enable Interrupts
+  accelgyro.setIntEnabled(0x1);                             // Enable Interrupts
   
   
   // Verify Connection
-  Serial.println("Testing device connections...");
+  Serial.println("Testing device connection...");
   Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
   
 }
@@ -960,12 +970,14 @@ void printDouble( double val, unsigned int precision){
 }
 
 
+
+
 void calibrate_imu()
 {
   int i = 0;
   
   // Without this line, it gets 'stuck'
-  getIMUValues(false);
+  getIMUValues(false, false);
   
   while (i < 25)
   {
@@ -977,7 +989,7 @@ void calibrate_imu()
        is_processing = true;
        
        mpuIntStatus = accelgyro.getIntStatus();
-       getIMUValues(false);
+       getIMUValues(false, false);
 
        // GYROSCOPE
        
@@ -1068,7 +1080,7 @@ void check_for_imu_data()
     mpuIntStatus = accelgyro.getIntStatus();
     Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);
     
-    getIMUValues(true);
+    getIMUValues(true, true);
     
     // Get rotation rates in radians per second
     rotation_vx = gx * factor;
@@ -1092,12 +1104,14 @@ void check_for_ap_data()
 
   if (gotAPdata && ! is_processing) {
     is_processing = true;
-    
-    gotAPdata = false;
+        
     getAPValues(true);
-    
+    gotAPdata = false;
+
     ap_measurement_count++;
   }
+
+  is_processing = false;
 
 }
 
@@ -1190,7 +1204,7 @@ void dumpFRAM()
          gx = ((gxmsb << 8) | gxlsb);
          gy = ((gymsb << 8) | gylsb);
          gz = ((gzmsb << 8) | gzlsb);
-      
+         
          rotation_vx = gx * factor;
          rotation_vy = gy * factor;
          rotation_vz = gz * factor;
@@ -1356,7 +1370,7 @@ double angle_between(double angle1, double angle2)
 
 
 // Set to zero, if within low/high readings
-void zeroAccelGyro()
+void zeroGyroAccelReadings()
 {
   
   if (gx >= gyroXLow && gx <= gyroXHigh) {
@@ -1371,18 +1385,21 @@ void zeroAccelGyro()
     gz = 0;
   }
 
-  if (ax >= gyroXLow && ax <= gyroXHigh) {
+  if (ax >= accelXLow && ax <= accelXHigh) {
     ax = 0;
   }
 
-  if (ay >= gyroYLow && ay <= gyroYHigh) {
+  if (ay >= accelYLow && ay <= accelYHigh) {
     ay = 0;
   }
     
-  if (az >= gyroZLow && az <= gyroZHigh) {
+  if (az >= accelZLow && az <= accelZHigh) {
     az = 0;
   }  
 }
+
+
+
 
 
 void veryfastBlinkLED()
@@ -1425,7 +1442,7 @@ void fastBlinkLed(long duration)
 
 
 // Move Weights into required 'start' position
-void calibrate_weights()
+void weights_starting_pos()
 {
 
 
