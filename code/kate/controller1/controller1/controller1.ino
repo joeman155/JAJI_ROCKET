@@ -46,6 +46,8 @@ boolean launch_begun  = false;                  // Indicates if launch has begun
 Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
 uint16_t framAddr = 0;
 boolean  fram_installed;
+boolean  fram_start_recording = false;      // Is set false initially, to hold off any data recording.
+                                            // We only start recording data when launch is detected.
 
 
 
@@ -317,7 +319,8 @@ void loop() {
   // have an absolute value that is above 'acceleration_threshold'
   // The IMU is positioned so that Y-axis is up/down, so it is this axis that will experience the acceleration
   if (! launch_begun) {
-     boolean rocket_status = detect_trigger_condition(acceleration_threshold, acceleration_threshold_count);
+     launch_begun = detect_trigger_condition(acceleration_threshold, acceleration_threshold_count);
+     fram_start_recording = true; // We now want to start recording.
   }
 
   
