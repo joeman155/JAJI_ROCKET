@@ -44,10 +44,28 @@ boolean launch_begun  = false;                  // Indicates if launch has begun
 
 // FRAM
 Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
-uint16_t framAddr = 0;
 boolean  fram_installed;
-boolean  fram_start_recording = false;      // Is set false initially, to hold off any data recording.
-// We only start recording data when launch is detected.
+uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
+uint16_t fram1AddrEnd   = 32599;                // End address of FRAM Bank 1
+uint16_t fram1Addr = fram1AddrStart;            // Ptr, start at beginning - Bank 1
+int      fram1MaxPacketSize = 17;               // Maximum size of packet
+int      Fram1StartPos;                         // Where the Start Address is
+uint16_t bytes1written;                         // How many bytes have been written since launch as begun
+uint16_t bytes1writtenmax;                      // Maximum number of bytes we can write
+
+
+uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2
+uint16_t fram2AddrEnd   = 32759;                // End address of FRAM Bank 2
+uint16_t fram2Addr = fram2AddrStart;            // Ptr, start at beginning - Bank 2
+int      fram2MaxPacketSize = 17;               // Maximum size of packet
+int      numPacketsWritten = 0;                 // Relative Position 
+
+uint16_t fram3Addr = 32760;                     // The is where we keep the oldest pointer
+                                                // of data in Block 2
+
+uint16_t framPtr = 32761;                       // Where we store point to place in Bank 2
+
+
 
 
 
@@ -105,6 +123,10 @@ boolean imu_calibrated = false;
 int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
 int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
 
+int typicalGyroCal = 100;
+int typicalAccelCal = 100;
+
+
 // Accelerometer
 int16_t ax, ay, az;
 int acceleration_threshold_count_required = 10;  // Number of continuous readings above which we assume rocket is in flight
@@ -135,11 +157,12 @@ double s2_angle = PI;
 
 
 // PINS
-#define INTERRUPT_PIN 2      // use pin 2 on Arduino Uno & most boards
-int LED_INDICATOR_PIN = 4;   // Indicates state of the system
-int SERVO1_PIN        = 3;
-int SERVO2_PIN        = 6;
-int LED_DEBUGGING     = 13;
+#define INTERRUPT_PIN     2   // use pin 2 on Arduino Uno & most boards
+#define LED_INDICATOR_PIN 4   // Indicates state of the system
+#define SERVO1_PIN        3
+#define SERVO2_PIN        6
+#define LED_DEBUGGING     13
+#define DATA_DETECT_PIN   7
 
 
 // TIME TRACKING VARIABLES
@@ -219,11 +242,12 @@ void setup() {
 
 
 
-  // TODO - WILL REPLACE WITH SOME ROUTINE THAT TAKES SERIAL INPUT
-  // If no connection to launch detect...then show
-  //  if (digitalRead(DATA_DETECT_PIN) == LOW) {
-  //     dumpFRAM();
-  //  }
+  // User puts a jumper on this to detect data extraction
+  /*
+  if (digitalRead(DATA_DETECT_PIN) == LOW) {
+      dumpFRAM();
+  }
+  */
 
 
   // Clear fRAM
@@ -253,6 +277,11 @@ void setup() {
     Serial.println("Cal IMU");
     calibrate_imu();
     imu_calibrated = true;
+
+    // Confirm that the Calication values look 'sane'
+    if (check_calibration_values()) {
+        Serial.println("Calibration issues. Rocket not stationary?");
+    }
 
 
     //TODO MAKE SURE THE CALIBRATION VALUES ARE SENSIBLE!!!
@@ -326,7 +355,19 @@ void loop() {
     launch_begun = detect_trigger_condition();
 
     if (launch_begun) {
-      fram_start_recording = true; // We now want to start recording.
+       Fram1StartPos = getFram1Start();
+
+       // Find out how much further we are ahead of the historical data - distance_ahead
+       int distance_ahead;
+       if (fram1Addr >= Fram1StartPos) {
+          distance_ahead = fram1Addr - Fram1StartPos;
+       } else {
+          distance_ahead = (fram1AddrEnd - fram1AddrStart) - (Fram1StartPos - fram1Addr);
+       }
+
+       // Determine how many more bytes we can write, until we circle around again and overwrite our data
+       bytes1writtenmax = (fram1AddrEnd - fram1AddrStart) - distance_ahead ;
+       
     }
 
   }
@@ -409,17 +450,24 @@ void getAPValues(boolean write_imu_to_fram)
 
 
   // Time
-  rawApTData[6]  = ap_data_time & 0xFF;
-  rawApTData[7]  = (ap_data_time >> 8 ) & 0xFF;
-  rawApTData[8]  = (ap_data_time >> 16) & 0xFF;
+  rawApTData[6] =  ap_data_time & 0xFF;
+  rawApTData[7] = (ap_data_time >> 8 ) & 0xFF;
+  rawApTData[8] = (ap_data_time >> 16) & 0xFF;
   rawApTData[9] = (ap_data_time >> 24) & 0xFF;
 
 
+
+/*
   // -20 is to allow enough space for data
   if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {
     fram.write(framAddr, (uint8_t *) &rawApTData[0], 10);
     framAddr = framAddr + 10;
   } ;
+*/
+  if (write_imu_to_fram && fram_installed) {
+     writeFramPacket (&rawApTData[0], 10);
+  }
+
 
 }
 
@@ -469,11 +517,23 @@ void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
 
   }
 
-// -20 is to allow enough space for data
-if (write_imu_to_fram && fram_installed && framAddr < (32768 - 20)) {
+
+  if (write_imu_to_fram && fram_installed) {
+     writeFramPacket(&_buff[0], 17);
+  }
+
+/*
+  // Write to FRAM if enabled and flags set
+  if (write_imu_to_fram && fram_installed) {
     fram.write(framAddr, (uint8_t *) &_buff[0], 17);
     framAddr = framAddr  + 17;
-  } ;
+  }
+
+  // We go back to beginning of framAddre
+  if (framAddr > framAddrEnd) {
+     framAddr  = framAddrStart;
+  }
+*/
 
 }
 
@@ -1502,5 +1562,148 @@ boolean detect_trigger_condition()
      return true;
   }
   return false;
+}
+
+
+
+// This is a wrapper function that:-
+// * Writes the data to the fRAM - BANK 1
+// * Writes address to which we wrote the data into, into BANK 2
+// * Updates BANK3 with oldest data in BANK 2.
+//
+// The first two bytes are reserved for pointer to where we need to find the appropriate ADDR
+//
+void writeFramPacket(byte * data, int packlen)
+{
+  int posOldestData;   // Used to determine where the oldest record is in BANK 2
+  
+  // Write to Bank 1, but only while:-
+  // No launch has been detected
+  // or
+  // When a launch is detected and we haven't written more then XX number of butes
+  if (
+      (! launch_begun )
+      ||
+      (
+        (launch_begun)
+        &&
+        (bytes1written < bytes1writtenmax)
+      )
+     ) {
+     fram.write(fram1Addr, (uint8_t *) data, packlen);
+     advanceFram1Addr(packlen);
+     } else {
+        digitalWrite (LED_DEBUGGING, HIGH);
+     }
+
+  // If launch has begun, update record of # of bytes written.
+  if (launch_begun) {
+     bytes1written = bytes1written + packlen;
+  }
+  
+
+  // Write the framAddr to Bank 2 - ONLY when no launch has been detected.
+  if (! launch_begun) {
+     fram.write8(fram2Addr, (fram1Addr >> 8) & 0xff);
+     fram.write8(fram2Addr+1, fram1Addr & 0xff);
+
+
+     // Write the oldest data point to Address 
+     advanceFram2Addr();
+          
+     // Deduce where in BLOCK 2 the oldest record is.
+     if (numPacketsWritten < fram2AddrEnd - fram2AddrStart) {
+        numPacketsWritten = numPacketsWritten + 2;
+        posOldestData = fram2Addr - numPacketsWritten;
+     } else {
+        posOldestData = fram2Addr;
+     }
+
+     // Write to BANK 3, where the oldest data is recorded
+     fram.write8(fram3Addr, (posOldestData >> 8) & 0xff);
+     fram.write8(fram3Addr+1, posOldestData & 0xff);
+
+  }
+
+}
+
+
+void advanceFram1Addr(int len)
+{
+   fram1Addr  = fram1Addr + len;
+   if (fram1Addr >= (fram1AddrEnd - fram1MaxPacketSize)) {
+     fram1Addr = fram1AddrStart;
+   }
+
+}
+
+
+void advanceFram2Addr()
+{
+  int len = 2;    // Each 'packet' is just two bytes
+  if (fram2Addr >= (fram2AddrEnd - fram2MaxPacketSize)) {
+     fram2Addr = fram2AddrStart;
+   }
+
+}
+
+
+int getFram1Start()
+{
+   byte bank2_smsb, bank2_slsb;
+   byte bank1_smsb, bank1_slsb;
+   int startFram2Addr;
+   int startFram1Addr;
+   
+   bank2_smsb = fram.read8(fram3Addr);
+   bank2_slsb = fram.read8(fram3Addr+1);
+
+   startFram2Addr = ((bank2_smsb << 8) | bank2_slsb);
+
+
+   bank1_smsb = fram.read8(startFram2Addr);
+   bank1_slsb = fram.read8(startFram2Addr+1);
+
+   startFram1Addr = ((bank1_smsb << 8) | bank1_slsb);
+   
+   return startFram1Addr;
+}
+
+
+
+
+boolean check_calibration_values()
+{
+  boolean calibration_issue = false;
+
+  // Gyroscope Calibration issues detection
+  if (abs(gyroXHigh) > typicalGyroCal || abs(gyroXLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+
+  if (abs(gyroYHigh) > typicalGyroCal || abs(gyroYLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+
+  if (abs(gyroZHigh) > typicalGyroCal || abs(gyroZLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+
+
+  // Accelerometer Calibration issues detection
+  if (abs(accelXHigh) > typicalGyroCal || abs(accelXLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+
+  if (abs(accelYHigh) > typicalGyroCal || abs(accelYLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+
+  if (abs(accelZHigh) > typicalGyroCal || abs(accelZLow) > typicalGyroCal) {
+     calibration_issue = true;
+  }
+      
+  
+ return calibration_issue;
 }
 
