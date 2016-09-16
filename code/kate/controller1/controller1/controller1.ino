@@ -57,13 +57,14 @@ uint16_t bytes1writtenmax;                      // Maximum number of bytes we ca
 uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2
 uint16_t fram2AddrEnd   = 32759;                // End address of FRAM Bank 2
 uint16_t fram2Addr = fram2AddrStart;            // Ptr, start at beginning - Bank 2
-int      fram2MaxPacketSize = 17;               // Maximum size of packet
+int      fram2MaxPacketSize = 2;                // Maximum size of packet
 int      numPacketsWritten = 0;                 // Relative Position 
 
 uint16_t fram3Addr = 32760;                     // The is where we keep the oldest pointer
                                                 // of data in Block 2
 
-uint16_t framPtr = 32761;                       // Where we store point to place in Bank 2
+// Pretty sure this isn't needed. REMOVE LATER.
+// uint16_t framPtr = 32761;                       // Where we store point to place in Bank 2
 
 
 
@@ -281,6 +282,7 @@ void setup() {
     // Confirm that the Calication values look 'sane'
     if (check_calibration_values()) {
         Serial.println("Calibration issues. Rocket not stationary?");
+        errorCondition();
     }
 
 
@@ -333,10 +335,12 @@ void loop() {
   Serial.print("Time: "); Serial.println(currMicros);
 
 
-  // Data available!
+  // IMU SENSOR DATA
   if (imu_available) {
     check_for_imu_data();
   }
+
+  // AIR-PRESSURE SENSOR DATA
   if (air_pressure_sensor_available) {
     check_for_ap_data();
   }
@@ -348,29 +352,9 @@ void loop() {
   }
 
 
-  // Our trigger point for starting recording is 'acceleration_threshold_count' continuous acceleration readings
-  // have an absolute value that is above 'acceleration_threshold'
-  // The IMU is positioned so that Y-axis is up/down, so it is this axis that will experience the acceleration
-  if (! launch_begun) {
-    launch_begun = detect_trigger_condition();
+  // Perfom launch detection code
+  launch_detection();
 
-    if (launch_begun) {
-       Fram1StartPos = getFram1Start();
-
-       // Find out how much further we are ahead of the historical data - distance_ahead
-       int distance_ahead;
-       if (fram1Addr >= Fram1StartPos) {
-          distance_ahead = fram1Addr - Fram1StartPos;
-       } else {
-          distance_ahead = (fram1AddrEnd - fram1AddrStart) - (Fram1StartPos - fram1Addr);
-       }
-
-       // Determine how many more bytes we can write, until we circle around again and overwrite our data
-       bytes1writtenmax = (fram1AddrEnd - fram1AddrStart) - distance_ahead ;
-       
-    }
-
-  }
 
 
   // Show IMU data
@@ -387,6 +371,7 @@ void loop() {
 
 
 
+  // ACTIVE CONTROL
   if (active_control && smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
     start_time1 = micros();
@@ -1149,7 +1134,7 @@ void check_for_imu_data()
     is_processing = true;
 
     mpuIntStatus = accelgyro.getIntStatus();
-    Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);
+    // Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);
 
     getIMUValues(true, true);
 
@@ -1706,4 +1691,49 @@ boolean check_calibration_values()
   
  return calibration_issue;
 }
+
+
+void errorCondition()
+{
+  while (1)
+  {
+    digitalWrite(LED_INDICATOR_PIN, HIGH);
+    delay(200);
+    digitalWrite(LED_INDICATOR_PIN, LOW);
+    delay(100);
+  }
+}
+
+
+
+// 
+// We write data to fram continuously, however, when launch condition is detected, we need to determine where
+// we are up to in the fram (the address) and based on the historical record we keep, figure out where we 
+// want to stop. This is so we don't write over historical data
+//
+// The IMU is positioned so that Y-axis is up/down, so it is this axis that will experience the acceleration
+// Once the threshold has been reached (certain number of reads above a certain value) on the y-Axis, we know
+// that the rocket must be moving!
+//
+void launch_detection()
+{
+  if (! launch_begun) {
+    launch_begun = detect_trigger_condition();
+
+    if (launch_begun) {
+       Fram1StartPos = getFram1Start();
+
+       // Find out how much further we are ahead of the historical data - distance_ahead
+       int distance_ahead;
+       if (fram1Addr >= Fram1StartPos) {
+          distance_ahead = fram1Addr - Fram1StartPos;
+       } else {
+          distance_ahead = (fram1AddrEnd - fram1AddrStart) - (Fram1StartPos - fram1Addr);
+       }
+
+       // Determine how many more bytes we can write, until we circle around again and overwrite our data
+       bytes1writtenmax = (fram1AddrEnd - fram1AddrStart) - distance_ahead ;
+    }
+  }
+}  
 
