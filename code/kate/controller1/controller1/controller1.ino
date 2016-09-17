@@ -24,7 +24,12 @@
 
 // Uncomment out line below to enable stability correction code
 // #define STABILITY_CORRECTION
+
+// Allows us to fiddle with some values, to ensure we can test properly
 #define TESTING_MODE
+
+// Additional debugging beyond what is normally required.
+#define DEBUG
 
 
 // Define functions
@@ -56,24 +61,18 @@ uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
 uint16_t fram1AddrEnd   = 32599;                // End address of FRAM Bank 1
 uint16_t fram1Addr = fram1AddrStart;            // Ptr, start at beginning - Bank 1
 int      fram1MaxPacketSize = 17;               // Maximum size of packet
-int      Fram1StartPos;                         // Where the Start Address is
-uint16_t bytes1written;                         // How many bytes have been written since launch as begun
-uint16_t bytes1writtenmax;                      // Maximum number of bytes we can write
-
-
-uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2
-uint16_t fram2AddrEnd   = 32759;                // End address of FRAM Bank 2
-uint16_t fram2Addr = fram2AddrStart;            // Ptr, start at beginning - Bank 2
-int      fram2MaxPacketSize = 2;                // Maximum size of packet
-int      numPacketsWritten = 0;                 // Relative Position 
+int      Fram1StartPos = 0;                     // Where the Start Address is
+int      historicalBytes = 512;                 // Maximum # of historical Bytes that we will keep (and not overwrite)
 
 uint16_t fram3Addr = 32760;                     // The is where we keep the oldest pointer
                                                 // of data in Block 2
+
+#ifdef DEBUG                                                
 long     memory_start;                          // Used to track time of start of launch
 long     memory_end;                            // Used to track point where we fill up all the memory bank. 
+#endif
 
-// Pretty sure this isn't needed. REMOVE LATER.
-// uint16_t framPtr = 32761;                       // Where we store point to place in Bank 2
+
 
 
 
@@ -1293,6 +1292,9 @@ void dumpFRAM()
   // Find Starting Address
   fram1Addr = getFram1Start();
 
+#ifdef DEBUG
+  Serial.print("STARTING POSITION: "); Serial.println(fram1Addr);
+#endif
   
   // Make sure we read less then size of FRAM Bank 1
   while (a < fram1AddrEnd) {
@@ -1314,7 +1316,7 @@ void dumpFRAM()
       d3 = fram.read8(fram1Addr + 8);
       d4 = fram.read8(fram1Addr + 9);
 
-      advanceFram1Addr (10);
+      fram1Addr = advanceFram1Addr (fram1Addr, 10);
       a = a + 10;
 
     } else if (pklen == 17) {
@@ -1340,7 +1342,7 @@ void dumpFRAM()
       d3 = fram.read8(fram1Addr + 15);
       d4 = fram.read8(fram1Addr + 16);
 
-      advanceFram1Addr (17);
+      fram1Addr = advanceFram1Addr (fram1Addr, 17);
       a = a + 17;
     } else {
       Serial.println("Unrecognized packet length - possibly at end");
@@ -1599,7 +1601,7 @@ boolean detect_trigger_condition()
 //
 void writeFramPacket(byte * data, int packlen)
 {
-  int posOldestData;   // Used to determine where the oldest record is in BANK 2
+  int difference;
   
   // Write to Bank 1, but only while:-
   // No launch has been detected
@@ -1611,93 +1613,80 @@ void writeFramPacket(byte * data, int packlen)
       (
         (launch_begun)
         &&
-        (bytes1written < bytes1writtenmax)
+        (fram1Addr > Fram1StartPos)
       )
+      ||
+      (
+        (launch_begun)
+        &&
+        (advanceFram1Addr(fram1Addr, packlen) < Fram1StartPos)
+      )      
      ) {
      fram.write(fram1Addr, (uint8_t *) data, packlen);
-     advanceFram1Addr(packlen);
+     fram1Addr = advanceFram1Addr(fram1Addr, packlen);
      } else {
+
+#ifdef DEBUG
         memory_end = micros();
         long total_time = (memory_end - memory_start)/1000000;
         Serial.print("Saved "); Serial.print(total_time); Serial.println(" seconds of data.");
-
+#endif
         // Don't try and get any more data, no point as it will not be written to fRAM.
         while (1) {
            slowFlash(); // Slow flash indicates no more space to write data.
         }
      }
 
-  // If launch has begun, update record of # of bytes written.
-  if (launch_begun) {
-     bytes1written = bytes1written + packlen;
-  }
-  
 
   // Write the framAddr to Bank 2 - ONLY when no launch has been detected.
   if (! launch_begun) {
-     fram.write8(fram2Addr, (fram1Addr >> 8) & 0xff);
-     fram.write8(fram2Addr+1, fram1Addr & 0xff);
+    if (fram1Addr > Fram1StartPos) {
+       difference = fram1Addr - Fram1StartPos;
+    } else {
+       difference = (fram1AddrEnd - fram1AddrStart) - (Fram1StartPos - fram1Addr);
+    }
+    
+    if (difference < historicalBytes) {
+       Fram1StartPos = 0;
+    } else {
+       Fram1StartPos = advanceFram1Addr(Fram1StartPos, packlen);
+    }
 
-
-     // Write the oldest data point to Address 
-     advanceFram2Addr();
-          
-     // Deduce where in BLOCK 2 the oldest record is.
-     if (numPacketsWritten < fram2AddrEnd - fram2AddrStart) {
-        numPacketsWritten = numPacketsWritten + 2;
-        posOldestData = fram2Addr - numPacketsWritten;
-     } else {
-        posOldestData = fram2Addr;
-     }
-
-     // Write to BANK 3, where the oldest data is recorded
-     fram.write8(fram3Addr, (posOldestData >> 8) & 0xff);
-     fram.write8(fram3Addr+1, posOldestData & 0xff);
+     // Write the Start Position to the 3rd bank
+     fram.write8(fram3Addr, (Fram1StartPos >> 8) & 0xff);
+     fram.write8(fram3Addr+1, Fram1StartPos & 0xff);
 
   }
 
+#ifdef DEBUG
+    Serial.print("Current pos: "); Serial.println(fram1Addr);
+    Serial.print("Start   pos: "); Serial.println(Fram1StartPos);  
+#endif
 }
 
 
-void advanceFram1Addr(int len)
+int advanceFram1Addr(int addr, int len)
 {
-   fram1Addr  = fram1Addr + len;
-   if (fram1Addr >= (fram1AddrEnd - fram1MaxPacketSize)) {
-     fram1Addr = fram1AddrStart;
+   addr = addr + len;
+   if (addr >= (fram1AddrEnd - fram1MaxPacketSize)) {
+     addr = fram1AddrStart;
    }
-
+  return addr;
 }
 
-
-void advanceFram2Addr()
-{
-  int len = 2;    // Each 'packet' is just two bytes
-  if (fram2Addr >= (fram2AddrEnd - fram2MaxPacketSize)) {
-     fram2Addr = fram2AddrStart;
-   }
-
-}
 
 
 int getFram1Start()
 {
-   byte bank2_smsb, bank2_slsb;
-   byte bank1_smsb, bank1_slsb;
-   int startFram2Addr;
-   int startFram1Addr;
-   
-   bank2_smsb = fram.read8(fram3Addr);
-   bank2_slsb = fram.read8(fram3Addr+1);
+  int startFram1Addr;
+  byte bank1_smsb, bank1_slsb;
+  
+  bank1_smsb = fram.read8(fram3Addr);
+  bank1_slsb = fram.read8(fram3Addr+1);
 
-   startFram2Addr = ((bank2_smsb << 8) | bank2_slsb);
+  startFram1Addr = ((bank1_smsb << 8) | bank1_slsb);  
 
-
-   bank1_smsb = fram.read8(startFram2Addr);
-   bank1_slsb = fram.read8(startFram2Addr+1);
-
-   startFram1Addr = ((bank1_smsb << 8) | bank1_slsb);
-   
-   return startFram1Addr;
+  return startFram1Addr;   
 }
 
 
@@ -1764,28 +1753,17 @@ void launch_detection()
     launch_begun = detect_trigger_condition();
 
     if (launch_begun) {
-      memory_start = micros();
-      Serial.println();
-      Serial.println();
-      Serial.println();
-      Serial.println("*******  LAUNCH DETECTED *******");
-      Serial.println();
-      Serial.println();
-      Serial.println();
+#ifdef DEBUG      
+       memory_start = micros();
+       Serial.println();
+       Serial.println();
+       Serial.println();
+       Serial.println("*******  LAUNCH DETECTED *******");
+       Serial.println();
+       Serial.println();
+       Serial.println();
+#endif       
        digitalWrite(LED_INDICATOR_PIN, LOW);
-      
-       Fram1StartPos = getFram1Start();
-
-       // Find out how much further we are ahead of the historical data - distance_ahead
-       int distance_ahead;
-       if (fram1Addr >= Fram1StartPos) {
-          distance_ahead = fram1Addr - Fram1StartPos;
-       } else {
-          distance_ahead = (fram1AddrEnd - fram1AddrStart) - (Fram1StartPos - fram1Addr);
-       }
-
-       // Determine how many more bytes we can write, until we circle around again and overwrite our data
-       bytes1writtenmax = (fram1AddrEnd - fram1AddrStart) - distance_ahead ;
     }
   }
 }  
