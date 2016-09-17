@@ -21,6 +21,12 @@
 #include "Adafruit_FRAM_I2C.h"
 #include <Adafruit_BMP085.h>
 
+
+// Uncomment out line below to enable stability correction code
+// #define STABILITY_CORRECTION
+#define TESTING_MODE
+
+
 // Define functions
 void fastBlinkLed(long);
 void fastBlinkLed();
@@ -44,7 +50,8 @@ boolean launch_begun  = false;                  // Indicates if launch has begun
 
 // FRAM
 Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
-boolean  fram_installed;
+boolean  fram_available = true;                 // Specifies if we use FRAM - even if installed.
+boolean  fram_installed = false;
 uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
 uint16_t fram1AddrEnd   = 32599;                // End address of FRAM Bank 1
 uint16_t fram1Addr = fram1AddrStart;            // Ptr, start at beginning - Bank 1
@@ -62,6 +69,8 @@ int      numPacketsWritten = 0;                 // Relative Position
 
 uint16_t fram3Addr = 32760;                     // The is where we keep the oldest pointer
                                                 // of data in Block 2
+long     memory_start;                          // Used to track time of start of launch
+long     memory_end;                            // Used to track point where we fill up all the memory bank. 
 
 // Pretty sure this isn't needed. REMOVE LATER.
 // uint16_t framPtr = 32761;                       // Where we store point to place in Bank 2
@@ -114,18 +123,15 @@ double old_rotation_vz = 0;
 double rotation_ax, rotation_ay, rotation_az;
 
 // Data Acquisition
-volatile boolean gotIMUdata = false;        // Data needs to be retrieved from IMU
-boolean is_processing = false;              // We are getting data RIGHT now and can't get MORE data if available
-unsigned long imu_data_time;                // Time we receive interrrupt (Data is available)
-int imu_measurement_count = 0;              // # of Measurements we make
+volatile boolean gotIMUdata = false;         // Data needs to be retrieved from IMU
+boolean          is_processing = false;      // We are getting data RIGHT now and can't get MORE data if available
+unsigned long    imu_data_time;              // Time we receive interrrupt (Data is available)
+int              imu_measurement_count = 0;  // # of Measurements we make
 
 // IMU Calibration
 boolean imu_calibrated = false;
-int gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
-int accelZHigh = 0, accelZLow = 0, accelYHigh = 0, accelYLow = 0, accelXHigh = 0, accelXLow = 0;
-
-int typicalGyroCal = 100;
-int typicalAccelCal = 100;
+int     gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
+int     typicalGyroCal = 150;
 
 
 // Accelerometer
@@ -133,6 +139,8 @@ int16_t ax, ay, az;
 int acceleration_threshold_count_required = 10;  // Number of continuous readings above which we assume rocket is in flight
 int acceleration_threshold_count = 0;     // How many measurements have been over the acceleration_threhold
 int acceleration_threshold = 4096;        // At +/- 16g, 1g = 1024. So 4g = 4096
+
+
 
 
 // Other IMU Variables
@@ -163,7 +171,8 @@ double s2_angle = PI;
 #define SERVO1_PIN        3
 #define SERVO2_PIN        6
 #define LED_DEBUGGING     13
-#define DATA_DETECT_PIN   7
+#define READ_MODE_ENABLE_DETECT_PIN   11   // Need to set this HIGH, so that we can use jumper between 11 and 12.
+#define READ_MODE_PIN     12               // Has a pulldown resistor to Ground. 
 
 
 // TIME TRACKING VARIABLES
@@ -175,7 +184,7 @@ long start_time1;
 long end_time1;
 
 
-
+#ifdef STABILITY_CORRECTION
 // BALANCING VARIABLES
 double    upper_velocity_threshold;
 double    lower_velocity_threshold;
@@ -189,6 +198,14 @@ double    intermediate_move = 0;
 double    final_angle_move = 0;
 double    resting_angle_move = 0;
 
+// Vectors
+double thrust_vector[] = {0, 1, 0};
+double x_vector[]      = {1, 0, 0};
+double y_vector[]      = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
+double vec3[]          = {0, 0, 0};     // Result of cross product
+
+#endif
+
 
 // DEBUGGING
 boolean debugging    = true;
@@ -196,46 +213,55 @@ boolean info         = true  ;
 boolean print_timing = true;
 
 
-// Vectors
-double thrust_vector[] = {0, 1, 0};
-double x_vector[]      = {1, 0, 0};
-double y_vector[]      = {0, 1, 0};     // Vector pointing in direction of rocket motion (up)
-double vec3[]          = {0, 0, 0};     // Result of cross product
-
 
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-  // Initialise Pins
-  pinMode(INTERRUPT_PIN, INPUT);                   // Interrupts pin...for IMU
-  pinMode(LED_DEBUGGING, OUTPUT);                  // Debugging..
-  pinMode(SERVO1_PIN,    OUTPUT);                  // Detect when launch is done.
-  pinMode(SERVO2_PIN,    OUTPUT);                  // Detect when launch is done.
-  pinMode(LED_INDICATOR_PIN, OUTPUT);              // State indicator LED
-  pinMode(A2,            INPUT_PULLUP);            // Voltage Sensor
 
+#ifdef TESTING_MODE
+// LOW ACCERATION THRESHOLD TESTING VALUES
+acceleration_threshold_count_required = 2;
+acceleration_threshold = 400;
+#endif
+
+  
+  // Initialise Pins
+  pinMode(INTERRUPT_PIN,     INPUT);                   // Interrupts pin...for IMU
+  pinMode(LED_DEBUGGING,     OUTPUT);                  // Debugging..
+  pinMode(SERVO1_PIN,        OUTPUT);                  // Detect when launch is done.
+  pinMode(SERVO2_PIN,        OUTPUT);                  // Detect when launch is done.
+  pinMode(LED_INDICATOR_PIN, OUTPUT);                  // State indicator LED
+  pinMode(READ_MODE_ENABLE_DETECT_PIN, OUTPUT);        // Set Output, so we can put a HIGH on it - permanently
+  pinMode(READ_MODE_PIN,     INPUT);                   // Wish to detect if HIGH is on this...then we are wanting to go into framDump routine
+  pinMode(A2,                INPUT_PULLUP);            // Voltage Sensor
+
+
+  digitalWrite(READ_MODE_ENABLE_DETECT_PIN, HIGH);
 
   Wire.begin();
   Serial.begin(38400);
+  Serial.println("Powering up...");
 
   fastBlinkLed(5000L);  // Give person 5 seconds warning...that system is coming online....
 
   // Initialise FRAM
-  if (fram.begin()) {
-    Serial.println("Found i2C FRAM");
-    fram_installed = true;
-  } else {
-    Serial.println("No FRAM");
-    fram_installed = false;
+  if (fram_available) {
+     if (fram.begin()) {
+       Serial.println("Found FRAM");
+       fram_installed = true;
+     } else {
+       Serial.println("No FRAM");
+       fram_installed = false;
+     }
   }
 
 
   // Initialise Air Pressure Sensor
   if (air_pressure_sensor_enabled) {
     if (!bmp.begin()) {
-      Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+      Serial.println("NotFound BMP180.");
     } else {
-      Serial.println("Found BMP085");
+      Serial.println("Found BMP180");
       air_pressure_sensor_available = true;
       initialise_ap_timer(3124);      // Initialise time to get readings every 0.1 seconds
     }
@@ -244,13 +270,17 @@ void setup() {
 
 
   // User puts a jumper on this to detect data extraction
-  /*
-  if (digitalRead(DATA_DETECT_PIN) == LOW) {
+  if (digitalRead(READ_MODE_PIN) == HIGH) {
+      Serial.println("Going into DumpFRAM routine.");
       dumpFRAM();
   }
-  */
+  
 
-
+  if (fram_installed) {
+     Serial.println("Waiting 20 seconds before cleaing FRAM");
+     delay(20000);
+  }
+  
   // Clear fRAM
   if (fram_installed) {
     Serial.println("Clear FRAM");
@@ -274,27 +304,33 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
     mpuIntStatus = accelgyro.getIntStatus();
 
-    // Perform calibration - IMU must not be rotation or being accelerating
+    // Perform calibration - IMU must not be rotation 
     Serial.println("Cal IMU");
     calibrate_imu();
+
+    if (info) {
+        
+        Serial.println("LOWS: ");
+        Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
+
+        Serial.println("HIGHS: "); 
+        Serial.print(gyroXLow); Serial.print("\t"); Serial.print(gyroYLow); Serial.print("\t"); Serial.println(gyroZLow); 
+    }
     imu_calibrated = true;
 
     // Confirm that the Calication values look 'sane'
     if (check_calibration_values()) {
-        Serial.println("Calibration issues. Rocket not stationary?");
+        Serial.println("Cal issues. Rocket not stationary?");
         errorCondition();
     }
 
-
-    //TODO MAKE SURE THE CALIBRATION VALUES ARE SENSIBLE!!!
-    // i.e.
-
     if (info) {
-      Serial.println("GYROSCOPE");
+      Serial.println("GYRO");
       Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t"); Serial.println(avg_gz);
       Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t"); Serial.println(var_gz);
 
-      Serial.println("ACCELEROMETER");
+
+      Serial.println("ACCEL");
       Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t"); Serial.println(avg_az);
       Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t"); Serial.println(var_az);
     }
@@ -310,10 +346,7 @@ void setup() {
   Serial.println("Finished");
 
 
-
-
-
-  delay(1000);
+  
 
 
   Serial.println("S1 ANG: " + String(s1_angle));
@@ -367,10 +400,11 @@ void loop() {
   double angle_x_deg = angle_x * 180 / PI;
   double angle_y_deg = angle_y * 180 / PI;
   double angle_z_deg = angle_z * 180 / PI;
-  print_debug(info, "POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg));
+  print_debug(info, "ANGULAR POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg));
 
 
 
+#ifdef STABILITY_CORRECTION
   // ACTIVE CONTROL
   if (active_control && smoother_step == 0 && check_system_stability(rotation_vx, rotation_vy, rotation_vz, rotation_ax, rotation_ay, rotation_az)) {
     digitalWrite(LED_INDICATOR_PIN, LOW);
@@ -392,7 +426,7 @@ void loop() {
   if (smoother_step > 0) {
     smoother_step_processing();
   }
-
+#endif
 
 
   if (print_timing) {
@@ -406,6 +440,10 @@ void loop() {
 
 
 }
+
+
+
+
 
 
 
@@ -488,7 +526,7 @@ void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
 
   // Zero values that are within zero value. (i.e. assume they are zero!)
   if (imu_calibrated) {
-    zeroGyroAccelReadings();
+    zeroGyroReadings();
   }
 
 
@@ -533,8 +571,8 @@ void setupIMU() {
 
 
   // Verify Connection
-  Serial.println("Testing device connection...");
-  Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+  Serial.println("Testing MPU6050 connection");
+  Serial.println(accelgyro.testConnection() ? "MPU6050 successful" : "MPU6050 failed");
 
 }
 
@@ -595,6 +633,8 @@ void calculate_ang_acceleration(double vx, double vy, double vz)
 
 
 
+
+#ifdef STABILITY_CORRECTION
 
 // Detect instability of the rocket
 boolean check_system_stability(double vx, double vy, double vz, double ax, double ay, double az)
@@ -999,6 +1039,53 @@ void crossproduct(double vec1[], double vec2[])
 }
 
 
+// DIRECTION TO GET SMOOTHERS TO REST/NEUTRAL POSITION - in FASTEST POSSIBLE WAY!
+// To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
+// and see which direction this vector is pointing...up (+ve y) or down (-ve y)
+// NOTE: The Smoothers ALWAYS move in opposite directions
+// If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
+void derive_direction()
+{
+  s1_angle = angle_reorg(s1_angle);
+  s2_angle = angle_reorg(s2_angle);
+
+  // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
+  // Remember the smoothers lie in the X-Z plane
+  double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
+  double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
+
+  crossproduct(s1_vector, s2_vector);
+
+  double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
+
+  // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
+  if (zcross > 0) {
+    s1_direction = ccw;
+    s2_direction = cw;
+  } else if (zcross < 0) {
+    s1_direction = cw;
+    s2_direction = ccw;
+  }
+}
+
+
+
+// The routine Assumes that angle1, angle2 are between 0 and 2PI
+double angle_between(double angle1, double angle2)
+{
+  double angle;
+
+  angle = abs(angle1 - angle2);
+  angle = angle_reorg(angle);
+
+  if (angle > PI) {
+    angle = 2 * PI -  angle;
+  }
+
+  return angle;
+}
+
+#endif
 
 
 
@@ -1031,7 +1118,9 @@ void printDouble( double val, unsigned int precision) {
 void calibrate_imu()
 {
   int i = 0;
-
+  double deltagx, deltagy, deltagz;
+  double deltaax, deltaay, deltaaz;
+  
   // Without this line, it gets 'stuck'
   getIMUValues(false, false);
 
@@ -1071,50 +1160,43 @@ void calibrate_imu()
         }
 
 
-        // Get Average
+        deltagx = (gx - avg_gx);
+        deltagy = (gy - avg_gy);
+        deltagz = (gz - avg_gz);
+        // Get Average - GYROSCOPE
         avg_gx = (avg_gx * i + gx) / (i + 1);
         avg_gy = (avg_gy * i + gy) / (i + 1);
         avg_gz = (avg_gz * i + gz) / (i + 1);
 
-        // Get Variance
+        // Get Variance - GYROSCOPE
+        /*
         var_gx = (var_gx * i + (gx * gx)) / (i + 1);
         var_gy = (var_gy * i + (gy * gy)) / (i + 1);
         var_gz = (var_gz * i + (gz * gz)) / (i + 1);
+        */
+
+        var_gx = var_gx + deltagx * (gx - avg_gx);
+        var_gy = var_gy + deltagy * (gy - avg_gy);
+        var_gz = var_gz + deltagz * (gz - avg_gz);
 
 
-
-        // ACCELERATION
-        // Z
-        if (az > accelZHigh) {
-          accelZHigh = az;
-        } else if (az < accelZLow) {
-          accelZLow = az;
-        }
-
-        // Y
-        if (ay > accelYHigh) {
-          accelYHigh = ay;
-        } else if (ay < accelYHigh) {
-          accelYHigh = ay;
-        }
-
-        // X
-        if (ax > accelXHigh) {
-          accelXHigh = ax;
-        } else if (ax < accelXLow) {
-          accelXLow = ax;
-        }
-
-
-        // Get Average
+        deltaax = (ax - avg_ax);
+        deltaay = (ay - avg_ay);
+        deltaaz = (az - avg_az);
+        // Get Average - ACCELEROMETER
         avg_ax = (avg_ax * i + ax) / (i + 1);
         avg_ay = (avg_ay * i + ay) / (i + 1);
         avg_az = (avg_az * i + az) / (i + 1);
 
-        // Get Variance
+        // Get Variance - ACCELEROMETER
+        /*
         var_ax = (var_ax * i + (ax * ax)) / (i + 1);
         var_ay = (var_ay * i + (ay * ay)) / (i + 1);
         var_az = (var_az * i + (az * az)) / (i + 1);
+        */
+        var_ax = var_ax + deltaax * (ax - avg_ax);
+        var_ay = var_ay + deltaay * (ay - avg_ay);
+        var_az = var_az + deltaaz * (az - avg_az);        
 
         i++;
 
@@ -1122,6 +1204,13 @@ void calibrate_imu()
         gotIMUdata = false;
       }
   }
+  var_ax = var_ax / (i - 1);
+  var_ay = var_ay / (i - 1);
+  var_az = var_az / (i - 1);
+
+  var_gx = var_gx / (i - 1);
+  var_gy = var_gy / (i - 1);
+  var_gz = var_gz / (i - 1);  
 }
 
 
@@ -1194,62 +1283,68 @@ void dumpFRAM()
   byte pmsb, pcsb, plsb;                          // AIR PRESSURE
   byte tmsb, tlsb;                                // TEMP
   byte d1, d2, d3, d4;
-  int a;
+  int a = 0;
   byte pklen;
+  int addr;
 
   int32_t  UT, UP, B3, B5, B6, X1, X2, X3;  // Computation of the pressure/temperature
   uint32_t B4, B7;   // Computation of the pressure/temperature
 
-  for (a = 0; a < (32768); a = a + 1) {
-    pklen = fram.read8(a);
+  // Find Starting Address
+  fram1Addr = getFram1Start();
+
+  
+  // Make sure we read less then size of FRAM Bank 1
+  while (a < fram1AddrEnd) {
+
+    // fram1Addr = start_addr + a;
+    pklen = fram.read8(fram1Addr);
     if (pklen == 10) {
 
       // PRESSURE + TEMPERATURE
-      pmsb = fram.read8(a + 1);
-      pcsb = fram.read8(a + 2);
-      plsb = fram.read8(a + 3);
-      tmsb = fram.read8(a + 4);
-      tlsb = fram.read8(a + 5);
+      pmsb = fram.read8(fram1Addr + 1);
+      pcsb = fram.read8(fram1Addr + 2);
+      plsb = fram.read8(fram1Addr + 3);
+      tmsb = fram.read8(fram1Addr + 4);
+      tlsb = fram.read8(fram1Addr + 5);
 
       // TIME
-      d1 = fram.read8(a + 6);
-      d2 = fram.read8(a + 7);
-      d3 = fram.read8(a + 8);
-      d4 = fram.read8(a + 9);
+      d1 = fram.read8(fram1Addr + 6);
+      d2 = fram.read8(fram1Addr + 7);
+      d3 = fram.read8(fram1Addr + 8);
+      d4 = fram.read8(fram1Addr + 9);
 
+      advanceFram1Addr (10);
       a = a + 10;
 
     } else if (pklen == 17) {
       // GYRO
-      gxmsb = fram.read8(a + 1);
-      gxlsb = fram.read8(a + 2);
-      gymsb = fram.read8(a + 3);
-      gylsb = fram.read8(a + 4);
-      gzmsb = fram.read8(a + 5);
-      gzlsb = fram.read8(a + 6);
+      gxmsb = fram.read8(fram1Addr + 1);
+      gxlsb = fram.read8(fram1Addr + 2);
+      gymsb = fram.read8(fram1Addr + 3);
+      gylsb = fram.read8(fram1Addr + 4);
+      gzmsb = fram.read8(fram1Addr + 5);
+      gzlsb = fram.read8(fram1Addr + 6);
 
       // ACCEL
-      axmsb = fram.read8(a + 7);
-      axlsb = fram.read8(a + 8);
-      aymsb = fram.read8(a + 9);
-      aylsb = fram.read8(a + 10);
-      azmsb = fram.read8(a + 11);
-      azlsb = fram.read8(a + 12);
+      axmsb = fram.read8(fram1Addr + 7);
+      axlsb = fram.read8(fram1Addr + 8);
+      aymsb = fram.read8(fram1Addr + 9);
+      aylsb = fram.read8(fram1Addr + 10);
+      azmsb = fram.read8(fram1Addr + 11);
+      azlsb = fram.read8(fram1Addr + 12);
 
       // TIME
-      d1 = fram.read8(a + 13);
-      d2 = fram.read8(a + 14);
-      d3 = fram.read8(a + 15);
-      d4 = fram.read8(a + 16);
+      d1 = fram.read8(fram1Addr + 13);
+      d2 = fram.read8(fram1Addr + 14);
+      d3 = fram.read8(fram1Addr + 15);
+      d4 = fram.read8(fram1Addr + 16);
 
+      advanceFram1Addr (17);
       a = a + 17;
     } else {
       Serial.println("Unrecognized packet length - possibly at end");
     }
-
-
-
-
 
 
 
@@ -1303,10 +1398,11 @@ void dumpFRAM()
 
     // ROTATION
     print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));  // RS = Rotational Speed
-    print_debug(info, "LA: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));  // LA = Linear Acceleration
+    print_debug(info, "LA: " + String(ax) + ", " + String(ay) + ", " + String(az));                             // LA = Linear Acceleration
 
 
     // Print Time
+    Serial.println("For Time - MSB First: ");
     Serial.print(d4);
     Serial.print(" ");
     Serial.print(d3);
@@ -1363,7 +1459,7 @@ void dumpFRAM()
         Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
 
       }
-  */
+  */  
 
 
 
@@ -1376,59 +1472,14 @@ void dumpFRAM()
 
 
 
-// DIRECTION TO GET SMOOTHERS TO REST/NEUTRAL POSITION - in FASTEST POSSIBLE WAY!
-// To assist us in finding directions to move the smoothers we need to get Cross product of the two smoother angles
-// and see which direction this vector is pointing...up (+ve y) or down (-ve y)
-// NOTE: The Smoothers ALWAYS move in opposite directions
-// If you need to get a bit of an idea as to how we came to this, see Intermediate_Move_Directions.xlsx
-void derive_direction()
-{
-  s1_angle = angle_reorg(s1_angle);
-  s2_angle = angle_reorg(s2_angle);
 
-  // Get vector equivalents that the s1/s2 smoothers make. We have negate the Z direction, because the angle goes in opposite direction
-  // Remember the smoothers lie in the X-Z plane
-  double s1_vector[] = {cos(s1_angle), 0, -sin(s1_angle)};
-  double s2_vector[] = {cos(s2_angle), 0, -sin(s2_angle)};
-
-  crossproduct(s1_vector, s2_vector);
-
-  double zcross = y_vector[0] * vec3[0] + y_vector[1] * vec3[1] + y_vector[2] * vec3[2];
-
-  // BASED ON SIGN OF DOT PRODUCT, WE KNOW WHICH DIRECTION TO MOVE SMOOTHERS
-  if (zcross > 0) {
-    s1_direction = ccw;
-    s2_direction = cw;
-  } else if (zcross < 0) {
-    s1_direction = cw;
-    s2_direction = ccw;
-  }
-}
-
-
-
-// The routine Assumes that angle1, angle2 are between 0 and 2PI
-double angle_between(double angle1, double angle2)
-{
-  double angle;
-
-  angle = abs(angle1 - angle2);
-  angle = angle_reorg(angle);
-
-  if (angle > PI) {
-    angle = 2 * PI -  angle;
-  }
-
-  return angle;
-}
 
 
 
 
 // Set to zero, if within low/high readings
-void zeroGyroAccelReadings()
+void zeroGyroReadings()
 {
-
   if (gx >= gyroXLow && gx <= gyroXHigh) {
     gx = 0;
   }
@@ -1439,18 +1490,6 @@ void zeroGyroAccelReadings()
 
   if (gz >= gyroZLow && gz <= gyroZHigh) {
     gz = 0;
-  }
-
-  if (ax >= accelXLow && ax <= accelXHigh) {
-    ax = 0;
-  }
-
-  if (ay >= accelYLow && ay <= accelYHigh) {
-    ay = 0;
-  }
-
-  if (az >= accelZLow && az <= accelZHigh) {
-    az = 0;
   }
 }
 
@@ -1491,7 +1530,6 @@ void fastBlinkLed(long duration)
   while (millis() < start_time + duration) {
     veryfastBlinkLED();
   }
-
 }
 
 
@@ -1506,7 +1544,7 @@ void weights_starting_pos()
 
 
 
-// Initialise timer for
+// Initialise timer for Air Pressure Sensor. This is so we get a measurement every 0.1 seconds
 void initialise_ap_timer(int timer1)
 {
   // int timer1 = 3124; // interrupt freq = 8,000,000 / (256 * (3124 + 1)) = 10hz
@@ -1534,6 +1572,7 @@ void initialise_ap_timer(int timer1)
 
 ISR(TIMER1_COMPA_vect) { //timer0 interrupt - pulses motor
   gotAPdata = true;      // Allow next interrupt to be set.
+  ap_data_time = micros();
 }
 
 
@@ -1578,7 +1617,14 @@ void writeFramPacket(byte * data, int packlen)
      fram.write(fram1Addr, (uint8_t *) data, packlen);
      advanceFram1Addr(packlen);
      } else {
-        digitalWrite (LED_DEBUGGING, HIGH);
+        memory_end = micros();
+        long total_time = (memory_end - memory_start)/1000000;
+        Serial.print("Saved "); Serial.print(total_time); Serial.println(" seconds of data.");
+
+        // Don't try and get any more data, no point as it will not be written to fRAM.
+        while (1) {
+           slowFlash(); // Slow flash indicates no more space to write data.
+        }
      }
 
   // If launch has begun, update record of # of bytes written.
@@ -1673,21 +1719,7 @@ boolean check_calibration_values()
   if (abs(gyroZHigh) > typicalGyroCal || abs(gyroZLow) > typicalGyroCal) {
      calibration_issue = true;
   }
-
-
-  // Accelerometer Calibration issues detection
-  if (abs(accelXHigh) > typicalGyroCal || abs(accelXLow) > typicalGyroCal) {
-     calibration_issue = true;
-  }
-
-  if (abs(accelYHigh) > typicalGyroCal || abs(accelYLow) > typicalGyroCal) {
-     calibration_issue = true;
-  }
-
-  if (abs(accelZHigh) > typicalGyroCal || abs(accelZLow) > typicalGyroCal) {
-     calibration_issue = true;
-  }
-      
+    
   
  return calibration_issue;
 }
@@ -1704,7 +1736,18 @@ void errorCondition()
   }
 }
 
-
+void slowFlash()
+{
+  int i = 0;
+  while (i < 5)
+  {
+    digitalWrite(LED_INDICATOR_PIN, HIGH);
+    delay(1000);
+    digitalWrite(LED_INDICATOR_PIN, LOW);
+    delay(200);
+    i++;
+  }
+}
 
 // 
 // We write data to fram continuously, however, when launch condition is detected, we need to determine where
@@ -1721,6 +1764,16 @@ void launch_detection()
     launch_begun = detect_trigger_condition();
 
     if (launch_begun) {
+      memory_start = micros();
+      Serial.println();
+      Serial.println();
+      Serial.println();
+      Serial.println("*******  LAUNCH DETECTED *******");
+      Serial.println();
+      Serial.println();
+      Serial.println();
+       digitalWrite(LED_INDICATOR_PIN, LOW);
+      
        Fram1StartPos = getFram1Start();
 
        // Find out how much further we are ahead of the historical data - distance_ahead
