@@ -20,7 +20,11 @@
 #include "MPU6050.h"
 #include "Adafruit_FRAM_I2C.h"
 #include <Adafruit_BMP085.h>
+#include "ApplicationMonitor.h"
 
+// See http://www.megunolink.com/articles/how-to-detect-lockups-using-the-arduino-watchdog/  for information on how to use information
+// Produced by this to debug issue.
+Watchdog::CApplicationMonitor ApplicationMonitor;
 
 // Uncomment out line below to enable stability correction code
 // #define STABILITY_CORRECTION
@@ -55,6 +59,7 @@ boolean launch_begun  = false;                  // Indicates if launch has begun
 
 // FRAM
 Adafruit_FRAM_I2C fram     = Adafruit_FRAM_I2C();
+boolean  no_more_space = false;                 // Set TRUE when no more space left in FRAM
 boolean  fram_available = true;                 // Specifies if we use FRAM - even if installed.
 boolean  fram_installed = false;
 uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
@@ -71,8 +76,6 @@ uint16_t fram3Addr = 32760;                     // The is where we keep the olde
 long     memory_start;                          // Used to track time of start of launch
 long     memory_end;                            // Used to track point where we fill up all the memory bank. 
 #endif
-
-
 
 
 
@@ -135,9 +138,9 @@ int     typicalGyroCal = 150;
 
 // Accelerometer
 int16_t ax, ay, az;
-int acceleration_threshold_count_required = 10;  // Number of continuous readings above which we assume rocket is in flight
+int acceleration_threshold_count_required = 3;  // Number of continuous readings above which we assume rocket is in flight
 int acceleration_threshold_count = 0;     // How many measurements have been over the acceleration_threhold
-int acceleration_threshold = 4096;        // At +/- 16g, 1g = 1024. So 4g = 4096
+int acceleration_threshold = 2048;        // At +/- 16g, 1g = 1024. So 4g = 4096
 
 
 
@@ -153,6 +156,7 @@ boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'r
 // Because the bottom servo is inverted, it's direction is in the opposite direction to the top servo.
 // We acknowledge this difference here.
 boolean s2_motor_inverted = true;
+boolean move_servo = false;
 
 // Initial weight positions
 double s1_angle = 0;
@@ -219,8 +223,8 @@ void setup() {
 
 #ifdef TESTING_MODE
 // LOW ACCERATION THRESHOLD TESTING VALUES
-acceleration_threshold_count_required = 2;
-acceleration_threshold = 400;
+acceleration_threshold_count_required = 3;
+acceleration_threshold = 700;
 #endif
 
   
@@ -234,14 +238,18 @@ acceleration_threshold = 400;
   pinMode(READ_MODE_PIN,     INPUT);                   // Wish to detect if HIGH is on this...then we are wanting to go into framDump routine
   pinMode(A2,                INPUT_PULLUP);            // Voltage Sensor
 
-
+  // Quickly initialise this pin - We use this has +3.3v for jumper to pint 12 (READ_MODE_PIN)
   digitalWrite(READ_MODE_ENABLE_DETECT_PIN, HIGH);
 
-  Wire.begin();
+  // Starting up the Serial Port
   Serial.begin(38400);
   Serial.println("Powering up...");
 
-  fastBlinkLed(5000L);  // Give person 5 seconds warning...that system is coming online....
+  // Dump WatchDog data for debugging...
+  ApplicationMonitor.Dump(Serial);
+
+  // Give person 5 seconds warning...that system is coming online....
+  fastBlinkLed(5000L);  
 
   // Initialise FRAM
   if (fram_available) {
@@ -279,14 +287,15 @@ acceleration_threshold = 400;
      Serial.println("Waiting 20 seconds before cleaing FRAM");
      delay(20000);
   }
-  
+
+
   // Clear fRAM
   if (fram_installed) {
     Serial.println("Clear FRAM");
     clearfram();
     Serial.println("FRAM cleared");
   }
-
+  
 
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
@@ -351,7 +360,9 @@ acceleration_threshold = 400;
   Serial.println("S1 ANG: " + String(s1_angle));
   Serial.println("S2 ANG: " + String(s2_angle));
 
+
   Serial.println("System Init");
+  ApplicationMonitor.EnableWatchdog(Watchdog::CApplicationMonitor::Timeout_4s);
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
 
 }
@@ -361,7 +372,8 @@ acceleration_threshold = 400;
 
 // the loop function runs over and over again forever
 void loop() {
-
+  ApplicationMonitor.IAmAlive();
+  
   long currMicros = micros();
 
   Serial.print("Time: "); Serial.println(currMicros);
@@ -375,6 +387,14 @@ void loop() {
   // AIR-PRESSURE SENSOR DATA
   if (air_pressure_sensor_available) {
     check_for_ap_data();
+  }
+
+  // Servo Move
+  if (move_servo) {
+      move_servo = false;
+      Serial.print("Timee: ");
+      Serial.println(micros());
+     move_servos(90);
   }
 
 
@@ -486,7 +506,7 @@ void getAPValues(boolean write_imu_to_fram)
     framAddr = framAddr + 10;
   } ;
 */
-  if (write_imu_to_fram && fram_installed) {
+  if (write_imu_to_fram && fram_installed && ! no_more_space) {
      writeFramPacket (&rawApTData[0], 10);
   }
 
@@ -539,25 +559,13 @@ void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
 
   }
 
-
-  if (write_imu_to_fram && fram_installed) {
+  if (write_imu_to_fram && fram_installed && ! no_more_space) {
      writeFramPacket(&_buff[0], 17);
   }
 
-/*
-  // Write to FRAM if enabled and flags set
-  if (write_imu_to_fram && fram_installed) {
-    fram.write(framAddr, (uint8_t *) &_buff[0], 17);
-    framAddr = framAddr  + 17;
-  }
-
-  // We go back to beginning of framAddre
-  if (framAddr > framAddrEnd) {
-     framAddr  = framAddrStart;
-  }
-*/
-
 }
+
+
 
 void setupIMU() {
   // Initialise IMU
@@ -1267,8 +1275,11 @@ void check_for_ap_data()
 // Zero out fRAM
 void clearfram()
 {
-  for (uint16_t a = 0; a < 32768; a++) {
-    fram.write8(a, 0x00);
+  // Clear it 16 bytes at a time. Speeds things up considerably
+  byte fz[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  for (uint16_t a = 0; a < 32768; a=a+16) {
+    // fram.write8(a, 0x00);
+    fram.write(a, fz, 16);
   }
 }
 
@@ -1415,56 +1426,6 @@ void dumpFRAM()
 
   }
 
-  /*
-      // Pressure/Temperature readings
-      for (a = (8180 - 160); a < 8180 ; a=a+5) {
-
-        // Pressure/Altitude bytes
-        byte msb = fram.read8(a);
-        byte csb = fram.read8(a+1);
-        byte lsb = fram.read8(a+2);
-        // Temperature bytes
-        byte msbT = fram.read8(a+3);
-        byte lsbT = fram.read8(a+4);
-
-
-    //      Serial.print(msb);
-    //      Serial.print(" ");
-    //      Serial.print(csb);
-    //      Serial.print(" ");
-    //      Serial.println(lsb);
-
-
-        long pressure_whole =  ((long)msb << 16 | (long)csb << 8 | (long)lsb) ; // Construct whole number pressure
-        pressure_whole >>= 6;
-
-        lsb &= 0x30;
-        lsb >>= 4;
-        float pressure_frac = (float) lsb/4.0;
-
-        pressure = (float) (pressure_whole) + pressure_frac;
-
-
-        // Calculate temperature, check for negative sign
-        long foo = 0;
-        if(msbT > 0x7F) {
-           foo = ~(msbT << 8 | lsbT) + 1 ; // 2's complement
-           temperature = (float) (foo >> 8) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
-           temperature *= -1.;
-        } else {
-           temperature = (float) (msbT) + (float)((lsbT >> 4)/16.0); // add whole and fractional degrees Centigrade
-        }
-
-        // Output data array to serial printer; comma delimits useful for importing into excel spreadsheet
-        // Serial.print("Time ,"); Serial.print((j/5)*(1<<0)); Serial.print(", seconds");
-        Serial.print(", Temperature = ,"); Serial.print(temperature, 1); Serial.print(", C,");
-        Serial.print(" Pressure = ,"); Serial.print(pressure/1000., 2); Serial.println(", kPa");
-
-      }
-  */  
-
-
-
   // Blink led slowly...so we know we are at the end.
   while (1) {
     slowBlinkLED();
@@ -1572,10 +1533,13 @@ void initialise_ap_timer(int timer1)
 }
 
 
-ISR(TIMER1_COMPA_vect) { //timer0 interrupt - pulses motor
-  gotAPdata = true;      // Allow next interrupt to be set.
-  ap_data_time = micros();
+ISR(TIMER1_COMPA_vect) { //timer1 interrupt -  move servos
+  move_servo = true;
+  TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
+  // gotAPdata = true; 
+  // ap_data_time = micros();
 }
+
 
 
 // Determine if last XX readings have breached the Acceleration Threshold settings.
@@ -1632,9 +1596,10 @@ void writeFramPacket(byte * data, int packlen)
         Serial.print("Saved "); Serial.print(total_time); Serial.println(" seconds of data.");
 #endif
         // Don't try and get any more data, no point as it will not be written to fRAM.
-        while (1) {
-           slowFlash(); // Slow flash indicates no more space to write data.
-        }
+        no_more_space = true;
+        // while (1) {
+        //   slowFlash(); // Slow flash indicates no more space to write data.
+        // }
      }
 
 
@@ -1753,6 +1718,15 @@ void launch_detection()
     launch_begun = detect_trigger_condition();
 
     if (launch_begun) {
+      // Initialise Timer, so that a servo move begins in 0.1 seconds
+      Serial.print("Times: ");
+      Serial.println(micros());
+      initialise_servo_move(7811);
+      // 3125 = 0.1 seconds
+      // 6249 = 0.2 seconds
+      // 7811 = 0.25seconds
+      // 9374 = 0.3 seconds
+      
 #ifdef DEBUG      
        memory_start = micros();
        Serial.println();
@@ -1767,4 +1741,43 @@ void launch_detection()
     }
   }
 }  
+
+
+
+
+// Initialise timer2 for movement of the servo after launch detection
+void initialise_servo_move(int timer1)
+{
+  // int timer1 = 3124; // interrupt freq = 8,000,000 / (256 * (3124 + 1)) = 10hz
+  // VALUE = (8000000/FREQ)/256 - 1
+
+  cli();
+ 
+  // Clear Timer1 - If we don't do this, it fires immediately!
+  TIFR1 = _BV(OCF1A);
+
+  // TIMER1
+  TCCR1A  = 0;// set entire TCCR1A register to 0
+  TCCR1B  = 0;// same for TCCR1B
+  TCNT1   = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR1A   = timer1;    // = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Scaling - 256
+  TCCR1B |= (1 << CS12);
+
+  // enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+
+  sei();
+
+}
+
+
+void move_servos(int degrees)
+{
+  Serial.print("Moving Servos: ");
+  Serial.println(degrees);
+}
 
