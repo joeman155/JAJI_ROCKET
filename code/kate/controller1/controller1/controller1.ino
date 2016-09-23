@@ -20,6 +20,7 @@
 #include "MPU6050.h"
 #include "Adafruit_FRAM_I2C.h"
 #include <Adafruit_BMP085.h>
+#include <Servo.h>
 #include "ApplicationMonitor.h"
 
 // See http://www.megunolink.com/articles/how-to-detect-lockups-using-the-arduino-watchdog/  for information on how to use information
@@ -155,6 +156,8 @@ boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'r
 // SERVO CONFIGURATION
 // Because the bottom servo is inverted, it's direction is in the opposite direction to the top servo.
 // We acknowledge this difference here.
+Servo topservo;
+Servo bottomservo;
 boolean s2_motor_inverted = true;
 boolean move_servo = false;
 
@@ -169,13 +172,13 @@ double s2_angle = PI;
 
 
 // PINS
-#define INTERRUPT_PIN     2   // use pin 2 on Arduino Uno & most boards
-#define LED_INDICATOR_PIN 4   // Indicates state of the system
-#define SERVO1_PIN        3
-#define SERVO2_PIN        6
-#define LED_DEBUGGING     13
+#define INTERRUPT_PIN       2   // use pin 2 on Arduino Uno & most boards
+#define LED_INDICATOR_PIN   4   // Indicates state of the system
+#define SERVOBOTTOM_PIN     3
+#define SERVOTOP_PIN        6
+#define LED_DEBUGGING       13
 #define READ_MODE_ENABLE_DETECT_PIN   11   // Need to set this HIGH, so that we can use jumper between 11 and 12.
-#define READ_MODE_PIN     12               // Has a pulldown resistor to Ground. 
+#define READ_MODE_PIN       12               // Has a pulldown resistor to Ground. 
 
 
 // TIME TRACKING VARIABLES
@@ -231,8 +234,8 @@ acceleration_threshold = 700;
   // Initialise Pins
   pinMode(INTERRUPT_PIN,     INPUT);                   // Interrupts pin...for IMU
   pinMode(LED_DEBUGGING,     OUTPUT);                  // Debugging..
-  pinMode(SERVO1_PIN,        OUTPUT);                  // Detect when launch is done.
-  pinMode(SERVO2_PIN,        OUTPUT);                  // Detect when launch is done.
+  pinMode(SERVOTOP_PIN,      OUTPUT);                  // Detect when launch is done.
+  pinMode(SERVOBOTTOM_PIN,   OUTPUT);                  // Detect when launch is done.
   pinMode(LED_INDICATOR_PIN, OUTPUT);                  // State indicator LED
   pinMode(READ_MODE_ENABLE_DETECT_PIN, OUTPUT);        // Set Output, so we can put a HIGH on it - permanently
   pinMode(READ_MODE_PIN,     INPUT);                   // Wish to detect if HIGH is on this...then we are wanting to go into framDump routine
@@ -244,6 +247,10 @@ acceleration_threshold = 700;
   // Starting up the Serial Port
   Serial.begin(38400);
   Serial.println("Powering up...");
+
+  // Initialise the Servos
+  topservo.attach(SERVOTOP_PIN);
+  bottomservo.attach(SERVOBOTTOM_PIN);
 
   // Dump WatchDog data for debugging...
   ApplicationMonitor.Dump(Serial);
