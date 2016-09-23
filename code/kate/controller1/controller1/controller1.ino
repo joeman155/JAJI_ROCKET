@@ -160,6 +160,8 @@ Servo topservo;
 Servo bottomservo;
 boolean s2_motor_inverted = true;
 boolean move_servo = false;
+int     timer2_count = 0;          // Keeps a track of how many times interrupt 2 has fired off.
+int     timer2_max_count = 100;    // Maximum # of times we want it to fire off
 
 // Initial weight positions
 double s1_angle = 0;
@@ -1540,9 +1542,15 @@ void initialise_ap_timer(int timer1)
 }
 
 
-ISR(TIMER1_COMPA_vect) { //timer1 interrupt -  move servos
-  move_servo = true;
-  TIMSK1 &= ~_BV(OCIE1A); // Disable interrupt (only want this interrupt to occur ONCE!)
+ISR(TIMER2_COMPA_vect) { //timer1 interrupt -  move servos
+  if (timer2_count > timer2_max_count) {
+      move_servo = true;
+      timer2_count = 0;
+      TIMSK2 &= ~_BV(OCIE2A); // Disable interrupt (only want this interrupt to occur time2_max_count times!)    
+  } else {
+      timer2_count++;
+  }
+
   // gotAPdata = true; 
   // ap_data_time = micros();
 }
@@ -1728,11 +1736,11 @@ void launch_detection()
       // Initialise Timer, so that a servo move begins in 0.1 seconds
       Serial.print("Times: ");
       Serial.println(micros());
-      initialise_servo_move(7811);
-      // 3125 = 0.1 seconds
-      // 6249 = 0.2 seconds
-      // 7811 = 0.25seconds
-      // 9374 = 0.3 seconds
+      initialise_servo_move(63);
+      // 63   = 0.002048 seconds .... So if we do this 100 times...equates to 0.2 seconds
+      // 127  = 0.004096 seconds
+      // 254  = 0.00816 seconds
+      
       
 #ifdef DEBUG      
        memory_start = micros();
@@ -1753,29 +1761,30 @@ void launch_detection()
 
 
 // Initialise timer2 for movement of the servo after launch detection
-void initialise_servo_move(int timer1)
+void initialise_servo_move(int timer2)
 {
-  // int timer1 = 3124; // interrupt freq = 8,000,000 / (256 * (3124 + 1)) = 10hz
+  // int timer2 = 63; // interrupt freq = 8,000,000 / (256 * (63 + 1)) = 488hz == 0.002seconds
   // VALUE = (8000000/FREQ)/256 - 1
+  timer2_count = 0;
 
   cli();
  
-  // Clear Timer1 - If we don't do this, it fires immediately!
-  TIFR1 = _BV(OCF1A);
+  // Clear Timer2 - If we don't do this, it fires immediately!
+  TIFR2 = _BV(OCF2A);
 
-  // TIMER1
-  TCCR1A  = 0;// set entire TCCR1A register to 0
-  TCCR1B  = 0;// same for TCCR1B
-  TCNT1   = 0;//initialize counter value to 0
+  // TIMER2
+  TCCR2A  = 0;// set entire TCCR1A register to 0
+  TCCR2B  = 0;// same for TCCR1B
+  TCNT2   = 0;//initialize counter value to 0
   // set compare match register for 1hz increments
-  OCR1A   = timer1;    // = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
+  OCR2A   = timer2;    // = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
   // turn on CTC mode
-  TCCR1B |= (1 << WGM12);
+  TCCR2B |= (1 << WGM22);
   // Scaling - 256
-  TCCR1B |= (1 << CS12);
+  TCCR2B |= (1 << CS22);
 
   // enable timer compare interrupt
-  TIMSK1 |= (1 << OCIE1A);
+  TIMSK2 |= (1 << OCIE2A);
 
   sei();
 
