@@ -163,8 +163,9 @@ boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'r
 // We acknowledge this difference here.
 Servo topservo;
 Servo bottomservo;
-int     topservo_angle;            // Angle of top servo
-int     bottomservo_angle;         // Angle of bottom servo
+double gear_ratio = 0.3333;
+double     topservo_angle;            // Angle of top servo
+double     bottomservo_angle;         // Angle of bottom servo
 boolean s2_motor_inverted = true;
 boolean move_servo = false;
 int     timer2_count = 0;          // Keeps a track of how many times interrupt 2 has fired off.
@@ -426,7 +427,7 @@ void loop() {
      reference_angle = angle_x_degrees;
      
      // Move the Top Servo back around
-     topservo_angle = topservo_angle - angle_diff;
+     topservo_angle = topservo_angle - (gear_ratio * angle_diff);
 
      
      Serial.print("X Angle: "); Serial.print(angle_x_degrees);
@@ -445,7 +446,7 @@ void loop() {
       move_servo = false;
       // Serial.print("Timee: ");
       // Serial.println(micros());
-      topservo_angle = 90;
+      topservo_angle = 90 * gear_ratio;
       set_top_servo_position(topservo_angle);
       reference_angle = angle_x * 180 / PI;
       track_mode = true;
@@ -608,7 +609,7 @@ void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
 
   // Perform logic to detect if launch is taking place
   if (launch_detection) {
-    if (abs(ay) > acceleration_threshold) {
+    if (abs(ax) > acceleration_threshold) {
        acceleration_threshold_count++;
     } else {
        acceleration_threshold_count = 0;
@@ -1843,11 +1844,12 @@ void initialise_servo_move(int timer2)
 }
 
      
-void set_top_servo_position(int degrees)
+void set_top_servo_position(double degrees)
 {
+  int int_degrees = degrees;
   Serial.print("Moving Servos: ");
-  Serial.println(degrees);
-  topservo.write(degrees);
+  Serial.println(int_degrees);
+  topservo.write(int_degrees);
   
 }
 
