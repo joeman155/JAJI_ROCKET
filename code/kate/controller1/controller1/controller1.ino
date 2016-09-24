@@ -36,6 +36,9 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 // Additional debugging beyond what is normally required.
 #define DEBUG
 
+// Air Pressure Sensor Code
+// #define AIRSENSOR
+
 
 // Define functions
 void fastBlinkLed(long);
@@ -70,7 +73,7 @@ int      fram1MaxPacketSize = 17;               // Maximum size of packet
 int      Fram1StartPos = 0;                     // Where the Start Address is
 int      historicalBytes = 512;                 // Maximum # of historical Bytes that we will keep (and not overwrite)
 
-uint16_t fram3Addr = 32760;                     // The is where we keep the oldest pointer
+uint16_t framPtr = 32760;                     // The is where we keep the oldest pointer
                                                 // of data in Block 2
 
 #ifdef DEBUG                                                
@@ -82,6 +85,7 @@ long     memory_end;                            // Used to track point where we 
 
 
 
+#ifdef AIRSENSOR
 // Air Pressure Sensor
 Adafruit_BMP085 bmp;
 uint32_t pressure = 0.;
@@ -95,6 +99,7 @@ unsigned long ap_data_time;  // Time we receive interrrupt (Data is available)
 #define BMP085_HIGHRES       2
 #define BMP085_ULTRAHIGHRES  3
 
+#endif
 
 
 
@@ -158,10 +163,17 @@ boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'r
 // We acknowledge this difference here.
 Servo topservo;
 Servo bottomservo;
+int     topservo_angle;            // Angle of top servo
+int     bottomservo_angle;         // Angle of bottom servo
 boolean s2_motor_inverted = true;
 boolean move_servo = false;
 int     timer2_count = 0;          // Keeps a track of how many times interrupt 2 has fired off.
 int     timer2_max_count = 100;    // Maximum # of times we want it to fire off
+int     reference_angle;               // The measurement of the 
+//int     req_track_angle;           // The angle we want to track. This is set at lift-off
+//int     act_track_angle;           // Actual angle we want to be pointing in.
+boolean track_mode = false;        // TRUE if we try to compenstate for Z-axis rotation
+
 
 // Initial weight positions
 double s1_angle = 0;
@@ -218,7 +230,7 @@ double vec3[]          = {0, 0, 0};     // Result of cross product
 // DEBUGGING
 boolean debugging    = true;
 boolean info         = true  ;
-boolean print_timing = true;
+boolean print_timing = false;
 
 
 
@@ -229,7 +241,7 @@ void setup() {
 #ifdef TESTING_MODE
 // LOW ACCERATION THRESHOLD TESTING VALUES
 acceleration_threshold_count_required = 3;
-acceleration_threshold = 700;
+acceleration_threshold = 500;
 #endif
 
   
@@ -272,6 +284,7 @@ acceleration_threshold = 700;
   }
 
 
+#ifdef AIRSENSOR
   // Initialise Air Pressure Sensor
   if (air_pressure_sensor_enabled) {
     if (!bmp.begin()) {
@@ -282,7 +295,7 @@ acceleration_threshold = 700;
       initialise_ap_timer(3124);      // Initialise time to get readings every 0.1 seconds
     }
   }
-
+#endif
 
 
   // User puts a jumper on this to detect data extraction
@@ -358,7 +371,7 @@ acceleration_threshold = 700;
 
 
   // Move weights to their starting position
-  Serial.println("Cal S1/S2");
+  // Serial.println("Cal S1/S2");
   weights_starting_pos();
   Serial.println("Finished");
 
@@ -366,8 +379,8 @@ acceleration_threshold = 700;
   
 
 
-  Serial.println("S1 ANG: " + String(s1_angle));
-  Serial.println("S2 ANG: " + String(s2_angle));
+  // Serial.println("S1 ANG: " + String(s1_angle));
+  // Serial.println("S2 ANG: " + String(s2_angle));
 
 
   Serial.println("System Init");
@@ -393,18 +406,52 @@ void loop() {
     check_for_imu_data();
   }
 
+
+#ifdef AIRSENSOR
   // AIR-PRESSURE SENSOR DATA
   if (air_pressure_sensor_available) {
     check_for_ap_data();
   }
+#endif
+  
+
+  // Compensate for Z-axis rotation movement, when enabled
+  if (track_mode) {
+     // Find out how much the Sensor has rotated since last time.
+     int angle_x_degrees = angle_x * 180 / PI;
+     int angle_diff = angle_x_degrees - reference_angle;
+     
+
+     // Determine the new Direction the rocket is pointed in
+     reference_angle = angle_x_degrees;
+     
+     // Move the Top Servo back around
+     topservo_angle = topservo_angle - angle_diff;
+
+     
+     Serial.print("X Angle: "); Serial.print(angle_x_degrees);
+     Serial.print("  reference_angle: "); Serial.print(reference_angle);
+     Serial.print("  TOPSERVO_ANGLE: "); Serial.print(topservo_angle);
+     Serial.print("  DIFF: "); Serial.println(angle_diff);
+     
+     
+     set_top_servo_position(topservo_angle);
+     // delay(200);
+  }
+  
 
   // Servo Move
   if (move_servo) {
       move_servo = false;
-      Serial.print("Timee: ");
-      Serial.println(micros());
-     move_servos(90);
+      // Serial.print("Timee: ");
+      // Serial.println(micros());
+      topservo_angle = 90;
+      set_top_servo_position(topservo_angle);
+      reference_angle = angle_x * 180 / PI;
+      track_mode = true;
   }
+
+  
 
 
   // Simulate rotation - but ONLY if gyroscope disabled
@@ -482,6 +529,7 @@ void imu_data_available() {
 }
 
 
+#ifdef AIRSENSOR
 // AirPressure sensor
 void getAPValues(boolean write_imu_to_fram)
 {
@@ -521,7 +569,7 @@ void getAPValues(boolean write_imu_to_fram)
 
 
 }
-
+#endif
 
 
 // GYROSCOPE RELATED ROUTINES
@@ -1143,7 +1191,7 @@ void calibrate_imu()
   while (i < 25)
   {
     // delayMicroseconds(20000);
-    if (debugging)
+    //if (debugging)
 
 
       if (gotIMUdata && ! is_processing) {
@@ -1259,6 +1307,8 @@ void check_for_imu_data()
 
 
 
+
+#ifdef AIRSENSOR
 // Check for Air Pressure data
 void check_for_ap_data()
 {
@@ -1275,7 +1325,7 @@ void check_for_ap_data()
   is_processing = false;
 
 }
-
+#endif
 
 
 
@@ -1388,6 +1438,7 @@ void dumpFRAM()
       ay = ((aymsb << 8) | aylsb);
       az = ((azmsb << 8) | azlsb);
 
+#ifdef AIRSENSOR
     } else if (pklen == 10) {
       // Air-Pressure
       UP = (pmsb << 16) | (pcsb << 8) | plsb;
@@ -1402,6 +1453,7 @@ void dumpFRAM()
       // Compute Temperature and pressure from raw values UP and UT above
       pressure = bmp.computePressure(UP, UT);
       temperature = bmp.computeTemperature(UT);
+#endif      
     }
 
     /*
@@ -1510,8 +1562,8 @@ void fastBlinkLed(long duration)
 // Move Weights into required 'start' position
 void weights_starting_pos()
 {
-
-
+   bottomservo.write(5);
+   topservo.write(5);
 }
 
 
@@ -1633,8 +1685,8 @@ void writeFramPacket(byte * data, int packlen)
     }
 
      // Write the Start Position to the 3rd bank
-     fram.write8(fram3Addr, (Fram1StartPos >> 8) & 0xff);
-     fram.write8(fram3Addr+1, Fram1StartPos & 0xff);
+     fram.write8(framPtr, (Fram1StartPos >> 8) & 0xff);
+     fram.write8(framPtr+1, Fram1StartPos & 0xff);
 
   }
 
@@ -1661,8 +1713,8 @@ int getFram1Start()
   int startFram1Addr;
   byte bank1_smsb, bank1_slsb;
   
-  bank1_smsb = fram.read8(fram3Addr);
-  bank1_slsb = fram.read8(fram3Addr+1);
+  bank1_smsb = fram.read8(framPtr);
+  bank1_slsb = fram.read8(framPtr+1);
 
   startFram1Addr = ((bank1_smsb << 8) | bank1_slsb);  
 
@@ -1790,10 +1842,12 @@ void initialise_servo_move(int timer2)
 
 }
 
-
-void move_servos(int degrees)
+     
+void set_top_servo_position(int degrees)
 {
   Serial.print("Moving Servos: ");
   Serial.println(degrees);
+  topservo.write(degrees);
+  
 }
 
