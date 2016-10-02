@@ -168,6 +168,8 @@ boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'r
 // SERVO CONFIGURATION
 // Because the bottom servo is inverted, it's direction is in the opposite direction to the top servo.
 // We acknowledge this difference here.
+#define top_servo 1
+#define bottom_servo 2
 Servo topservo;
 Servo bottomservo;
 double gear_ratio = 0.3333;
@@ -431,8 +433,11 @@ void loop() {
      Serial.print("  TOPSERVO_ANGLE: "); Serial.print(topservo_angle);
      Serial.print("  DIFF: "); Serial.println(angle_diff);
 #endif     
-     
-     set_top_servo_position(topservo_angle);
+
+     // If angle has changed, then move it.
+     if (abs(angle_diff * gear_ratio) > 1 ) {
+        set_top_servo_position(topservo_angle);
+     }
   }
   
 
@@ -646,7 +651,7 @@ void setupIMU() {
 
   accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000degrees/second
   accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);    // Set Acceleration to +-16g....1g = 1024
-  accelgyro.setDLPFMode(MPU6050_DLPF_BW_42);                // Low Pass filter  
+  accelgyro.setDLPFMode(MPU6050_DLPF_BW_10);                // Low Pass filter  
   accelgyro.setRate(imu_data_rate);                         // Freq = 1000 / (imu_data_rate + 1)  
   accelgyro.setIntEnabled(0x1);                             // Enable Interrupts
 
@@ -1384,6 +1389,10 @@ void dumpFRAM()
   byte pklen;
   int addr;
 
+  byte servo;
+  byte angle;
+ 
+
   int32_t  UT, UP, B3, B5, B6, X1, X2, X3;  // Computation of the pressure/temperature
   uint32_t B4, B7;   // Computation of the pressure/temperature
 
@@ -1442,6 +1451,19 @@ void dumpFRAM()
 
       fram1Addr = advanceFram1Addr (fram1Addr, 17);
       a = a + 17;
+    } else if (pklen == 7) {
+      // Servo
+      servo = fram.read8(fram1Addr + 1);
+      angle = fram.read8(fram1Addr + 2);
+
+      // TIME
+      d1 = fram.read8(fram1Addr + 3);
+      d2 = fram.read8(fram1Addr + 4);
+      d3 = fram.read8(fram1Addr + 5);
+      d4 = fram.read8(fram1Addr + 6);
+
+      fram1Addr = advanceFram1Addr (fram1Addr, 7);
+      a = a + 7;
     } else {
       Serial.println("Unrecognized packet length - possibly at end");
     }
@@ -1466,6 +1488,23 @@ void dumpFRAM()
       ay = ((aymsb << 8) | aylsb);
       az = ((azmsb << 8) | azlsb);
 
+
+      // ROTATION
+      Serial.print("RS: ");
+      Serial.print(rotation_vx);
+      Serial.print(", ");    
+      Serial.print(rotation_vy);
+      Serial.print(", ");
+      Serial.println(rotation_vz);  // RS = Rotational Speed
+
+
+      Serial.print("LA: ");
+      Serial.print(ax);
+      Serial.print(", ");    
+      Serial.print(ay);
+      Serial.print(", ");
+      Serial.println(az);  // LA = Linear Acceleration
+    
 #ifdef AIRSENSOR
     } else if (pklen == 10) {
       // Air-Pressure
@@ -1482,6 +1521,15 @@ void dumpFRAM()
       pressure = bmp.computePressure(UP, UT);
       temperature = bmp.computeTemperature(UT);
 #endif      
+    } else if (pklen == 7) {
+      // Servo Move
+      if (servo == top_servo) {
+         Serial.print("Top Servo: ");
+         Serial.println(angle);
+      } else if (servo == bottom_servo) {
+         Serial.print("Bottom Servo: ");
+         Serial.println(angle);
+      }
     }
 
     /*
@@ -1498,23 +1546,8 @@ void dumpFRAM()
     */
 
 
-    // ROTATION
-    Serial.print("RS: ");
-    Serial.print(rotation_vx);
-    Serial.print(", ");    
-    Serial.print(rotation_vy);
-    Serial.print(", ");
-    Serial.print(rotation_vz);  // RS = Rotational Speed
 
-
-    Serial.print("LA: ");
-    Serial.print(ax);
-    Serial.print(", ");    
-    Serial.print(ay);
-    Serial.print(", ");
-    Serial.print(az);  // LA = Linear Acceleration
                
-
 
     // Print Time
     Serial.println("For Time - MSB First: ");
@@ -1580,6 +1613,7 @@ void slowBlinkLED()
 
 void blinkLED(int led_delay)
 {
+  ApplicationMonitor.IAmAlive();
   digitalWrite(LED_INDICATOR_PIN, HIGH);
   delay(led_delay);
   digitalWrite(LED_INDICATOR_PIN, LOW);
@@ -1593,6 +1627,7 @@ void fastBlinkLed(long duration)
   long start_time = millis();
 
   while (millis() < start_time + duration) {
+    ApplicationMonitor.IAmAlive();
     veryfastBlinkLED();
   }
 }
@@ -1703,11 +1738,12 @@ void writeFramPacket(byte * data, int packlen)
         long total_time = (memory_end - memory_start)/1000000;
         Serial.print("Saved "); Serial.print(total_time); Serial.println(" seconds of data.");
 #endif
+        
         // Don't try and get any more data, no point as it will not be written to fRAM.
         no_more_space = true;
-        // while (1) {
-        //   slowFlash(); // Slow flash indicates no more space to write data.
-        // }
+        while (1) {
+          slowFlash(); // Slow flash indicates no more space to write data.
+        }
      }
 
 
@@ -1885,15 +1921,40 @@ void initialise_servo_move(int timer2)
 
 }
 
-     
+
+// Move Top servo     
 void set_top_servo_position(double degrees)
 {
-  int int_degrees = degrees;
+  byte byte_degrees = (byte) degrees;
 #ifdef DEBUG  
   Serial.print("Moving Servos: ");
-  Serial.println(int_degrees);
+  Serial.println(byte_degrees);
 #endif    
-  topservo.write(int_degrees);
-  
+  topservo.write(byte_degrees);
+
+  recordservomove (top_servo, byte_degrees);
+}
+
+
+
+void recordservomove(byte servo, byte angle)
+{
+  unsigned long    servomove_time;
+  servomove_time = micros();
+
+  // Length of packet, servo moved and angle it is moved to
+  _buff[0] = 7;
+  _buff[1] = servo;
+  _buff[2] = angle;
+
+  // Time
+  _buff[3] = servomove_time & 0xFF;
+  _buff[4] = (servomove_time >> 8 ) & 0xFF;
+  _buff[5] = (servomove_time >> 16) & 0xFF;
+  _buff[6] = (servomove_time >> 24) & 0xFF;
+
+  if (fram_installed && ! no_more_space) {
+     writeFramPacket(&_buff[0], 7);
+  }  
 }
 
