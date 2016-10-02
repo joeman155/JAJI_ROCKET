@@ -34,7 +34,9 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 #define TESTING_MODE
 
 // Additional debugging beyond what is normally required.
+// #define INFO
 #define DEBUG
+
 
 // Air Pressure Sensor Code
 // #define AIRSENSOR
@@ -107,7 +109,12 @@ unsigned long ap_data_time;  // Time we receive interrrupt (Data is available)
 MPU6050 accelgyro;
 uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
 byte    _buff[17];      // Used to get lots of data from IMU in one i2c call!
-
+unsigned int cycles_without_data = 0;
+#ifdef DEBUG
+int imu_data_rate = 49;
+#else
+int imu_data_rate = 49;
+#endif
 
 
 
@@ -229,10 +236,7 @@ double vec3[]          = {0, 0, 0};     // Result of cross product
 
 
 // DEBUGGING
-boolean debugging    = true;
-boolean info         = true  ;
 boolean print_timing = false;
-
 
 
 
@@ -260,7 +264,7 @@ acceleration_threshold = 500;
   digitalWrite(READ_MODE_ENABLE_DETECT_PIN, HIGH);
 
   // Starting up the Serial Port
-  Serial.begin(38400);
+  Serial.begin(115200);
   Serial.println("Powering up...");
 
   // Initialise the Servos
@@ -331,6 +335,7 @@ acceleration_threshold = 500;
 
   // Enable interrupts
   if (imu_available) {
+    Serial.print("imu_data_rate: "); Serial.println(imu_data_rate);
     Serial.println("Attaching routine for IMU Interrupts");
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
     mpuIntStatus = accelgyro.getIntStatus();
@@ -339,14 +344,11 @@ acceleration_threshold = 500;
     Serial.println("Cal IMU");
     calibrate_imu();
 
-    if (info) {
-        
-        Serial.println("LOWS: ");
-        Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
+    Serial.println("LOWS: ");
+    Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
+    Serial.println("HIGHS: "); 
+    Serial.print(gyroXLow); Serial.print("\t"); Serial.print(gyroYLow); Serial.print("\t"); Serial.println(gyroZLow); 
 
-        Serial.println("HIGHS: "); 
-        Serial.print(gyroXLow); Serial.print("\t"); Serial.print(gyroYLow); Serial.print("\t"); Serial.println(gyroZLow); 
-    }
     imu_calibrated = true;
 
     // Confirm that the Calication values look 'sane'
@@ -355,16 +357,13 @@ acceleration_threshold = 500;
         errorCondition();
     }
 
-    if (info) {
-      Serial.println("GYRO");
-      Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t"); Serial.println(avg_gz);
-      Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t"); Serial.println(var_gz);
+    Serial.println("GYRO");
+    Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t"); Serial.println(avg_gz);
+    Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t"); Serial.println(var_gz);
+    Serial.println("ACCEL");
+    Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t"); Serial.println(avg_az);
+    Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t"); Serial.println(var_az);
 
-
-      Serial.println("ACCEL");
-      Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t"); Serial.println(avg_az);
-      Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t"); Serial.println(var_az);
-    }
     Serial.println("End Cal IMU");
     delay(1000);
   }
@@ -376,12 +375,6 @@ acceleration_threshold = 500;
   weights_starting_pos();
   Serial.println("Finished");
 
-
-  
-
-
-  // Serial.println("S1 ANG: " + String(s1_angle));
-  // Serial.println("S2 ANG: " + String(s2_angle));
 
 
   Serial.println("System Init");
@@ -395,13 +388,17 @@ acceleration_threshold = 500;
 
 // the loop function runs over and over again forever
 void loop() {
-  ApplicationMonitor.IAmAlive();
-  
+ ApplicationMonitor.IAmAlive();
+
+
+#ifdef DEBUG  
   long currMicros = micros();
-
   Serial.print("Time: "); Serial.println(currMicros);
+#endif  
 
 
+
+  
   // IMU SENSOR DATA
   if (imu_available) {
     check_for_imu_data();
@@ -421,7 +418,6 @@ void loop() {
      // Find out how much the Sensor has rotated since last time.
      int angle_x_degrees = angle_x * 180 / PI;
      int angle_diff = angle_x_degrees - reference_angle;
-     
 
      // Determine the new Direction the rocket is pointed in
      reference_angle = angle_x_degrees;
@@ -429,31 +425,27 @@ void loop() {
      // Move the Top Servo back around
      topservo_angle = topservo_angle - (gear_ratio * angle_diff);
 
-     
+#ifdef INFO     
      Serial.print("X Angle: "); Serial.print(angle_x_degrees);
      Serial.print("  reference_angle: "); Serial.print(reference_angle);
      Serial.print("  TOPSERVO_ANGLE: "); Serial.print(topservo_angle);
      Serial.print("  DIFF: "); Serial.println(angle_diff);
-     
+#endif     
      
      set_top_servo_position(topservo_angle);
-     // delay(200);
   }
   
 
   // Servo Move
   if (move_servo) {
       move_servo = false;
-      // Serial.print("Timee: ");
-      // Serial.println(micros());
       topservo_angle = 90 * gear_ratio;
       set_top_servo_position(topservo_angle);
       reference_angle = angle_x * 180 / PI;
       track_mode = true;
   }
 
-  
-
+ 
 
   // Simulate rotation - but ONLY if gyroscope disabled
   if (! imu_available) {
@@ -467,16 +459,26 @@ void loop() {
 
 
   // Show IMU data
-  if (debugging) {
+#ifdef INFO
     Serial.print("ax: "); Serial.print(ax); Serial.print("\t");  Serial.print("ay: "); Serial.print(ay); Serial.print("\t"); Serial.print("az: "); Serial.println(az);
     Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: "); Serial.println(gz);
-  }
+#endif
 
+
+
+#ifdef INFO
   // PRINT ORIENTATION
   double angle_x_deg = angle_x * 180 / PI;
   double angle_y_deg = angle_y * 180 / PI;
   double angle_z_deg = angle_z * 180 / PI;
-  print_debug(info, "ANGULAR POS- X: " + String(angle_x_deg)     + ", Y: " + String(angle_y_deg) + ", Z: " + String(angle_z_deg));
+  
+  Serial.print("ANGULAR POS- X: ");
+  Serial.print(angle_x_deg);
+  Serial.print("Y: ");
+  Serial.print(angle_y_deg);
+  Serial.print("Z: ");
+  Serial.println(angle_z_deg);
+#endif  
 
 
 
@@ -489,13 +491,26 @@ void loop() {
     calculate_smoother_location(rotation_vx, rotation_vy, rotation_vz);
 
     smoother_step = 1;
-    if (info) {
-      print_debug(info, "-- System needs stabilising --");
-      print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));
-      print_debug(info, "RA: " + String(rotation_ax) + ", " + String(rotation_ay) + ", " + String(rotation_az));
+#ifdef DEBUG
+      Serial.println("-- System needs stabilising --");
+      Serial.print("RS: ");
+      Serial.print(rotation_vx);
+      Serial.print(", ");
+      Serial.print(rotation_vy);
+      Serial.print(", ");
+      Serial.println(rotation_vz);
+
+      Serial.print("RA: ");
+      Serial.print(rotation_ax);
+      Serial.print(", ");
+      Serial.print(rotation_ay);
+      Serial.print(", ");
+      Serial.println(rotation_az);      
       print_time();
-      print_debug(info, "CA: " + String(corrective_angle));
-    }
+
+      Serial.print("CA: ");
+      Serial.println(corrective_angle);
+#endif
 
   }
 
@@ -631,7 +646,8 @@ void setupIMU() {
 
   accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000degrees/second
   accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);    // Set Acceleration to +-16g....1g = 1024
-  accelgyro.setRate(20);                                    // 1 reading every 0.1 seconds
+  accelgyro.setDLPFMode(MPU6050_DLPF_BW_42);                // Low Pass filter  
+  accelgyro.setRate(imu_data_rate);                         // Freq = 1000 / (imu_data_rate + 1)  
   accelgyro.setIntEnabled(0x1);                             // Enable Interrupts
 
 
@@ -652,12 +668,6 @@ void print_time() {
   double  time_display = time / (double) 1000000;
   Serial.print("Time: ");
   printDouble(time_display, 10000);
-}
-
-void print_debug(boolean debug, String str) {
-  if (debug) {
-    Serial.println(str);
-  }
 }
 
 
@@ -848,19 +858,21 @@ void smoother_step_2()
     // Already 180 degrees out of phase, so no need to move
     smoother_step = 4;
     // No need to move to neutral position, already in neutral position
-    // print_debug(debugging, "No need to move to neutral position, already in neutral position");
   } else if (intermediate_move < PI / 4) {
     // Only a small movement required, so we will move straight to that position...this is because the increased speed in getting to the final
     // position outweighs the imbalances that might be caused.
     smoother_step = 4;
     // Only a small movement required, so we will move straight to that position
-    // print_debug(debugging, "Only a small movement required, so we will move straight to that position");
   } else {
     // OK...so we have a large movement, and we can't afford to destabilise system, so we need to move to neutral position
     derive_direction();
 
     print_time();
-    print_debug(info, "Neutral Move");
+
+#ifdef DEBUG
+    Serial.println("Neutral Move");
+#endif
+    
     move_servos(s1_direction, s2_direction, move_to_neutral_distance, 0);
     smoother_step = 3;
   }
@@ -899,9 +911,6 @@ void smoother_step_3()
 
   // Serial.println("step3: S1/S2 Angle:                  " + String(mid_point_angle));
   // Serial.println("step3: mid_point_distance Angle:     " + String(mid_point_distance));
-  // print_debug(debugging, "zcross:     " + String(zcross));
-  // print_debug(debugging, "S1 DIR:     " + String(s1_direction));
-  // print_debug(debugging, "S2 DIR:     " + String(s2_direction));
   // Serial.println("step3:  IM: " + String(intermediate_move));
 
   // Signal to code to go on to 'Intermediate' move
@@ -948,7 +957,12 @@ void smoother_step_4()
     }
 
     print_time();
-    print_debug(info, "IM: " + String(intermediate_move));
+    
+#ifdef DEBUG
+    Serial.print("IM: ");
+    Serial.println(intermediate_move);
+#endif    
+
     move_servos(s1_direction, s2_direction, intermediate_move, 0);
     smoother_step = 5;
   }
@@ -996,11 +1010,13 @@ void smoother_step_5()
       s2_direction = cw;
     }
 
-    //          print_debug(debugging, "zcross:     " + String(zcross));
-    //          print_debug(debugging, "S1 DIR:     " + String(s1_direction));
-    //          print_debug(debugging, "S2 DIR:     " + String(s2_direction));
     print_time();
-    print_debug(info, "FM: " + String(final_angle_move));
+
+#ifdef DEBUG    
+    Serial.print("FM: ");
+    Serial.println(final_angle_move);
+#endif
+    
     move_servos(s1_direction, s2_direction, final_angle_move, lower_velocity_threshold);
     smoother_step = 6;
   }
@@ -1015,8 +1031,10 @@ void smoother_step_6()
       ||
       (sgn(rotation_az) * sgn(rotation_vz) != -1 && abs(rotation_vz) > upper_velocity_threshold)) {
 
-    // print_debug(debugging, "NOT REDUCING VELOCITY. EITHER malfunction in code, or change in forces or we are now over correcting!");
-    print_debug(debugging, "Malfu or over correcting.!");
+
+#ifdef DEBUG
+    Serial.println("Malfu or over correcting.!");
+#endif    
 
     // COMMENT this code in this IF blovk FOR TESTING WHEN NOT NOT EXCEPTING ACTUAL CORRECTION OF SYSTEM (because we 'simulate' a movement
 
@@ -1034,7 +1052,10 @@ void smoother_step_6()
 
   // If velocity < lower_velocity_threshold, then start to reduce acceleration
   if (abs(rotation_vx) <  lower_velocity_threshold && abs(rotation_vz) <  lower_velocity_threshold) {
-    print_debug(debugging, "Success. Easing back back");
+
+#ifdef DEBUG    
+    Serial.println("Success. Easing back back");
+#endif
 
     smoother_step = 7;
 
@@ -1052,7 +1073,12 @@ void smoother_step_6()
 void smoother_step_7()
 {
   print_time();
-  print_debug(info, "RM: " + String(resting_angle_move));
+
+#ifdef DEBUG  
+  Serial.print("RM: ");
+  Serial.println(resting_angle_move);
+#endif
+  
   move_servos(s1_direction, s2_direction, resting_angle_move, lower_velocity_threshold);
   smoother_step = 0;
   digitalWrite(LED_INDICATOR_PIN, HIGH);
@@ -1065,9 +1091,10 @@ void move_servos(boolean s1_direction, boolean s2_direction, double angle, doubl
 {
   // TODO
 
-
-  print_debug(info, "S1 ANG: " + String(s1_angle));
-  print_debug(info, "S2 ANG: " + String(s2_angle));
+#ifdef DEBUG
+  Serial.print("S1 ANG: "); Serial.println(s1_angle);
+  Serial.print("S2 ANG: "); Serial.println(s2_angle);
+#endif  
 }
 
 
@@ -1191,10 +1218,6 @@ void calibrate_imu()
 
   while (i < 25)
   {
-    // delayMicroseconds(20000);
-    //if (debugging)
-
-
       if (gotIMUdata && ! is_processing) {
         is_processing = true;
 
@@ -1286,6 +1309,8 @@ void check_for_imu_data()
 
   if (gotIMUdata && ! is_processing) {
     is_processing = true;
+    Serial.print("cwd: "); Serial.println(cycles_without_data);
+    cycles_without_data = 0;
 
     mpuIntStatus = accelgyro.getIntStatus();
     // Serial.print("mpuIntStatus: "); Serial.println(mpuIntStatus);
@@ -1303,6 +1328,8 @@ void check_for_imu_data()
 
     imu_measurement_count++;
     gotIMUdata = false;
+  } else {
+     cycles_without_data++;
   }
 }
 
@@ -1472,8 +1499,21 @@ void dumpFRAM()
 
 
     // ROTATION
-    print_debug(info, "RS: " + String(rotation_vx) + ", " + String(rotation_vy) + ", " + String(rotation_vz));  // RS = Rotational Speed
-    print_debug(info, "LA: " + String(ax) + ", " + String(ay) + ", " + String(az));                             // LA = Linear Acceleration
+    Serial.print("RS: ");
+    Serial.print(rotation_vx);
+    Serial.print(", ");    
+    Serial.print(rotation_vy);
+    Serial.print(", ");
+    Serial.print(rotation_vz);  // RS = Rotational Speed
+
+
+    Serial.print("LA: ");
+    Serial.print(ax);
+    Serial.print(", ");    
+    Serial.print(ay);
+    Serial.print(", ");
+    Serial.print(az);  // LA = Linear Acceleration
+               
 
 
     // Print Time
@@ -1786,9 +1826,11 @@ void launch_detection()
     launch_begun = detect_trigger_condition();
 
     if (launch_begun) {
-      // Initialise Timer, so that a servo move begins in 0.1 seconds
-      Serial.print("Times: ");
+#ifdef DEBUG        
+      Serial.print("Launch Time: ");
       Serial.println(micros());
+#endif      
+      // Initialise Timer, so that a servo move begins in 0.1 seconds
       initialise_servo_move(63);
       // 63   = 0.002048 seconds .... So if we do this 100 times...equates to 0.2 seconds
       // 127  = 0.004096 seconds
@@ -1847,8 +1889,10 @@ void initialise_servo_move(int timer2)
 void set_top_servo_position(double degrees)
 {
   int int_degrees = degrees;
+#ifdef DEBUG  
   Serial.print("Moving Servos: ");
   Serial.println(int_degrees);
+#endif    
   topservo.write(int_degrees);
   
 }
