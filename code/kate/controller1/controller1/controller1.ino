@@ -153,7 +153,7 @@ int     typicalGyroCal = 150;
 int16_t ax, ay, az;
 int acceleration_threshold_count_required = 3;  // Number of continuous readings above which we assume rocket is in flight
 int acceleration_threshold_count = 0;     // How many measurements have been over the acceleration_threhold
-int acceleration_threshold = 2048;        // At +/- 16g, 1g = 1024. So 4g = 4096
+int acceleration_threshold = 2048;        // At +/- 16g, 1g = 1024. So 4g = 4096  (So here we are looking at 1g accel + gravity = 2g)   
 
 
 
@@ -198,8 +198,8 @@ double s2_angle = PI;
 // PINS
 #define INTERRUPT_PIN       2   // use pin 2 on Arduino Uno & most boards
 #define LED_INDICATOR_PIN   4   // Indicates state of the system
-#define SERVOBOTTOM_PIN     3
-#define SERVOTOP_PIN        6
+#define SERVOBOTTOM_PIN     6
+#define SERVOTOP_PIN        3
 #define LED_DEBUGGING       13
 #define READ_MODE_ENABLE_DETECT_PIN   11   // Need to set this HIGH, so that we can use jumper between 11 and 12.
 #define READ_MODE_PIN       12               // Has a pulldown resistor to Ground. 
@@ -247,8 +247,8 @@ void setup() {
 
 #ifdef TESTING_MODE
 // LOW ACCERATION THRESHOLD TESTING VALUES
-acceleration_threshold_count_required = 3;
-acceleration_threshold = 500;
+acceleration_threshold_count_required = 1;
+acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #endif
 
   
@@ -426,6 +426,7 @@ void loop() {
      
      // Move the Top Servo back around
      topservo_angle = topservo_angle - (gear_ratio * angle_diff);
+     bottomservo_angle = bottomservo_angle + (gear_ratio * angle_diff);
 
 #ifdef INFO     
      Serial.print("X Angle: "); Serial.print(angle_x_degrees);
@@ -437,6 +438,7 @@ void loop() {
      // If angle has changed, then move it.
      if (abs(angle_diff * gear_ratio) > 1 ) {
         set_top_servo_position(topservo_angle);
+        set_bottom_servo_position(bottomservo_angle);
      }
   }
   
@@ -1935,6 +1937,20 @@ void set_top_servo_position(double degrees)
   recordservomove (top_servo, byte_degrees);
 }
 
+
+
+// Move Bottom servo     
+void set_bottom_servo_position(double degrees)
+{
+  byte byte_degrees = (byte) degrees;
+#ifdef DEBUG  
+  Serial.print("Moving Servos: ");
+  Serial.println(byte_degrees);
+#endif    
+  bottomservo.write(byte_degrees);
+
+  recordservomove (bottom_servo, byte_degrees);
+}
 
 
 void recordservomove(byte servo, byte angle)
