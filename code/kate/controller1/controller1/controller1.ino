@@ -377,10 +377,10 @@ void loop() {
  ApplicationMonitor.IAmAlive();
 
 
-#ifdef DEBUG  
-  long currMicros = micros();
-  Serial.print("Time: "); Serial.println(currMicros);
-#endif  
+// #ifdef DEBUG  
+//   long currMicros = micros();
+//  Serial.print("Time: "); Serial.println(currMicros);
+//#endif  
 
 
 
@@ -421,9 +421,6 @@ void loop() {
 
      // If angle has changed, then move it.
      if (abs(angle_diff) > 1 ) {
-      // JOE
-        // set_top_servo_position(topservo_angle);
-        // set_bottom_servo_position(bottomservo_angle);
         moveTopMass (topservo_angle);
         moveBottomMass (bottomservo_angle);
      }
@@ -435,8 +432,6 @@ void loop() {
       move_servo = false;
       topservo_angle = 180;
       bottomservo_angle = 180;
-      // set_top_servo_position(topservo_angle);
-      // set_bottom_servo_position(bottomservo_angle);
       moveTopMass (180);
       moveBottomMass (180);
       reference_angle = angle_x * 180 / PI;
@@ -902,7 +897,7 @@ void dumpFRAM()
 #endif
   
   // Make sure we read less then size of FRAM Bank 1
-  while (a < fram1AddrEnd) {
+  while (a < (fram1AddrEnd-fram1MaxPacketSize)) { // JOE
 
     // fram1Addr = start_addr + a;
     pklen = fram.read8(fram1Addr);
@@ -963,7 +958,28 @@ void dumpFRAM()
       fram1Addr = advanceFram1Addr (fram1Addr, 7);
       a = a + 7;
     } else {
-      Serial.println("Unrecognized packet length - possibly at end");
+      a = a + 1; // Advance one a time incase we find a packet size that we recognize.
+      Serial.print("Unrecognized packet length "); Serial.print(pklen); Serial.print(" - possibly at end. Current Position: "); Serial.println(a);
+
+// Get some values...to help try and debug the situation.      
+#ifdef DEBUG
+Serial.println(fram.read8(fram1Addr - 5));
+Serial.println(fram.read8(fram1Addr - 4));
+Serial.println(fram.read8(fram1Addr - 3));
+Serial.println(fram.read8(fram1Addr - 2));
+Serial.println(fram.read8(fram1Addr - 1));
+Serial.print("   ");Serial.println(fram.read8(fram1Addr));
+Serial.println(fram.read8(fram1Addr + 1));
+Serial.println(fram.read8(fram1Addr + 2));
+Serial.println(fram.read8(fram1Addr + 3));
+Serial.println(fram.read8(fram1Addr + 4));
+Serial.println(fram.read8(fram1Addr + 5));
+Serial.println(fram.read8(fram1Addr + 6));
+Serial.println(fram.read8(fram1Addr + 7));
+Serial.println(fram.read8(fram1Addr + 8));
+Serial.println(fram.read8(fram1Addr + 9));
+Serial.println(fram.read8(fram1Addr + 10));
+#endif      
     }
 
 
@@ -1048,7 +1064,7 @@ void dumpFRAM()
                
 
     // Print Time
-    Serial.println("For Time - MSB First: ");
+    // Serial.println("For Time - MSB First: ");
     Serial.print(d4);
     Serial.print(" ");
     Serial.print(d3);
@@ -1060,6 +1076,7 @@ void dumpFRAM()
   }
 
   // Blink led slowly...so we know we are at the end.
+  Serial.println("AT THE END");
   while (1) {
     slowBlinkLED();
   }
@@ -1203,7 +1220,7 @@ void writeFramPacket(byte * data, int packlen)
   // Write to Bank 1, but only while:-
   // No launch has been detected
   // or
-  // When a launch is detected and we haven't written more then XX number of butes
+  // When a launch is detected and we haven't written more then XX number of bytes
   if (
       (! launch_begun )
       ||
@@ -1237,7 +1254,7 @@ void writeFramPacket(byte * data, int packlen)
      }
 
 
-  // Write the framAddr to Bank 2 - ONLY when no launch has been detected.
+  // Write the framAddr to framPtr- ONLY when no launch has been detected.
   if (! launch_begun) {
     if (fram1Addr > Fram1StartPos) {
        difference = fram1Addr - Fram1StartPos;
@@ -1248,8 +1265,14 @@ void writeFramPacket(byte * data, int packlen)
     if (difference < historicalBytes) {
        Fram1StartPos = 0;
     } else {
-       Fram1StartPos = advanceFram1Addr(Fram1StartPos, packlen);
+       int jump_distance = fram.read8(Fram1StartPos);
+       Fram1StartPos = advanceFram1Addr(Fram1StartPos, jump_distance);
     }
+
+#ifdef DEBUG
+Serial.print("Fram1StartPos: "); Serial.print(Fram1StartPos);
+Serial.print("\t"); Serial.println(fram.read8(Fram1StartPos));
+#endif
 
      // Write the Start Position to the 3rd bank
      fram.write8(framPtr, (Fram1StartPos >> 8) & 0xff);
@@ -1257,10 +1280,6 @@ void writeFramPacket(byte * data, int packlen)
 
   }
 
-// #ifdef DEBUG
-//    Serial.print("Current pos: "); Serial.println(fram1Addr);
-//    Serial.print("Start   pos: "); Serial.println(Fram1StartPos);  
-// #endif
 }
 
 
