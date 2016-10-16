@@ -35,7 +35,7 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 
 // Additional debugging beyond what is normally required.
 // #define INFO
-#define DEBUG
+// #define DEBUG
 
 
 // Air Pressure Sensor Code
@@ -249,13 +249,11 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   // Quickly initialise this pin - We use this has +3.3v for jumper to pint 12 (READ_MODE_PIN)
   digitalWrite(READ_MODE_ENABLE_DETECT_PIN, HIGH);
 
+
   // Starting up the Serial Port
   Serial.begin(115200);
   Serial.println("Powering up...");
-
-  // Initialise the Servos
-  topservo.attach(SERVOTOP_PIN);
-  bottomservo.attach(SERVOBOTTOM_PIN);
+  
 
   // Dump WatchDog data for debugging...
   ApplicationMonitor.Dump(Serial);
@@ -266,10 +264,14 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   // Initialise FRAM
   if (fram_available) {
      if (fram.begin()) {
+#ifdef INFO      
        Serial.println("Found FRAM");
+#endif       
        fram_installed = true;
      } else {
+#ifdef INFO      
        Serial.println("No FRAM");
+#endif       
        fram_installed = false;
      }
   }
@@ -279,9 +281,13 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   // Initialise Air Pressure Sensor
   if (air_pressure_sensor_enabled) {
     if (!bmp.begin()) {
+#ifdef INFO      
       Serial.println("NotFound BMP180.");
+#endif      
     } else {
+#ifdef INFO      
       Serial.println("Found BMP180");
+#endif      
       air_pressure_sensor_available = true;
       initialise_ap_timer(3124);      // Initialise time to get readings every 0.1 seconds
     }
@@ -291,29 +297,39 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 
   // User puts a jumper on this to detect data extraction
   if (digitalRead(READ_MODE_PIN) == HIGH) {
+#ifdef INFO    
       Serial.println("Going into DumpFRAM routine.");
+#endif      
       dumpFRAM();
   }
   
 
   if (fram_installed) {
-     Serial.println("Waiting 20 seconds before cleaing FRAM");
-     delay(20000);
+#ifdef INFO    
+     Serial.println("Waiting 10 seconds before cleaing FRAM");
+#endif     
+     delay(10000);
   }
 
 
   // Clear fRAM
   if (fram_installed) {
+#ifdef INFO    
     Serial.println("Clear FRAM");
+#endif    
     clearfram();
+#ifdef INFO    
     Serial.println("FRAM cleared");
+#endif    
   }
   
 
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
   if (imu_enabled) {
+#ifdef INFO    
     Serial.println("Start IMU");
+#endif    
     setupIMU();     // Configure MPU-6050
     delay(2500);    //wait for the sensor to be ready
     imu_available = true;
@@ -321,49 +337,110 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 
   // Enable interrupts
   if (imu_available) {
+#ifdef INFO    
     Serial.print("imu_data_rate: "); Serial.println(imu_data_rate);
     Serial.println("Attaching routine for IMU Interrupts");
+#endif    
     attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), imu_data_available, RISING);  // Interrupt from IMU
     mpuIntStatus = accelgyro.getIntStatus();
 
     // Perform calibration - IMU must not be rotation 
+#ifdef INFO    
     Serial.println("Cal IMU");
+#endif    
     calibrate_imu();
 
+#ifdef INFO
     Serial.println("LOWS: ");
     Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
     Serial.println("HIGHS: "); 
     Serial.print(gyroXLow); Serial.print("\t"); Serial.print(gyroYLow); Serial.print("\t"); Serial.println(gyroZLow); 
+#endif
 
     imu_calibrated = true;
 
     // Confirm that the Calication values look 'sane'
     if (check_calibration_values()) {
+#ifdef INFO      
         Serial.println("Cal issues. Rocket not stationary?");
+#endif        
         errorCondition();
     }
 
+#ifdef INFO
     Serial.println("GYRO");
     Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t"); Serial.println(avg_gz);
     Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t"); Serial.println(var_gz);
     Serial.println("ACCEL");
     Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t"); Serial.println(avg_az);
     Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t"); Serial.println(var_az);
-
     Serial.println("End Cal IMU");
+#endif
+    
     delay(1000);
   }
 
 
+  // Initialise the Servos  and move to 'zero' angle
+  topservo.attach(SERVOTOP_PIN);
+  bottomservo.attach(SERVOBOTTOM_PIN);
+  // move to 'centre'
+  moveTopMass (210);
+  moveBottomMass (210);
 
+  delay(2000);
+
+  // Move to 90 degrees
+  moveTopMass (270);
+  moveBottomMass (90);  
+
+  delay(2000);
+    
   // Move weights to their starting position
-  // Serial.println("Cal S1/S2");
   weights_starting_pos();
+#ifdef INFO  
   Serial.println("Finished");
+#endif
 
+/*
+// Testing out detach. - TO REMOVE!
+  moveBottomMass (0);
+  topservo.detach();
+  bottomservo.detach();
+  digitalWrite(SERVOTOP_PIN, LOW);
+  digitalWrite(SERVOBOTTOM_PIN, LOW);
 
+  delay(6000);
 
-  Serial.println("System Init");
+  Serial.println("Re-Attached");
+  topservo.attach(SERVOTOP_PIN);
+  bottomservo.attach(SERVOBOTTOM_PIN);
+  // bottomservo.write(10);
+  moveBottomMass (0);
+
+  delay(6000);
+  
+  moveBottomMass (60);
+  topservo.detach();
+  bottomservo.detach();
+  digitalWrite(SERVOTOP_PIN, LOW);
+  digitalWrite(SERVOBOTTOM_PIN, LOW);
+
+  Serial.println("Re-Attached");
+  topservo.attach(SERVOTOP_PIN);
+  bottomservo.attach(SERVOBOTTOM_PIN);
+  moveBottomMass (60);  // JOE
+  delay(2000);
+  
+  moveBottomMass (0);
+  Serial.println("Finished Tests"); 
+  delay(1000000);
+*/
+
+#ifdef INFO     
+  Serial.println("System Init"); 
+#endif
+  
   ApplicationMonitor.EnableWatchdog(Watchdog::CApplicationMonitor::Timeout_4s);
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
 
@@ -412,11 +489,11 @@ void loop() {
      topservo_angle    = topservo_angle - angle_diff;
      bottomservo_angle = bottomservo_angle - angle_diff;
 
-#ifdef INFO     
+#ifdef INFO  
      Serial.print("X Angle: "); Serial.print(angle_x_degrees);
      Serial.print("  reference_angle: "); Serial.print(reference_angle);
      Serial.print("  TOPSERVO_ANGLE: "); Serial.print(topservo_angle);
-     Serial.print("  DIFF: "); Serial.println(angle_diff);
+     Serial.print("  DIFF: "); Serial.println(angle_diff);     
 #endif     
 
      // If angle has changed, then move it.
@@ -454,7 +531,7 @@ void loop() {
   // Show IMU data
 #ifdef INFO
     Serial.print("ax: "); Serial.print(ax); Serial.print("\t");  Serial.print("ay: "); Serial.print(ay); Serial.print("\t"); Serial.print("az: "); Serial.println(az);
-    Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: "); Serial.println(gz);
+    Serial.print("gx: "); Serial.print(gx); Serial.print("\t");  Serial.print("gy: "); Serial.print(gy); Serial.print("\t"); Serial.print("gz: "); Serial.println(gz); 
 #endif
 
 
@@ -464,7 +541,7 @@ void loop() {
   double angle_x_deg = angle_x * 180 / PI;
   double angle_y_deg = angle_y * 180 / PI;
   double angle_z_deg = angle_z * 180 / PI;
-  
+
   Serial.print("ANGULAR POS- X: ");
   Serial.print(angle_x_deg);
   Serial.print("Y: ");
@@ -513,6 +590,7 @@ void loop() {
 #endif
 
 
+#ifdef INFO
   if (print_timing) {
     if (end_time1 > 0) {
       long total_time = end_time1 - start_time1;
@@ -521,6 +599,7 @@ void loop() {
       end_time1 = 0;
     }
   }
+#endif
 
 
 }
@@ -634,8 +713,10 @@ void setupIMU() {
 
 
   // Verify Connection
+#ifdef INFO  
   Serial.println("Testing MPU6050 connection");
   Serial.println(accelgyro.testConnection() ? "MPU6050 successful" : "MPU6050 failed");
+#endif
 
 }
 
@@ -807,7 +888,9 @@ void check_for_imu_data()
 
   if (gotIMUdata && ! is_processing) {
     is_processing = true;
+#ifdef DEBUG    
     Serial.print("cwd: "); Serial.println(cycles_without_data);
+#endif    
     cycles_without_data = 0;
 
     mpuIntStatus = accelgyro.getIntStatus();
@@ -897,7 +980,7 @@ void dumpFRAM()
 #endif
   
   // Make sure we read less then size of FRAM Bank 1
-  while (a < (fram1AddrEnd-fram1MaxPacketSize)) { // JOE
+  while (a < (fram1AddrEnd-fram1MaxPacketSize)) { 
 
     // fram1Addr = start_addr + a;
     pklen = fram.read8(fram1Addr);
@@ -1269,10 +1352,10 @@ void writeFramPacket(byte * data, int packlen)
        Fram1StartPos = advanceFram1Addr(Fram1StartPos, jump_distance);
     }
 
-#ifdef DEBUG
-Serial.print("Fram1StartPos: "); Serial.print(Fram1StartPos);
-Serial.print("\t"); Serial.println(fram.read8(Fram1StartPos));
-#endif
+// #ifdef DEBUG
+// Serial.print("Fram1StartPos: "); Serial.print(Fram1StartPos);
+// Serial.print("\t"); Serial.println(fram.read8(Fram1StartPos));
+// #endif
 
      // Write the Start Position to the 3rd bank
      fram.write8(framPtr, (Fram1StartPos >> 8) & 0xff);
@@ -1376,7 +1459,8 @@ void launch_detection()
       Serial.println(micros());
 #endif      
       // Initialise Timer, so that a servo move begins in 0.1 seconds
-      initialise_servo_move(63);
+      initialise_servo_move(31);
+      // 31   = 0.001024 seconds .... So if we do this 100 times...equates to 0.1 seconds
       // 63   = 0.002048 seconds .... So if we do this 100 times...equates to 0.2 seconds
       // 127  = 0.004096 seconds
       // 254  = 0.00816 seconds
@@ -1455,21 +1539,21 @@ void moveTopMass(double angle)
 
 void moveBottomMass(double angle)
 {
-  set_bottom_servo_position (20 + ((360 - angle)  * gear_ratio));
+  set_bottom_servo_position (20 + ((420 - angle)  * gear_ratio));
 }
 
 
 
 void rotateBottomMass()
 {
-  int i = 360;
+  int i = 420;
   moveBottomMass(i);
   delay(1000);
   while (i > 0) {
     moveTopMass(i);
     moveBottomMass(i);
-    delay(50);
-    i = i -5;
+    delay(10);
+    i = i - 3;
   }
 }
 
@@ -1514,6 +1598,6 @@ void recordservomove(byte servo, byte angle)
 void weights_starting_pos()
 {
    rotateBottomMass ();
-   moveTopMass (90);
-   moveBottomMass (270);   
+   moveTopMass (270);
+   moveBottomMass (90);   
 }   
