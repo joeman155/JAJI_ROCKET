@@ -381,20 +381,44 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   }
 
 
-  // Initialise the Servos  and move to 'zero' angle
+  // Initialise the Servos  and move to be opposite each other angle
   topservo.attach(SERVOTOP_PIN);
   bottomservo.attach(SERVOBOTTOM_PIN);
-  // move to 'centre'
-  moveTopMass (210);
-  moveBottomMass (210);
 
-  delay(2000);
+/*
+  
+  // move to 'centre'
+  moveTopMass (0);
+  moveBottomMass (0);
+
+  delay(5000);
+
+  moveTopMass (45);
+  moveBottomMass (45);
+
+  delay(5000);
+
+  moveTopMass (90);
+  moveBottomMass (90);
+
+  delay(5000);
+
+  moveTopMass (135);
+  moveBottomMass (135);
+
+  delay(5000);
+
+  moveTopMass (180);
+  moveBottomMass (180);
+
+  delay(5000);        
 
   // Move to 90 degrees
   moveTopMass (270);
   moveBottomMass (90);  
 
   delay(2000);
+  */
     
   // Move weights to their starting position
   weights_starting_pos();
@@ -506,6 +530,7 @@ void loop() {
 
   // Servo Move
   if (move_servo) {
+      digitalWrite(LED_INDICATOR_PIN, HIGH);  // Added this so we can track (with camera) when the move is initiated
       move_servo = false;
       topservo_angle = 180;
       bottomservo_angle = 180;
@@ -1597,7 +1622,7 @@ void recordservomove(byte servo, byte angle)
 // Move Weights into required 'start' position
 void weights_starting_pos()
 {
-   rotateBottomMass ();
+   // rotateBottomMass ();
    moveTopMass (270);
    moveBottomMass (90);   
 }   
