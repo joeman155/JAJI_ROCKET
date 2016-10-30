@@ -42,7 +42,6 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 // #define AIRSENSOR
 
 
-
 #ifdef STABILITY_CORRECTION
 #include "Stabilisation.h"
 #endif
@@ -182,8 +181,8 @@ double     gear_ratio = 0.3333;
 double     topservo_angle;            // Angle of top servo
 double     bottomservo_angle;         // Angle of bottom servo
 boolean    s2_motor_inverted = true;
-boolean    move_servo = false;
-int        timer2_count = 0;          // Keeps a track of how many times interrupt 2 has fired off.
+volatile boolean    move_servo = false;
+volatile int        timer2_count = 0;          // Keeps a track of how many times interrupt 2 has fired off.
 int        timer2_max_count = 100;    // Maximum # of times we want it to fire off
 int        reference_angle;               // The measurement of the 
 //int        req_track_angle;           // The angle we want to track. This is set at lift-off
@@ -464,9 +463,10 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #ifdef INFO     
   Serial.println("System Init"); 
 #endif
-  
+
   ApplicationMonitor.EnableWatchdog(Watchdog::CApplicationMonitor::Timeout_4s);
   digitalWrite(LED_INDICATOR_PIN, HIGH);   // Indicates to user we are ready! Just waiting for launch to disconnect launch detect wires.
+
 
 }
 
@@ -475,6 +475,7 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 
 // the loop function runs over and over again forever
 void loop() {
+
  ApplicationMonitor.IAmAlive();
 
 
@@ -1285,20 +1286,6 @@ void initialise_ap_timer(int timer1)
 }
 
 
-ISR(TIMER2_COMPA_vect) { //timer1 interrupt -  move servos
-  if (timer2_count > timer2_max_count) {
-      move_servo = true;
-      timer2_count = 0;
-      TIMSK2 &= ~_BV(OCIE2A); // Disable interrupt (only want this interrupt to occur time2_max_count times!)    
-  } else {
-      timer2_count++;
-  }
-
-  // gotAPdata = true; 
-  // ap_data_time = micros();
-}
-
-
 
 // Determine if last XX readings have breached the Acceleration Threshold settings.
 // If so, return boolean TRUE
@@ -1484,11 +1471,9 @@ void launch_detection()
       Serial.println(micros());
 #endif      
       // Initialise Timer, so that a servo move begins in 0.1 seconds
-      initialise_servo_move(31);
-      // 31   = 0.001024 seconds .... So if we do this 100 times...equates to 0.1 seconds
-      // 63   = 0.002048 seconds .... So if we do this 100 times...equates to 0.2 seconds
-      // 127  = 0.004096 seconds
-      // 254  = 0.00816 seconds
+      initialise_servo_move(124);
+      // 124   = 0.0001 seconds .... So if we do this 100 times...equates to 0.1 seconds
+
       
       
 #ifdef DEBUG      
@@ -1512,8 +1497,19 @@ void launch_detection()
 // Initialise timer2 for movement of the servo after launch detection
 void initialise_servo_move(int timer2)
 {
-  // int timer2 = 63; // interrupt freq = 8,000,000 / (256 * (63 + 1)) = 488hz == 0.002seconds
-  // VALUE = (8000000/FREQ)/256 - 1
+  // CALCULATIONs
+  //  - Assume timer2 = 31
+  //  - Scalar is 64
+  // 
+  // Calculate Freq = 8,000,000 / (64 * (31 + 1)) = 3906hz
+  // Period = 1/f = 1/3906 = 0.000256 seconds
+  //
+  // If we have 100 of these ....
+  // 100 * 0.000256 = 0.0256 seconds
+  //
+  // INVERSE CALC IS:-
+  //    VALUE = (8,000,000/FREQ)/64 - 1
+  //
   timer2_count = 0;
 
   cli();
@@ -1522,14 +1518,20 @@ void initialise_servo_move(int timer2)
   TIFR2 = _BV(OCF2A);
 
   // TIMER2
-  TCCR2A  = 0;// set entire TCCR1A register to 0
-  TCCR2B  = 0;// same for TCCR1B
-  TCNT2   = 0;//initialize counter value to 0
+  TCCR2A  = 0;  // set entire TCCR2A register to 0
+  TCCR2B  = 0;  // same for TCCR1B
+  TCNT2   = 0;  // initialize counter value to 0
   // set compare match register for 1hz increments
-  OCR2A   = timer2;    // = (8*10^6) / (164*1) - 1 (must be <65536)    ... This is just an example calc
+  OCR2A   = timer2;    // = (8*10^6) / (164*1) - 1 (must be <256)    ... This is just an example calc
   // turn on CTC mode
-  TCCR2B |= (1 << WGM22);
-  // Scaling - 256
+  // TCCR2B |= (1 << WGM22);
+  TCCR2A |= (1 << WGM21);//for timer2
+  
+  // Scaling - 64
+  // http://www.ermicro.com/blog/wp-content/uploads/2009/01/m168lcd_09.jpg
+  //
+  // NOTE: The scalar settings for TIMER2 are different from TIMER0 and TIMER1 !!!!
+  //
   TCCR2B |= (1 << CS22);
 
   // enable timer compare interrupt
@@ -1537,6 +1539,21 @@ void initialise_servo_move(int timer2)
 
   sei();
 
+}
+
+
+ISR(TIMER2_COMPA_vect) { //timer2 interrupt -  move servos
+  if (timer2_count > timer2_max_count) {
+      move_servo = true;
+      // timer2_count = 0;
+      TIMSK2 &= ~_BV(OCIE2A); // Disable interrupt (only want this interrupt to occur time2_max_count times!)    
+  } else {
+      timer2_count++;
+  }
+
+  // TCNT2   = 0;   // THIS IS NOT NEEDED! With CTC...it returns back to zero itself.
+  // gotAPdata = true; 
+  // ap_data_time = micros();
 }
 
 
