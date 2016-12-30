@@ -31,7 +31,7 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 // #define STABILITY_CORRECTION
 
 // Allows us to fiddle with some values, to ensure we can test properly
-#define TESTING_MODE
+// #define TESTING_MODE
 
 // Additional debugging beyond what is normally required.
 // #define INFO
@@ -75,12 +75,15 @@ boolean  fram_available = true;                 // Specifies if we use FRAM - ev
 boolean  fram_installed = false;
 uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
 uint16_t fram1AddrEnd   = 32599;                // End address of FRAM Bank 1
+uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2 - Where we store calibation information, etc.
+uint16_t fram2AddrEnd   = 32759;                // End address of FRAM Bank 2
+
 uint16_t fram1Addr = fram1AddrStart;            // Ptr, start at beginning - Bank 1
 int      fram1MaxPacketSize = 17;               // Maximum size of packet
 int      Fram1StartPos = 0;                     // Where the Start Address is
 int      historicalBytes = 512;                 // Maximum # of historical Bytes that we will keep (and not overwrite)
 
-uint16_t framPtr = 32760;                     // The is where we keep the oldest pointer
+uint16_t framPtr = 32760;                       // The is where we keep the oldest pointer
                                                 // of data in Block 2
 
 #ifdef DEBUG                                                
@@ -126,10 +129,28 @@ int imu_data_rate = 49;
 
 // MOTION SENSING VARIABLES
 // Gyroscope Statistics
+struct imu_stats_struct {
+  double gyro_x_avg;
+  double gyro_y_avg;
+  double gyro_z_avg;
+  double gyro_x_var;
+  double gyro_y_var;
+  double gyro_z_var;  
+  double accel_x_avg;
+  double accel_y_avg;
+  double accel_z_avg;
+  double accel_x_var;
+  double accel_y_var;
+  double accel_z_var;  
+};
+
+/*
 double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates     (STATS)
 double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates    (STATS)
 double avg_ax = 0, avg_ay = 0, avg_az = 0;  // Deduced Average acceleration rates   (STATS)
 double var_ax = 0, var_ay = 0, var_az = 0;  // Deduced Variance acceleration rates  (STATS)
+*/
+
 
 // Gyroscope
 int    gx, gy, gz;                          // Raw values from gyroscope
@@ -245,14 +266,20 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   pinMode(READ_MODE_PIN,     INPUT);                   // Wish to detect if HIGH is on this...then we are wanting to go into framDump routine
   pinMode(A2,                INPUT_PULLUP);            // Voltage Sensor
 
-  // Quickly initialise this pin - We use this has +3.3v for jumper to pint 12 (READ_MODE_PIN)
+  // Quickly initialise this pin - We use this has +3.3v for jumper to pin 12 (READ_MODE_PIN)
   digitalWrite(READ_MODE_ENABLE_DETECT_PIN, HIGH);
 
 
   // Starting up the Serial Port
   Serial.begin(115200);
   Serial.println("Powering up...");
-  
+
+
+  // Immediately try and detect if person wants to read data....
+  // And flash...
+  if (digitalRead(READ_MODE_PIN) == HIGH) {
+      fastFlash();
+  }
 
   // Dump WatchDog data for debugging...
   ApplicationMonitor.Dump(Serial);
@@ -275,6 +302,42 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
      }
   }
 
+
+
+
+/*
+  imu_stats->gyro_x_avg   = 1;
+  imu_stats->gyro_y_avg   = 2;
+  imu_stats->gyro_z_avg   = 3;  
+  imu_stats->gyro_x_var   = 3;
+  imu_stats->gyro_y_var   = 2;  
+  imu_stats->gyro_z_var   = 1;    
+  imu_stats->accel_x_avg   = 0;
+  imu_stats->accel_y_avg   = 0;
+  imu_stats->accel_z_avg   = 0;
+  imu_stats->accel_x_var   = 0;
+  imu_stats->accel_y_var   = 0;
+  imu_stats->accel_z_var   = 8;
+
+
+   
+
+  Serial.print("Length is ");   Serial.println(sizeof(imu_stats_struct));
+  Serial.print("gyro_x_avg = ");  Serial.println(imu_stats->gyro_x_avg);
+  
+  writeImuStatsToMemory (imu_stats);
+
+  imu_stats_struct *recordstats = readImuStatsFromMemory();
+  Serial.print("from fram - gyro_x_avg, accel_z_var = ");  Serial.print(recordstats->gyro_x_avg); Serial.print(", ");  Serial.println(recordstats->accel_z_var); 
+
+
+
+ 
+ while (1) {
+ // NULL;
+ }
+
+*/
 
 #ifdef AIRSENSOR
   // Initialise Air Pressure Sensor
@@ -300,6 +363,8 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
       Serial.println("Going into DumpFRAM routine.");
 #endif      
       dumpFRAM();
+  } else {
+    
   }
   
 
@@ -309,6 +374,8 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #endif     
      delay(10000);
   }
+
+
 
 
   // Clear fRAM
@@ -347,8 +414,12 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #ifdef INFO    
     Serial.println("Cal IMU");
 #endif    
-    calibrate_imu();
-
+   // Initialise structure to hold statistics
+   imu_stats_struct *imu_stats;
+   imu_stats = (struct imu_stats_struct *) malloc(sizeof(struct imu_stats_struct));
+   calibrate_imu(imu_stats);
+   writeImuStatsToMemory (imu_stats);
+    
 #ifdef INFO
     Serial.println("LOWS: ");
     Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
@@ -368,11 +439,11 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 
 #ifdef INFO
     Serial.println("GYRO");
-    Serial.print("AVG: "); Serial.print(avg_gx); Serial.print("\t");  Serial.print(avg_gy); Serial.print("\t"); Serial.println(avg_gz);
-    Serial.print("VAR: "); Serial.print(var_gx); Serial.print("\t");  Serial.print(var_gy); Serial.print("\t"); Serial.println(var_gz);
+    Serial.print("AVG: "); Serial.print(imu_stats->gyro_x_avg); Serial.print("\t");  Serial.print(imu_stats->gyro_y_avg); Serial.print("\t"); Serial.println(imu_stats->gyro_z_avg);
+    Serial.print("VAR: "); Serial.print(imu_stats->gyro_x_var); Serial.print("\t");  Serial.print(imu_stats->gyro_y_var); Serial.print("\t"); Serial.println(imu_stats->gyro_z_var);
     Serial.println("ACCEL");
-    Serial.print("AVG: "); Serial.print(avg_ax); Serial.print("\t");  Serial.print(avg_ay); Serial.print("\t"); Serial.println(avg_az);
-    Serial.print("VAR: "); Serial.print(var_ax); Serial.print("\t");  Serial.print(var_ay); Serial.print("\t"); Serial.println(var_az);
+    Serial.print("AVG: "); Serial.print(imu_stats->accel_x_avg); Serial.print("\t");  Serial.print(imu_stats->accel_y_avg); Serial.print("\t"); Serial.println(imu_stats->accel_z_avg);
+    Serial.print("VAR: "); Serial.print(imu_stats->accel_x_var); Serial.print("\t");  Serial.print(imu_stats->accel_y_var); Serial.print("\t"); Serial.println(imu_stats->accel_z_var);
     Serial.println("End Cal IMU");
 #endif
     
@@ -823,7 +894,7 @@ void printDouble( double val, unsigned int precision) {
 
 
 
-void calibrate_imu()
+void calibrate_imu(imu_stats_struct *imu_stats)
 {
   int i = 0;
   double deltagx, deltagy, deltagz;
@@ -864,32 +935,33 @@ void calibrate_imu()
         }
 
 
-        deltagx = (gx - avg_gx);
-        deltagy = (gy - avg_gy);
-        deltagz = (gz - avg_gz);
+        deltagx = (gx - imu_stats->gyro_x_avg);
+        deltagy = (gy - imu_stats->gyro_y_avg);
+        deltagz = (gz - imu_stats->gyro_z_avg);
         // Get Average - GYROSCOPE
-        avg_gx = (avg_gx * i + gx) / (i + 1);
-        avg_gy = (avg_gy * i + gy) / (i + 1);
-        avg_gz = (avg_gz * i + gz) / (i + 1);
+        imu_stats->gyro_x_avg = (imu_stats->gyro_x_avg * i + gx) / (i + 1);
+        imu_stats->gyro_y_avg = (imu_stats->gyro_y_avg * i + gy) / (i + 1);
+        imu_stats->gyro_z_avg = (imu_stats->gyro_z_avg * i + gz) / (i + 1);
 
         // Get Variance - GYROSCOPE
-        var_gx = var_gx + deltagx * (gx - avg_gx);
-        var_gy = var_gy + deltagy * (gy - avg_gy);
-        var_gz = var_gz + deltagz * (gz - avg_gz);
+        imu_stats->gyro_x_var = imu_stats->gyro_x_var + deltagx * (gx - imu_stats->gyro_x_avg);
+        imu_stats->gyro_y_var = imu_stats->gyro_y_var + deltagy * (gy - imu_stats->gyro_y_avg);
+        imu_stats->gyro_z_var = imu_stats->gyro_z_var + deltagz * (gz - imu_stats->gyro_z_avg);
 
 
-        deltaax = (ax - avg_ax);
-        deltaay = (ay - avg_ay);
-        deltaaz = (az - avg_az);
+        deltaax = (ax - imu_stats->accel_x_avg);
+        deltaay = (ay - imu_stats->accel_y_avg);
+        deltaaz = (az - imu_stats->accel_z_avg);
+        
         // Get Average - ACCELEROMETER
-        avg_ax = (avg_ax * i + ax) / (i + 1);
-        avg_ay = (avg_ay * i + ay) / (i + 1);
-        avg_az = (avg_az * i + az) / (i + 1);
+        imu_stats->accel_x_avg = (imu_stats->accel_x_avg * i + ax) / (i + 1);
+        imu_stats->accel_y_avg = (imu_stats->accel_y_avg * i + ay) / (i + 1);
+        imu_stats->accel_z_avg = (imu_stats->accel_z_avg * i + az) / (i + 1);
 
         // Get Variance - ACCELEROMETER
-        var_ax = var_ax + deltaax * (ax - avg_ax);
-        var_ay = var_ay + deltaay * (ay - avg_ay);
-        var_az = var_az + deltaaz * (az - avg_az);        
+        imu_stats->accel_x_var = imu_stats->accel_x_var + deltaax * (ax - imu_stats->accel_x_avg);
+        imu_stats->accel_y_var = imu_stats->accel_y_var + deltaay * (ay - imu_stats->accel_y_avg);
+        imu_stats->accel_z_var = imu_stats->accel_z_var + deltaaz * (az - imu_stats->accel_z_avg);        
 
         i++;
 
@@ -897,13 +969,13 @@ void calibrate_imu()
         gotIMUdata = false;
       }
   }
-  var_ax = var_ax / (i - 1);
-  var_ay = var_ay / (i - 1);
-  var_az = var_az / (i - 1);
+  imu_stats->accel_x_var = imu_stats->accel_x_var / (i - 1);
+  imu_stats->accel_y_var = imu_stats->accel_y_var / (i - 1);
+  imu_stats->accel_z_var = imu_stats->accel_z_var / (i - 1);
 
-  var_gx = var_gx / (i - 1);
-  var_gy = var_gy / (i - 1);
-  var_gz = var_gz / (i - 1);  
+  imu_stats->gyro_x_var = imu_stats->gyro_x_var / (i - 1);
+  imu_stats->gyro_y_var = imu_stats->gyro_y_var / (i - 1);
+  imu_stats->gyro_z_var = imu_stats->gyro_z_var / (i - 1);  
 }
 
 
@@ -997,6 +1069,17 @@ void dumpFRAM()
 
   int32_t  UT, UP, B3, B5, B6, X1, X2, X3;  // Computation of the pressure/temperature
   uint32_t B4, B7;   // Computation of the pressure/temperature
+
+
+  // First we can Stats for the IMU
+  imu_stats_struct *stats = readImuStatsFromMemory();  
+  Serial.print("Gyro Avg (x,y,z): ");  Serial.print(stats->gyro_x_avg); Serial.print("\t");  Serial.print(stats->gyro_y_avg);  Serial.print("\t"); Serial.println(stats->gyro_z_avg); 
+  Serial.print("Gyro Var (x,y,z): ");  Serial.print(stats->gyro_x_var); Serial.print("\t");  Serial.print(stats->gyro_y_var);  Serial.print("\t"); Serial.println(stats->gyro_z_var); 
+  Serial.print("Accel Avg (x,y,z): "); Serial.print(stats->accel_x_avg); Serial.print("\t"); Serial.print(stats->accel_y_avg); Serial.print("\t"); Serial.println(stats->accel_z_avg); 
+  Serial.print("Accel Var (x,y,z): "); Serial.print(stats->accel_x_var); Serial.print("\t"); Serial.print(stats->accel_y_var); Serial.print("\t"); Serial.println(stats->accel_z_var); 
+
+
+  // Next, we want to get measurements from IMU
 
   // Find Starting Address
   fram1Addr = getFram1Start();
@@ -1115,17 +1198,17 @@ Serial.println(fram.read8(fram1Addr + 10));
       // ROTATION
       Serial.print("RS: ");
       Serial.print(rotation_vx);
-      Serial.print(", ");    
+      Serial.print(" ");    
       Serial.print(rotation_vy);
-      Serial.print(", ");
+      Serial.print(" ");
       Serial.println(rotation_vz);  // RS = Rotational Speed
 
 
       Serial.print("LA: ");
       Serial.print(ax);
-      Serial.print(", ");    
+      Serial.print(" ");    
       Serial.print(ay);
-      Serial.print(", ");
+      Serial.print(" ");
       Serial.println(az);  // LA = Linear Acceleration
     
 #ifdef AIRSENSOR
@@ -1174,13 +1257,14 @@ Serial.println(fram.read8(fram1Addr + 10));
 
     // Print Time
     // Serial.println("For Time - MSB First: ");
+    Serial.print("Time: ");
     Serial.print(d4);
     Serial.print(" ");
     Serial.print(d3);
     Serial.print(" ");
     Serial.print(d2);
     Serial.print(" ");
-    Serial.println(d1 );
+    Serial.println(d1 ); 
 
   }
 
@@ -1451,6 +1535,21 @@ void slowFlash()
   }
 }
 
+
+void fastFlash()
+{
+  int i = 0;
+  while (i < 30)
+  {
+    digitalWrite(LED_INDICATOR_PIN, HIGH);
+    delay(50);
+    digitalWrite(LED_INDICATOR_PIN, LOW);
+    delay(50);
+    i++;
+  }
+}
+
+
 // 
 // We write data to fram continuously, however, when launch condition is detected, we need to determine where
 // we are up to in the fram (the address) and based on the historical record we keep, figure out where we 
@@ -1643,3 +1742,38 @@ void weights_starting_pos()
    moveTopMass (270);
    moveBottomMass (90);   
 }   
+
+
+
+void writeImuStatsToMemory(imu_stats_struct *imustats)
+{
+  uint8_t val;
+ 
+  for (int j = 0; j < sizeof(struct imu_stats_struct); j++) {
+
+     val = (uint8_t) *((char *) (imustats) + j);
+     fram.write8(fram2AddrStart + j, val);
+
+     // Serial.print("Writing to "); Serial.print(fram2AddrStart+j); Serial.print(": "); Serial.println(val, HEX);
+  }
+
+}
+
+
+
+
+imu_stats_struct *readImuStatsFromMemory()
+{
+  imu_stats_struct *stats;
+  uint8_t val;
+  stats = (struct imu_stats_struct *) malloc (sizeof(struct imu_stats_struct));
+
+  for (int j = 0; j < sizeof(struct imu_stats_struct); j++) {
+     val = fram.read8(fram2AddrStart+j); 
+     *((char *) (stats) +  j) =  val;
+     // Serial.print("Reading: "); Serial.println(val, HEX);
+  }
+
+  return stats;
+}
+
