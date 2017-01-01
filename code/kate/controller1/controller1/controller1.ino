@@ -99,7 +99,7 @@ long     memory_end;                            // Used to track point where we 
 // Air Pressure Sensor
 Adafruit_BMP085 bmp;
 uint32_t pressure = 0.;
-float    temperature = 0.;
+float    temperature = 0;
 byte     rawApTData[11];
 int      ap_measurement_count = 0;
 volatile boolean gotAPdata = false;   // Data needs to be retrieved from Air Pressure Sensor
@@ -119,9 +119,10 @@ uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
 byte    _buff[17];      // Used to get lots of data from IMU in one i2c call!
 unsigned int cycles_without_data = 0;
 #ifdef DEBUG
-int imu_data_rate = 49;
+int imu_data_rate = 49; // Every 0.05 seconds
 #else
-int imu_data_rate = 49;
+// int imu_data_rate = 49; // Every 0.05 seconds
+int imu_data_rate = 19; // Every 0.02 seconds
 #endif
 
 
@@ -1482,9 +1483,10 @@ void launch_detection()
       Serial.println(micros());
 #endif      
       // Initialise Timer, so that a servo move begins in 0.1 seconds
-      initialise_servo_move(124);
-      // 124   = 0.0001 seconds .... So if we do this 100 times...equates to 0.1 seconds
-
+      // initialise_servo_move(124);
+      initialise_servo_move(187);   
+      // 124   = 0.001 seconds .... So if we do this 100 times...equates to 0.1 seconds
+      // 187   = 0.001504 seconds....So if we do this 100 times....equates to about 0.15 seconds
       
       
 #ifdef DEBUG      
