@@ -31,7 +31,7 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 // #define STABILITY_CORRECTION
 
 // Allows us to fiddle with some values, to ensure we can test properly
-// #define TESTING_MODE
+#define TESTING_MODE
 
 // Additional debugging beyond what is normally required.
 // #define INFO
@@ -75,7 +75,7 @@ boolean  fram_available = true;                 // Specifies if we use FRAM - ev
 boolean  fram_installed = false;
 uint16_t fram1AddrStart = 0;                    // Start address of FRAM Bank 1
 uint16_t fram1AddrEnd   = 32599;                // End address of FRAM Bank 1
-uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2 - Where we store calibation information, etc.
+uint16_t fram2AddrStart = 32600;                // Start address of FRAM Bank 2 - Where we store IMU calibation information, etc.
 uint16_t fram2AddrEnd   = 32759;                // End address of FRAM Bank 2
 
 uint16_t fram1Addr = fram1AddrStart;            // Ptr, start at beginning - Bank 1
@@ -141,15 +141,19 @@ struct imu_stats_struct {
   double accel_z_avg;
   double accel_x_var;
   double accel_y_var;
-  double accel_z_var;  
+  double accel_z_var;
+  int gyroZHigh;
+  int gyroZLow;
+  int gyroYHigh;
+  int gyroYLow;
+  int gyroXHigh;
+  int gyroXLow;
 };
 
-/*
-double avg_gx = 0, avg_gy = 0, avg_gz = 0;  // Deduced Average rotational rates     (STATS)
-double var_gx = 0, var_gy = 0, var_gz = 0;  // Deduced Variance rotational rates    (STATS)
-double avg_ax = 0, avg_ay = 0, avg_az = 0;  // Deduced Average acceleration rates   (STATS)
-double var_ax = 0, var_ay = 0, var_az = 0;  // Deduced Variance acceleration rates  (STATS)
-*/
+// Initialise instance of imu_stats
+imu_stats_struct *imu_stats;
+
+
 
 
 // Gyroscope
@@ -171,7 +175,7 @@ int              imu_measurement_count = 0;  // # of Measurements we make
 
 // IMU Calibration
 boolean imu_calibrated = false;
-int     gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
+// int     gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
 int     typicalGyroCal = 150;
 
 
@@ -255,6 +259,7 @@ acceleration_threshold_count_required = 1;
 acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #endif
 
+
   
   // Initialise Pins
   pinMode(INTERRUPT_PIN,     INPUT);                   // Interrupts pin...for IMU
@@ -303,41 +308,6 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   }
 
 
-
-
-/*
-  imu_stats->gyro_x_avg   = 1;
-  imu_stats->gyro_y_avg   = 2;
-  imu_stats->gyro_z_avg   = 3;  
-  imu_stats->gyro_x_var   = 3;
-  imu_stats->gyro_y_var   = 2;  
-  imu_stats->gyro_z_var   = 1;    
-  imu_stats->accel_x_avg   = 0;
-  imu_stats->accel_y_avg   = 0;
-  imu_stats->accel_z_avg   = 0;
-  imu_stats->accel_x_var   = 0;
-  imu_stats->accel_y_var   = 0;
-  imu_stats->accel_z_var   = 8;
-
-
-   
-
-  Serial.print("Length is ");   Serial.println(sizeof(imu_stats_struct));
-  Serial.print("gyro_x_avg = ");  Serial.println(imu_stats->gyro_x_avg);
-  
-  writeImuStatsToMemory (imu_stats);
-
-  imu_stats_struct *recordstats = readImuStatsFromMemory();
-  Serial.print("from fram - gyro_x_avg, accel_z_var = ");  Serial.print(recordstats->gyro_x_avg); Serial.print(", ");  Serial.println(recordstats->accel_z_var); 
-
-
-
- 
- while (1) {
- // NULL;
- }
-
-*/
 
 #ifdef AIRSENSOR
   // Initialise Air Pressure Sensor
@@ -388,17 +358,21 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
     Serial.println("FRAM cleared");
 #endif    
   }
-  
+
+
 
   // Initialise Gryoscope and calibrate
   // NOTE: We don't use the values from the calibration just yet....
   if (imu_enabled) {
+     // Initialise structure to hold statistics
+     initialise_imu_stats();
+           
 #ifdef INFO    
-    Serial.println("Start IMU");
+     Serial.println("Start IMU");
 #endif    
-    setupIMU();     // Configure MPU-6050
-    delay(2500);    //wait for the sensor to be ready
-    imu_available = true;
+     setupIMU();     // Configure MPU-6050
+     delay(2500);    //wait for the sensor to be ready
+     imu_available = true;
   }
 
   // Enable interrupts
@@ -414,23 +388,21 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
 #ifdef INFO    
     Serial.println("Cal IMU");
 #endif    
-   // Initialise structure to hold statistics
-   imu_stats_struct *imu_stats;
-   imu_stats = (struct imu_stats_struct *) malloc(sizeof(struct imu_stats_struct));
    calibrate_imu(imu_stats);
    writeImuStatsToMemory (imu_stats);
     
 #ifdef INFO
     Serial.println("LOWS: ");
-    Serial.print(gyroXHigh); Serial.print("\t"); Serial.print(gyroYHigh); Serial.print("\t"); Serial.println(gyroZHigh); 
+    Serial.print(imu_stats->gyroXLow); Serial.print("\t"); Serial.print(imu_stats->gyroYLow); Serial.print("\t"); Serial.println(imu_stats->gyroZLow); 
     Serial.println("HIGHS: "); 
-    Serial.print(gyroXLow); Serial.print("\t"); Serial.print(gyroYLow); Serial.print("\t"); Serial.println(gyroZLow); 
+    Serial.print(imu_stats->gyroXHigh); Serial.print("\t"); Serial.print(imu_stats->gyroYHigh); Serial.print("\t"); Serial.println(imu_stats->gyroZHigh); 
+    
 #endif
 
     imu_calibrated = true;
 
     // Confirm that the Calication values look 'sane'
-    if (check_calibration_values()) {
+    if (check_calibration_values(imu_stats)) {
 #ifdef INFO      
         Serial.println("Cal issues. Rocket not stationary?");
 #endif        
@@ -455,40 +427,6 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   topservo.attach(SERVOTOP_PIN);
   bottomservo.attach(SERVOBOTTOM_PIN);
 
-/*
-  
-  // move to 'centre'
-  moveTopMass (0);
-  moveBottomMass (0);
-
-  delay(5000);
-
-  moveTopMass (45);
-  moveBottomMass (45);
-
-  delay(5000);
-
-  moveTopMass (90);
-  moveBottomMass (90);
-
-  delay(5000);
-
-  moveTopMass (135);
-  moveBottomMass (135);
-
-  delay(5000);
-
-  moveTopMass (180);
-  moveBottomMass (180);
-
-  delay(5000);        
-
-  // Move to 90 degrees
-  moveTopMass (270);
-  moveBottomMass (90);  
-
-  delay(2000);
-  */
     
   // Move weights to their starting position
   weights_starting_pos();
@@ -496,40 +434,6 @@ acceleration_threshold = 1024 + 500;   // i.e. Gravity + some acceleration
   Serial.println("Finished");
 #endif
 
-/*
-// Testing out detach. - TO REMOVE!
-  moveBottomMass (0);
-  topservo.detach();
-  bottomservo.detach();
-  digitalWrite(SERVOTOP_PIN, LOW);
-  digitalWrite(SERVOBOTTOM_PIN, LOW);
-
-  delay(6000);
-
-  Serial.println("Re-Attached");
-  topservo.attach(SERVOTOP_PIN);
-  bottomservo.attach(SERVOBOTTOM_PIN);
-  // bottomservo.write(10);
-  moveBottomMass (0);
-
-  delay(6000);
-  
-  moveBottomMass (60);
-  topservo.detach();
-  bottomservo.detach();
-  digitalWrite(SERVOTOP_PIN, LOW);
-  digitalWrite(SERVOBOTTOM_PIN, LOW);
-
-  Serial.println("Re-Attached");
-  topservo.attach(SERVOTOP_PIN);
-  bottomservo.attach(SERVOBOTTOM_PIN);
-  moveBottomMass (60);  // JOE
-  delay(2000);
-  
-  moveBottomMass (0);
-  Serial.println("Finished Tests"); 
-  delay(1000000);
-*/
 
 #ifdef INFO     
   Serial.println("System Init"); 
@@ -911,33 +815,37 @@ void calibrate_imu(imu_stats_struct *imu_stats)
         mpuIntStatus = accelgyro.getIntStatus();
         getIMUValues(false, false);
 
-        // GYROSCOPE
 
+        // Serial.print(ax); Serial.print("\t"); Serial.print(ay); Serial.print("\t"); Serial.println(az);
+        
+
+        // GYROSCOPE
         // Z
-        if (gz > gyroZHigh) {
-          gyroZHigh = gz;
-        } else if (gz < gyroZLow) {
-          gyroZLow = gz;
+        if (gz > imu_stats->gyroZHigh) {
+          imu_stats->gyroZHigh = gz;
+        } else if (gz < imu_stats->gyroZLow) {
+          imu_stats->gyroZLow = gz;
         }
 
         // Y
-        if (gy > gyroYHigh) {
-          gyroYHigh = gy;
-        } else if (gy < gyroYLow) {
-          gyroYLow = gy;
+        if (gy > imu_stats->gyroYHigh) {
+          imu_stats->gyroYHigh = gy;
+        } else if (gy < imu_stats->gyroYLow) {
+          imu_stats->gyroYLow = gy;
         }
 
         // X
-        if (gx > gyroXHigh) {
-          gyroXHigh = gx;
-        } else if (gx < gyroXLow) {
-          gyroXLow = gx;
+        if (gx > imu_stats->gyroXHigh) {
+          imu_stats->gyroXHigh = gx;
+        } else if (gx < imu_stats->gyroXLow) {
+          imu_stats->gyroXLow = gx;
         }
 
 
         deltagx = (gx - imu_stats->gyro_x_avg);
         deltagy = (gy - imu_stats->gyro_y_avg);
         deltagz = (gz - imu_stats->gyro_z_avg);
+        
         // Get Average - GYROSCOPE
         imu_stats->gyro_x_avg = (imu_stats->gyro_x_avg * i + gx) / (i + 1);
         imu_stats->gyro_y_avg = (imu_stats->gyro_y_avg * i + gy) / (i + 1);
@@ -1077,8 +985,11 @@ void dumpFRAM()
   Serial.print("Gyro Var (x,y,z): ");  Serial.print(stats->gyro_x_var); Serial.print("\t");  Serial.print(stats->gyro_y_var);  Serial.print("\t"); Serial.println(stats->gyro_z_var); 
   Serial.print("Accel Avg (x,y,z): "); Serial.print(stats->accel_x_avg); Serial.print("\t"); Serial.print(stats->accel_y_avg); Serial.print("\t"); Serial.println(stats->accel_z_avg); 
   Serial.print("Accel Var (x,y,z): "); Serial.print(stats->accel_x_var); Serial.print("\t"); Serial.print(stats->accel_y_var); Serial.print("\t"); Serial.println(stats->accel_z_var); 
+  Serial.print("Gyro Lows  (x,y,z): "); Serial.print(stats->gyroXLow); Serial.print("\t"); Serial.print(stats->gyroYLow); Serial.print("\t"); Serial.println(stats->gyroZLow); 
+  Serial.print("Gyro Highs (x,y,z): "); Serial.print(stats->gyroXHigh); Serial.print("\t"); Serial.print(stats->gyroYHigh); Serial.print("\t"); Serial.println(stats->gyroZHigh); 
 
 
+  
   // Next, we want to get measurements from IMU
 
   // Find Starting Address
@@ -1286,15 +1197,15 @@ Serial.println(fram.read8(fram1Addr + 10));
 // Set to zero, if within low/high readings
 void zeroGyroReadings()
 {
-  if (gx >= gyroXLow && gx <= gyroXHigh) {
+  if (gx >= imu_stats->gyroXLow && gx <= imu_stats->gyroXHigh) {
     gx = 0;
   }
 
-  if (gy >= gyroYLow && gy <= gyroYHigh) {
+  if (gy >= imu_stats->gyroYLow && gy <= imu_stats->gyroYHigh) {
     gy = 0;
   }
 
-  if (gz >= gyroZLow && gz <= gyroZHigh) {
+  if (gz >= imu_stats->gyroZLow && gz <= imu_stats->gyroZHigh) {
     gz = 0;
   }
 }
@@ -1489,20 +1400,20 @@ int getFram1Start()
 
 
 
-boolean check_calibration_values()
+boolean check_calibration_values(struct imu_stats_struct *imu_stats)
 {
   boolean calibration_issue = false;
 
   // Gyroscope Calibration issues detection
-  if (abs(gyroXHigh) > typicalGyroCal || abs(gyroXLow) > typicalGyroCal) {
+  if (abs(imu_stats->gyroXHigh) > typicalGyroCal || abs(imu_stats->gyroXLow) > typicalGyroCal) {
      calibration_issue = true;
   }
 
-  if (abs(gyroYHigh) > typicalGyroCal || abs(gyroYLow) > typicalGyroCal) {
+  if (abs(imu_stats->gyroYHigh) > typicalGyroCal || abs(imu_stats->gyroYLow) > typicalGyroCal) {
      calibration_issue = true;
   }
 
-  if (abs(gyroZHigh) > typicalGyroCal || abs(gyroZLow) > typicalGyroCal) {
+  if (abs(imu_stats->gyroZHigh) > typicalGyroCal || abs(imu_stats->gyroZLow) > typicalGyroCal) {
      calibration_issue = true;
   }
     
@@ -1775,5 +1686,32 @@ imu_stats_struct *readImuStatsFromMemory()
   }
 
   return stats;
+}
+
+
+
+void initialise_imu_stats()
+{
+     imu_stats = (struct imu_stats_struct *) malloc(sizeof(struct imu_stats_struct));
+     imu_stats->gyroZHigh = 0;
+     imu_stats->gyroZLow = 0;
+     imu_stats->gyroYHigh = 0;
+     imu_stats->gyroYLow = 0;
+     imu_stats->gyroXHigh = 0;
+     imu_stats->gyroXLow = 0;
+
+     imu_stats->gyro_x_avg = 0;
+     imu_stats->gyro_y_avg = 0;
+     imu_stats->gyro_z_avg = 0;
+     imu_stats->gyro_x_var = 0;
+     imu_stats->gyro_y_var = 0;
+     imu_stats->gyro_z_var = 0;     
+
+     imu_stats->accel_x_avg = 0;
+     imu_stats->accel_y_avg = 0;
+     imu_stats->accel_z_avg = 0;
+     imu_stats->accel_x_var = 0;
+     imu_stats->accel_y_var = 0;
+     imu_stats->accel_z_var = 0;  
 }
 
