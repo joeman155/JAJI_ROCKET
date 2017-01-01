@@ -175,7 +175,6 @@ int              imu_measurement_count = 0;  // # of Measurements we make
 
 // IMU Calibration
 boolean imu_calibrated = false;
-// int     gyroZHigh = 0, gyroZLow = 0, gyroYHigh = 0, gyroYLow = 0, gyroXHigh = 0, gyroXLow = 0;
 int     typicalGyroCal = 150;
 
 
@@ -190,6 +189,7 @@ int acceleration_threshold = 2048;        // At +/- 16g, 1g = 1024. So 4g = 4096
 
 // Other IMU Variables
 double factor = 0.0305 * PI / 180;  // Convert the raw 'digital' values to radians. We work in radians ONLY!  (0.070 is for +-2000deg/sec - got from datasheet)
+                                    // 32.8bits per degree....   1/32.8 = 0.0305.
 boolean is_first_iteration = true;  // Avoid first iteration.... tdiff is not 'right'
 
 
@@ -679,6 +679,7 @@ void getIMUValues(boolean write_imu_to_fram, boolean launch_detection)
   _buff[16] = (imu_data_time >> 24) & 0xFF;
 
   // Zero values that are within zero value. (i.e. assume they are zero!)
+  // Note: We are not zeroing values as they 'enter' the FRAM memory. So everything from FRAM is 'verbatim'
   if (imu_calibrated) {
     zeroGyroReadings();
   }
@@ -706,7 +707,7 @@ void setupIMU() {
   // Initialise IMU
   accelgyro.initialize();
 
-  accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000degrees/second
+  accelgyro.setFullScaleGyroRange(MPU6050_GYRO_FS_1000);    // Set Gyroscope to +-1000 degrees/second  (launch4 got up to about 270degrees/second)
   accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);    // Set Acceleration to +-16g....1g = 1024
   accelgyro.setDLPFMode(MPU6050_DLPF_BW_10);                // Low Pass filter  
   accelgyro.setRate(imu_data_rate);                         // Freq = 1000 / (imu_data_rate + 1)  
