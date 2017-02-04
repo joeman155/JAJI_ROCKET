@@ -31,7 +31,7 @@ Watchdog::CApplicationMonitor ApplicationMonitor;
 // #define STABILITY_CORRECTION
 
 // Allows us to fiddle with some values, to ensure we can test properly
-#define TESTING_MODE
+// #define TESTING_MODE
 
 // Additional debugging beyond what is normally required.
 // #define INFO
@@ -181,7 +181,7 @@ int     typicalGyroCal = 150;
 
 // Accelerometer
 int16_t ax, ay, az;
-int acceleration_threshold_count_required = 3;  // Number of continuous readings above which we assume rocket is in flight
+int acceleration_threshold_count_required = 2;  // Number of continuous readings above which we assume rocket is in flight
 int acceleration_threshold_count = 0;     // How many measurements have been over the acceleration_threhold
 int acceleration_threshold = 2048;        // At +/- 16g, 1g = 1024. So 4g = 4096  (So here we are looking at 1g accel + gravity = 2g)   
 
@@ -508,6 +508,7 @@ void loop() {
   // Servo Move
   if (move_servo) {
       digitalWrite(LED_INDICATOR_PIN, HIGH);  // Added this so we can track (with camera) when the move is initiated
+      
       move_servo = false;
       topservo_angle = 180;
       bottomservo_angle = 180;
@@ -1500,6 +1501,7 @@ void launch_detection()
        Serial.println();
 #endif       
        digitalWrite(LED_INDICATOR_PIN, LOW);
+       digitalWrite(LED_DEBUGGING, HIGH);      // Just to help us identify when launch takes place - more helpful when we have arduino out of payload.
     }
   }
 }  
